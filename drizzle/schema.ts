@@ -113,9 +113,29 @@ export const applicationDocuments = mysqlTable("application_documents", {
   storageUrl: varchar("storageUrl", { length: 1200 }).notNull(),
   fileName: varchar("fileName", { length: 255 }).notNull(),
   mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  expiresAt: timestamp("expiresAt"),
   uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("application_documents_item_unique").on(table.trackedApplicationId, table.documentName), index("application_documents_application_idx").on(table.trackedApplicationId)]);
+
+/** User-visible document follow-up notices, deduplicated per document and state. */
+export const documentExpiryNotifications = mysqlTable("document_expiry_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
+  kind: mysqlEnum("kind", ["expiringSoon", "expired"]).notNull(),
+  status: mysqlEnum("status", ["unread", "read"]).default("unread").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  readAt: timestamp("readAt"),
+}, (table) => [uniqueIndex("document_expiry_notice_unique").on(table.applicationDocumentId, table.kind), index("document_expiry_notice_status_idx").on(table.status)]);
+
+/** Durable automation owner row. A production Heartbeat task UID is stored here after deployment. */
+export const documentReminderSettings = mysqlTable("document_reminder_settings", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }).unique(),
+  lastRunAt: timestamp("lastRunAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
 
 export type SchemeCatalogRow = typeof schemeCatalog.$inferSelect;
 export type UserSchemeProfile = typeof userSchemeProfiles.$inferSelect;

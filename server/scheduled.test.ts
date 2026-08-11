@@ -5,16 +5,22 @@ const mocks = vi.hoisted(() => ({
   getReminder: vi.fn(),
   markDelivered: vi.fn(),
   disableHeartbeat: vi.fn(),
+  getDocumentSetting: vi.fn(),
+  scanDocuments: vi.fn(),
+  markDocumentScan: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
   getApplicationReminderByTaskUid: mocks.getReminder,
   markApplicationReminderDelivered: mocks.markDelivered,
+  getDocumentReminderSettingByTaskUid: mocks.getDocumentSetting,
+  scanDocumentExpiryNotifications: mocks.scanDocuments,
+  markDocumentReminderScanRun: mocks.markDocumentScan,
 }));
 vi.mock("./_core/heartbeat", () => ({ updateHeartbeatJob: mocks.disableHeartbeat }));
 vi.mock("./_core/sdk", () => ({ sdk: { authenticateRequest: mocks.authenticateRequest } }));
 
-import { applicationReminderHandler } from "./scheduled";
+import { applicationReminderHandler, documentExpiryReminderHandler } from "./scheduled";
 
 function createResponse() {
   const response = {
@@ -48,5 +54,32 @@ describe("scheduled application reminder callback", () => {
 
     expect(response.status).toHaveBeenCalledWith(403);
     expect(response.json).toHaveBeenCalledWith({ error: "cron-only" });
+  });
+});
+
+describe("scheduled document expiry callback", () => {
+  it("runs a durable task-UID-bound scan and records its completed run", async () => {
+    mocks.authenticateRequest.mockResolvedValue({ isCron: true, taskUid: "doc_task_123" });
+    mocks.getDocumentSetting.mockResolvedValue({ id: "daily-document-expiry", scheduleCronTaskUid: "doc_task_123" });
+    mocks.scanDocuments.mockResolvedValue({ scanned: 4, created: 2 });
+    mocks.markDocumentScan.mockResolvedValue(undefined);
+    const response = createResponse();
+
+    await documentExpiryReminderHandler({} as any, response as any);
+
+    expect(mocks.getDocumentSetting).toHaveBeenCalledWith("doc_task_123");
+    expect(mocks.markDocumentScan).toHaveBeenCalledWith("daily-document-expiry");
+    expect(response.json).toHaveBeenCalledWith({ ok: true, scanned: 4, created: 2 });
+  });
+
+  it("does not run the scan for callers outside the cron identity", async () => {
+    mocks.scanDocuments.mockClear();
+    mocks.authenticateRequest.mockResolvedValue({ isCron: false });
+    const response = createResponse();
+
+    await documentExpiryReminderHandler({} as any, response as any);
+
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(mocks.scanDocuments).not.toHaveBeenCalled();
   });
 });

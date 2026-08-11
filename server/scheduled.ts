@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getApplicationReminderByTaskUid, markApplicationReminderDelivered } from "./db";
+import { getApplicationReminderByTaskUid, getDocumentReminderSettingByTaskUid, markApplicationReminderDelivered, markDocumentReminderScanRun, scanDocumentExpiryNotifications } from "./db";
 import { updateHeartbeatJob } from "./_core/heartbeat";
 import { sdk } from "./_core/sdk";
 
@@ -19,5 +19,21 @@ export async function applicationReminderHandler(req: Request, res: Response) {
   } catch (error) {
     const details = error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) };
     return res.status(500).json({ error: "application-reminder-failed", details, timestamp: new Date().toISOString() });
+  }
+}
+
+/** Daily document-expiry scan. Task UID is verified against its durable automation owner row. */
+export async function documentExpiryReminderHandler(req: Request, res: Response) {
+  try {
+    const cronUser = await sdk.authenticateRequest(req);
+    if (!cronUser.isCron || !cronUser.taskUid) return res.status(403).json({ error: "cron-only" });
+    const setting = await getDocumentReminderSettingByTaskUid(cronUser.taskUid);
+    if (!setting) return res.json({ ok: true, skipped: "orphan" });
+    const result = await scanDocumentExpiryNotifications();
+    await markDocumentReminderScanRun(setting.id);
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    const details = error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) };
+    return res.status(500).json({ error: "document-expiry-scan-failed", details, timestamp: new Date().toISOString() });
   }
 }

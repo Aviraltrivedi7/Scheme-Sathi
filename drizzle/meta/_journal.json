@@ -22,6 +22,13 @@
       "when": 1786478250716,
       "tag": "0002_cold_strong_guy",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1786479266880,
+      "tag": "0003_famous_hairball",
+      "breakpoints": true
     }
   ]
 }

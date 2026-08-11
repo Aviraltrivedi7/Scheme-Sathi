@@ -56,3 +56,14 @@
 - [x] Add loading animations, optimistic status updates, and hover feedback to application cards.
 - [x] Test upload validation, authorization, schema, admin editor rendering, optimistic interaction behavior, and visual interactions; no personal file or live admin edit was created during development verification.
 - [x] Document document handling, administrator controls, and deferred production behavior.
+
+## Document expiry reminders and bilingual checklist
+
+- [x] Inspect current document metadata, upload lifecycle, bilingual catalog fields, and scheduling conventions.
+- [x] Define expiry/re-upload rules, reminder lifecycle, Hindi label mapping, and no-publish behavior.
+- [x] Add document expiry metadata and reminder state to the database and upload contract.
+- [x] Implement automated expiration/re-upload reminder scan and secure user-facing notification state.
+- [x] Add Hindi document labels and bilingual progress/count messaging in the dashboard checklist.
+- [x] Add expiry dates, re-upload controls, and reminder indicators to document checklist items.
+- [x] Test expiry logic, reminder idempotency, bilingual labels, and dashboard states.
+- [x] Document reminder scheduling behavior and development-only limitations.

@@ -1,11 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, InsertUser, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentExpiryNotifications, documentReminderSettings, InsertUser, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
 import { safeStorageFileName, validateDocumentUpload } from "./documentUpload";
 import { storagePut } from "./storage";
+import { expiryNoticeKind, getDocumentExpiryState } from "./documentExpiry";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -207,7 +208,7 @@ export async function listTrackedApplications(userId: number) {
       deadlineLabel: application.deadlineLabel ?? scheme?.deadlineLabel ?? null, notes: application.notes ?? null,
       createdAt: application.createdAt.getTime(), updatedAt: application.updatedAt.getTime(), scheme: scheme ?? null,
       reminders: reminders.map(mapReminder).sort((a, b) => a.remindAt - b.remindAt),
-      documents: documents.map((document) => ({ id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, uploadedAt: document.uploadedAt.getTime() })),
+      documents: documents.map((document) => ({ id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), uploadedAt: document.uploadedAt.getTime() })),
     };
   }));
 }
@@ -277,7 +278,7 @@ export async function markApplicationReminderDelivered(reminderId: number) {
   await db.update(applicationReminders).set({ status: "delivered", deliveredAt: new Date(), updatedAt: new Date() }).where(eq(applicationReminders.id, reminderId));
 }
 
-export async function uploadApplicationDocument(userId: number, trackedApplicationId: number, documentName: string, fileName: string, mimeType: string, base64Data: string) {
+export async function uploadApplicationDocument(userId: number, trackedApplicationId: number, documentName: string, fileName: string, mimeType: string, base64Data: string, expiresAt?: number | null) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   const tracked = await getTrackedApplication(userId, trackedApplicationId);
@@ -286,8 +287,9 @@ export async function uploadApplicationDocument(userId: number, trackedApplicati
   if (!scheme || !scheme.documents.includes(documentName)) throw new Error("Document is not part of this scheme checklist");
   const bytes = validateDocumentUpload(fileName, mimeType, base64Data);
   const uploaded = await storagePut(`applications/${userId}/${trackedApplicationId}/${safeStorageFileName(fileName)}`, bytes, mimeType);
-  await db.insert(applicationDocuments).values({ trackedApplicationId, documentName, storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType }).onDuplicateKeyUpdate({ set: { storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, updatedAt: new Date() } });
+  await db.insert(applicationDocuments).values({ trackedApplicationId, documentName, storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null }).onDuplicateKeyUpdate({ set: { storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null, updatedAt: new Date() } });
   const rows = await db.select().from(applicationDocuments).where(and(eq(applicationDocuments.trackedApplicationId, trackedApplicationId), eq(applicationDocuments.documentName, documentName))).limit(1);
+  if (rows[0]) await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.applicationDocumentId, rows[0].id));
   return rows[0];
 }
 
@@ -297,6 +299,74 @@ export async function removeApplicationDocument(userId: number, documentId: numb
   const rows = await db.select({ document: applicationDocuments, application: trackedApplications }).from(applicationDocuments).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationDocuments.id, documentId), eq(trackedApplications.userId, userId))).limit(1);
   if (!rows[0]) throw new Error("Uploaded document not found");
   await db.delete(applicationDocuments).where(eq(applicationDocuments.id, documentId));
+}
+
+export async function updateApplicationDocumentExpiry(userId: number, documentId: number, expiresAt: number | null) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ document: applicationDocuments, application: trackedApplications }).from(applicationDocuments).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationDocuments.id, documentId), eq(trackedApplications.userId, userId))).limit(1);
+  if (!rows[0]) throw new Error("Uploaded document not found");
+  await db.update(applicationDocuments).set({ expiresAt: expiresAt ? new Date(expiresAt) : null, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+  if (expiresAt && expiresAt > Date.now()) await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.applicationDocumentId, documentId));
+}
+
+export async function listDocumentExpiryNotifications(userId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ notification: documentExpiryNotifications, document: applicationDocuments, application: trackedApplications }).from(documentExpiryNotifications).innerJoin(applicationDocuments, eq(documentExpiryNotifications.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(trackedApplications.userId, userId), eq(documentExpiryNotifications.status, "unread")));
+  return rows.map(({ notification, document, application }) => ({ id: notification.id, kind: notification.kind, documentName: document.documentName, fileName: document.fileName, expiresAt: document.expiresAt?.getTime() ?? null, trackedApplicationId: application.id, schemeId: application.schemeId, createdAt: notification.createdAt.getTime() }));
+}
+
+export async function markDocumentExpiryNotificationRead(userId: number, notificationId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ notification: documentExpiryNotifications, application: trackedApplications }).from(documentExpiryNotifications).innerJoin(applicationDocuments, eq(documentExpiryNotifications.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(documentExpiryNotifications.id, notificationId), eq(trackedApplications.userId, userId))).limit(1);
+  if (!rows[0]) throw new Error("Document notification not found");
+  await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.id, notificationId));
+}
+
+/** Idempotent daily scan used only by the production Heartbeat callback after the project is deployed. */
+export async function scanDocumentExpiryNotifications(now = Date.now()) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const documents = await db.select().from(applicationDocuments);
+  let created = 0;
+  for (const document of documents) {
+    const kind = expiryNoticeKind(getDocumentExpiryState(document.expiresAt?.getTime() ?? null, now));
+    if (!kind) continue;
+    const existing = await db.select({ id: documentExpiryNotifications.id }).from(documentExpiryNotifications).where(and(eq(documentExpiryNotifications.applicationDocumentId, document.id), eq(documentExpiryNotifications.kind, kind))).limit(1);
+    if (existing[0]) continue;
+    await db.insert(documentExpiryNotifications).values({ applicationDocumentId: document.id, kind, status: "unread" });
+    created += 1;
+  }
+  return { scanned: documents.length, created };
+}
+
+export async function getDocumentReminderSettingByTaskUid(taskUid: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReminderSettings).where(eq(documentReminderSettings.scheduleCronTaskUid, taskUid)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function markDocumentReminderScanRun(settingId: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.update(documentReminderSettings).set({ lastRunAt: new Date(), updatedAt: new Date() }).where(eq(documentReminderSettings.id, settingId));
+}
+
+export async function getDocumentReminderSetting() {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReminderSettings).where(eq(documentReminderSettings.id, "daily-document-expiry")).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function saveDocumentReminderTask(taskUid: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.insert(documentReminderSettings).values({ id: "daily-document-expiry", scheduleCronTaskUid: taskUid }).onDuplicateKeyUpdate({ set: { scheduleCronTaskUid: taskUid, updatedAt: new Date() } });
+  return getDocumentReminderSetting();
 }
 
 export async function updateSchemeAdmin(schemeId: string, patch: { name?: string; nameHindi?: string; administeringBody?: string; benefits?: string; benefitsHindi?: string; portalUrl?: string; applicationDeadline?: number | null; deadlineLabel?: string | null; reviewed?: string }) {

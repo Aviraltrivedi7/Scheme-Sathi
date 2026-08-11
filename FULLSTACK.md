@@ -52,3 +52,11 @@ Administrators receive an additional **Manage schemes** navigation entry. The ro
 ### Development Verification Boundary
 
 The dashboard and administrator UI were rendered against an authenticated project-preview account, and storage/schema/authorization behavior is covered by focused unit tests and database structure checks. No end-user file was uploaded and no production database edit was performed during development verification, so no personal documents or live catalogue data were introduced. The next signed-in user action will exercise the same protected upload and admin mutation paths that were validated by these contracts.
+
+## Document Expiry and Hindi Checklist Support
+
+Each uploaded checklist file can now carry an optional expiry date. The dashboard classifies it as valid, expiring soon during the final **14 days**, expired, or without an expiry date. A file in either follow-up state can be re-uploaded, its expiry date can be corrected, and the dashboard displays a private document-action notice. The daily `/api/scheduled/document-expiry-reminders` handler is idempotent: it authenticates the Heartbeat task, checks its durable task UID, creates at most one unread notification per document/state, and records its last completed scan.
+
+The document checklist has an English/Hindi toggle. It keeps the stable English item ID for upload authorization and storage, while displaying the corresponding `documentsHindi` label, progress count, expiry state, and upload/re-upload guidance in Hindi when selected. Catalogue integrity testing confirms that each shipped English document item has a matching non-empty Hindi label.
+
+The production-only daily Heartbeat job is exposed under the administrator's **Document Automation** section. It deliberately remains uncreated in this development-only project: the user must publish in the future and then select **Enable after publish** for the daily 03:00 UTC scan. Local verification covers the expiry classifier, idempotent callback path, non-cron rejection, bilingual label alignment, database schema, dashboard/admin rendering, TypeScript, and the complete **17-test** suite; no live cron job, user upload, or production data mutation was created.

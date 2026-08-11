@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getSchemeById, getUserSchemeProfile, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, removeApplicationDocument, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
+import { assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getDocumentReminderSetting, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, saveDocumentReminderTask, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
 import { buildReminderCron } from "./applicationReminder";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { createHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
@@ -85,8 +85,11 @@ export const appRouter = router({
     }),
   }),
   documents: router({
-    upload: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), documentName: z.string().min(1).max(255), fileName: z.string().min(1).max(180), mimeType: z.string().min(1).max(128), base64Data: z.string().min(1).max(8_000_000) })).mutation(async ({ ctx, input }) => ({ document: await uploadApplicationDocument(ctx.user.id, input.trackedApplicationId, input.documentName, input.fileName, input.mimeType, input.base64Data) })),
+    upload: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), documentName: z.string().min(1).max(255), fileName: z.string().min(1).max(180), mimeType: z.string().min(1).max(128), base64Data: z.string().min(1).max(8_000_000), expiresAt: z.number().int().positive().nullable().optional() })).mutation(async ({ ctx, input }) => ({ document: await uploadApplicationDocument(ctx.user.id, input.trackedApplicationId, input.documentName, input.fileName, input.mimeType, input.base64Data, input.expiresAt) })),
     remove: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await removeApplicationDocument(ctx.user.id, input.documentId); return { removed: true }; }),
+    updateExpiry: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), expiresAt: z.number().int().positive().nullable() })).mutation(async ({ ctx, input }) => { await updateApplicationDocumentExpiry(ctx.user.id, input.documentId, input.expiresAt); return { updated: true }; }),
+    notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listDocumentExpiryNotifications(ctx.user.id) })),
+    markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markDocumentExpiryNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
   }),
   admin: router({
     schemes: router({
@@ -94,6 +97,16 @@ export const appRouter = router({
       update: adminProcedure.input(z.object({ schemeId: z.string().min(1).max(96), name: z.string().min(3).max(255).optional(), nameHindi: z.string().min(3).max(255).optional(), administeringBody: z.string().min(3).max(255).optional(), benefits: z.string().min(10).max(3000).optional(), benefitsHindi: z.string().min(10).max(3000).optional(), portalUrl: z.string().url().max(512).optional(), applicationDeadline: z.number().int().positive().nullable().optional(), deadlineLabel: z.string().max(255).nullable().optional(), reviewed: z.string().min(3).max(64).optional() })).mutation(async ({ input }) => {
         const { schemeId, ...patch } = input;
         return { scheme: await updateSchemeAdmin(schemeId, patch) };
+      }),
+    }),
+    documentAutomation: router({
+      status: adminProcedure.query(async () => ({ setting: await getDocumentReminderSetting() })),
+      enable: adminProcedure.mutation(async ({ ctx }) => {
+        const existing = await getDocumentReminderSetting();
+        if (existing?.scheduleCronTaskUid) return { setting: existing, alreadyEnabled: true };
+        const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        const job = await createHeartbeatJob({ name: "scheme-sathi-document-expiry-daily", cron: "0 0 3 * * *", path: "/api/scheduled/document-expiry-reminders", payload: {}, description: "Daily scan for expiring or expired Scheme Sathi document uploads" }, sessionToken);
+        return { setting: await saveDocumentReminderTask(job.taskUid), alreadyEnabled: false, nextExecutionAt: job.nextExecutionAt ?? null };
       }),
     }),
   }),

@@ -163,6 +163,12 @@ Only `admin` role users scheme title, Hindi title, administering body, bilingual
 
 Status selector optimistic and immediate feel karega: selected card saving state mein subtle spinner/status label show karega, card hover par 2px lift and border emphasis hoga, and success/error paths toast plus query refresh se recover honge. Document upload item independently pending/success/error state show karega so ek slow file upload whole dashboard ko block nahi karega.
 
+## Document Expiry & Bilingual Checklist Contract
+
+Every uploaded checklist item can include an optional expiry date. An item is marked **expiring soon** in its final 14 days and **expired** after that date. The daily `/api/scheduled/document-expiry-reminders` callback is idempotent: it writes at most one unread notice for each document-state pair and looks up its durable automation setting only by authenticated Heartbeat task UID. A future production deployment can create the daily Heartbeat job; no live job is created in development.
+
+Checklist item identity remains English internally so document storage and upload validation stay stable. The user interface pairs each required document with the Hindi entry at the same catalog position, and lets the user toggle between English and Hindi labels. Progress, expiry, re-upload, and alert language follow that view preference.
+
 ## Style Decisions
 
 - Discovery cards equal SaaS-style grid nahi honge; category shelf mein ek emphasized lead category aur quieter supporting entries ka editorial rhythm rahega.
