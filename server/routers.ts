@@ -2,12 +2,12 @@ import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getSchemeById, getUserSchemeProfile, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateTrackedApplication } from "./db";
+import { assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getSchemeById, getUserSchemeProfile, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, removeApplicationDocument, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
 import { buildReminderCron } from "./applicationReminder";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { createHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { rankSchemes } from "./schemeMatching";
 
 const profileInput = z.object({
@@ -82,6 +82,19 @@ export const appRouter = router({
       const reminder = await cancelApplicationReminder(ctx.user.id, input.reminderId);
       if (reminder.scheduleCronTaskUid) await deleteHeartbeatJob(reminder.scheduleCronTaskUid, sessionToken);
       return { reminderId: input.reminderId, cancelled: true };
+    }),
+  }),
+  documents: router({
+    upload: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), documentName: z.string().min(1).max(255), fileName: z.string().min(1).max(180), mimeType: z.string().min(1).max(128), base64Data: z.string().min(1).max(8_000_000) })).mutation(async ({ ctx, input }) => ({ document: await uploadApplicationDocument(ctx.user.id, input.trackedApplicationId, input.documentName, input.fileName, input.mimeType, input.base64Data) })),
+    remove: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await removeApplicationDocument(ctx.user.id, input.documentId); return { removed: true }; }),
+  }),
+  admin: router({
+    schemes: router({
+      list: adminProcedure.query(async () => ({ schemes: await listSchemeCatalog({ sort: "name" }) })),
+      update: adminProcedure.input(z.object({ schemeId: z.string().min(1).max(96), name: z.string().min(3).max(255).optional(), nameHindi: z.string().min(3).max(255).optional(), administeringBody: z.string().min(3).max(255).optional(), benefits: z.string().min(10).max(3000).optional(), benefitsHindi: z.string().min(10).max(3000).optional(), portalUrl: z.string().url().max(512).optional(), applicationDeadline: z.number().int().positive().nullable().optional(), deadlineLabel: z.string().max(255).nullable().optional(), reviewed: z.string().min(3).max(64).optional() })).mutation(async ({ input }) => {
+        const { schemeId, ...patch } = input;
+        return { scheme: await updateSchemeAdmin(schemeId, patch) };
+      }),
     }),
   }),
 });

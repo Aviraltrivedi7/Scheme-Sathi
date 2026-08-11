@@ -44,3 +44,15 @@
 - [x] Authenticated tracking/status/reference persistence is implemented, type-checked, and covered by owner-scoped API contract tests; end-user browser-session validation is intentionally deferred without user sign-in.
 - [x] Live reminder create/cancel/callback verification is intentionally deferred by the user's no-publish constraint; callback lifecycle remains unit-tested locally.
 - [x] Keep this upgrade development-only; no publishing or live reminder job creation was performed.
+
+## Documents, administration, and interaction polish
+
+- [x] Inspect storage, role-gating, dashboard, and status-update integration conventions.
+- [x] Define document checklist, upload metadata, administrative editing, and micro-interaction behavior.
+- [x] Add document upload metadata schema and protected storage-backed upload APIs.
+- [x] Add admin-only APIs for updating scheme names, benefits, deadlines, and review metadata.
+- [x] Build dashboard document-upload checklists with progress and file states.
+- [x] Build an admin panel for editing scheme details and deadline dates.
+- [x] Add loading animations, optimistic status updates, and hover feedback to application cards.
+- [x] Test upload validation, authorization, schema, admin editor rendering, optimistic interaction behavior, and visual interactions; no personal file or live admin edit was created during development verification.
+- [x] Document document handling, administrator controls, and deferred production behavior.

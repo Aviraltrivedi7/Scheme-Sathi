@@ -104,6 +104,19 @@ export const applicationReminders = mysqlTable("application_reminders", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("application_reminders_task_uid_unique").on(table.scheduleCronTaskUid), index("application_reminders_application_idx").on(table.trackedApplicationId), index("application_reminders_status_idx").on(table.status)]);
 
+/** User-owned uploaded files mapped to the exact checklist item required by a tracked application. */
+export const applicationDocuments = mysqlTable("application_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  trackedApplicationId: int("trackedApplicationId").notNull().references(() => trackedApplications.id, { onDelete: "cascade" }),
+  documentName: varchar("documentName", { length: 255 }).notNull(),
+  storageKey: varchar("storageKey", { length: 1024 }).notNull(),
+  storageUrl: varchar("storageUrl", { length: 1200 }).notNull(),
+  fileName: varchar("fileName", { length: 255 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [uniqueIndex("application_documents_item_unique").on(table.trackedApplicationId, table.documentName), index("application_documents_application_idx").on(table.trackedApplicationId)]);
+
 export type SchemeCatalogRow = typeof schemeCatalog.$inferSelect;
 export type UserSchemeProfile = typeof userSchemeProfiles.$inferSelect;
 export type TrackedApplication = typeof trackedApplications.$inferSelect;

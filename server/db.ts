@@ -1,9 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationReminders, InsertUser, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, InsertUser, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
+import { safeStorageFileName, validateDocumentUpload } from "./documentUpload";
+import { storagePut } from "./storage";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -198,12 +200,14 @@ export async function listTrackedApplications(userId: number) {
   return Promise.all(applications.map(async (application) => {
     const scheme = await getSchemeById(application.schemeId);
     const reminders = await db.select().from(applicationReminders).where(eq(applicationReminders.trackedApplicationId, application.id));
+    const documents = await db.select().from(applicationDocuments).where(eq(applicationDocuments.trackedApplicationId, application.id));
     return {
       id: application.id, schemeId: application.schemeId, status: application.status, applicationReference: application.applicationReference ?? null,
       applicationDeadline: application.applicationDeadline?.getTime() ?? scheme?.applicationDeadline ?? null,
       deadlineLabel: application.deadlineLabel ?? scheme?.deadlineLabel ?? null, notes: application.notes ?? null,
       createdAt: application.createdAt.getTime(), updatedAt: application.updatedAt.getTime(), scheme: scheme ?? null,
       reminders: reminders.map(mapReminder).sort((a, b) => a.remindAt - b.remindAt),
+      documents: documents.map((document) => ({ id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, uploadedAt: document.uploadedAt.getTime() })),
     };
   }));
 }
@@ -271,4 +275,42 @@ export async function markApplicationReminderDelivered(reminderId: number) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   await db.update(applicationReminders).set({ status: "delivered", deliveredAt: new Date(), updatedAt: new Date() }).where(eq(applicationReminders.id, reminderId));
+}
+
+export async function uploadApplicationDocument(userId: number, trackedApplicationId: number, documentName: string, fileName: string, mimeType: string, base64Data: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const tracked = await getTrackedApplication(userId, trackedApplicationId);
+  if (!tracked) throw new Error("Tracked application not found");
+  const scheme = await getSchemeById(tracked.schemeId);
+  if (!scheme || !scheme.documents.includes(documentName)) throw new Error("Document is not part of this scheme checklist");
+  const bytes = validateDocumentUpload(fileName, mimeType, base64Data);
+  const uploaded = await storagePut(`applications/${userId}/${trackedApplicationId}/${safeStorageFileName(fileName)}`, bytes, mimeType);
+  await db.insert(applicationDocuments).values({ trackedApplicationId, documentName, storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType }).onDuplicateKeyUpdate({ set: { storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, updatedAt: new Date() } });
+  const rows = await db.select().from(applicationDocuments).where(and(eq(applicationDocuments.trackedApplicationId, trackedApplicationId), eq(applicationDocuments.documentName, documentName))).limit(1);
+  return rows[0];
+}
+
+export async function removeApplicationDocument(userId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ document: applicationDocuments, application: trackedApplications }).from(applicationDocuments).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationDocuments.id, documentId), eq(trackedApplications.userId, userId))).limit(1);
+  if (!rows[0]) throw new Error("Uploaded document not found");
+  await db.delete(applicationDocuments).where(eq(applicationDocuments.id, documentId));
+}
+
+export async function updateSchemeAdmin(schemeId: string, patch: { name?: string; nameHindi?: string; administeringBody?: string; benefits?: string; benefitsHindi?: string; portalUrl?: string; applicationDeadline?: number | null; deadlineLabel?: string | null; reviewed?: string }) {
+  const db = await ensureSchemeCatalog();
+  const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.name !== undefined) updateSet.name = patch.name;
+  if (patch.nameHindi !== undefined) updateSet.nameHindi = patch.nameHindi;
+  if (patch.administeringBody !== undefined) updateSet.administeringBody = patch.administeringBody;
+  if (patch.benefits !== undefined) updateSet.benefits = patch.benefits;
+  if (patch.benefitsHindi !== undefined) updateSet.benefitsHindi = patch.benefitsHindi;
+  if (patch.portalUrl !== undefined) updateSet.portalUrl = patch.portalUrl;
+  if (patch.applicationDeadline !== undefined) updateSet.applicationDeadline = patch.applicationDeadline ? new Date(patch.applicationDeadline) : null;
+  if (patch.deadlineLabel !== undefined) updateSet.deadlineLabel = patch.deadlineLabel || null;
+  if (patch.reviewed !== undefined) updateSet.reviewed = patch.reviewed;
+  await db.update(schemeCatalog).set(updateSet).where(eq(schemeCatalog.id, schemeId));
+  return getSchemeById(schemeId);
 }

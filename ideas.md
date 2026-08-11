@@ -149,6 +149,20 @@ User date/time choose karke ek application reminder schedule kar sakta hai. Back
 
 Results workspace mein state selector, category filters, scheme level, deadline window (`Any`, `Closing soon`, `Open-ended`) aur sorting (`Best match`, `Deadline soonest`, `Recently reviewed`, `Name`, `Category`) honge. Profile match results still priority maintain karenge; deadline sort only visible catalogue data ko reorder karega.
 
+## Document Checklist, Administration & Status Interaction Contract
+
+### Checklist and upload metadata
+
+Har tracked application ke document checklist items catalog ke existing `documents` field se derive honge. User kisi listed item ke against sirf PDF, JPG, ya PNG (maximum 5 MB) upload kar sakta hai. Upload record mein checklist name, original filename, MIME type, private storage key, served storage URL, and timestamps persist honge. Ek checklist item par latest upload replace hoga; file bytes database mein kabhi store nahi honge.
+
+### Administrator editing
+
+Only `admin` role users scheme title, Hindi title, administering body, bilingual benefit copy, official portal URL, published application deadline, deadline label, and review text update kar sakte hain. Eligibility rules or user application records is panel se mutate nahi honge. Admin mutation validates all write fields and audit-visible review metadata stays required.
+
+### Application card feedback
+
+Status selector optimistic and immediate feel karega: selected card saving state mein subtle spinner/status label show karega, card hover par 2px lift and border emphasis hoga, and success/error paths toast plus query refresh se recover honge. Document upload item independently pending/success/error state show karega so ek slow file upload whole dashboard ko block nahi karega.
+
 ## Style Decisions
 
 - Discovery cards equal SaaS-style grid nahi honge; category shelf mein ek emphasized lead category aur quieter supporting entries ka editorial rhythm rahega.

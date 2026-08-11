@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { Compass, LayoutDashboard, LogOut, PanelLeft } from "lucide-react";
+import { Compass, FileText, LayoutDashboard, LogOut, PanelLeft, Settings2, Sparkles } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -110,7 +110,8 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const visibleMenuItems = user?.role === "admin" ? [...menuItems, { icon: Settings2, label: "Manage schemes", path: "/admin/schemes" }] : menuItems;
+  const activeMenuItem = visibleMenuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -168,9 +169,7 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-semibold tracking-tight truncate">
-                      Scheme Sathi
-                  </span>
+                    <span className="scheme-sathi-mark" aria-hidden="true"><FileText size={14} /><Sparkles size={8} /></span><span className="scheme-sathi-wordmark">Scheme Sathi</span>
                 </div>
               ) : null}
             </div>
@@ -178,7 +177,7 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
+              {visibleMenuItems.map(item => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>
