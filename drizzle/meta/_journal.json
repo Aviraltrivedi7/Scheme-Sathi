@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1786474548906,
+      "tag": "0000_purple_skrulls",
+      "breakpoints": true
+    }
+  ]
+}

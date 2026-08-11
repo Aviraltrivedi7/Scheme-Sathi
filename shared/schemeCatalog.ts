@@ -1,0 +1,69 @@
+/* Scheme Sathi backend contract: bilingual catalog content and eligibility rules live in one server-safe source. */
+
+export type SchemeLevel = "Central" | "State";
+
+export type EligibilityRule = {
+  ageMin?: number;
+  ageMax?: number;
+  incomeMax?: number;
+  casteCategories?: string[] | "all";
+  occupations?: string[] | "all";
+  states?: string[] | "all";
+  genders?: string[] | "all";
+  requiresStudent?: boolean;
+  requiresFarmer?: boolean;
+  requiresDisability?: boolean;
+};
+
+export type SchemeCatalogItem = {
+  id: string;
+  name: string;
+  nameHindi: string;
+  category: string;
+  categoryHindi: string;
+  level: SchemeLevel;
+  administeringBody: string;
+  benefits: string;
+  benefitsHindi: string;
+  eligibility: EligibilityRule;
+  documents: string[];
+  documentsHindi: string[];
+  steps: string[];
+  stepsHindi: string[];
+  portalUrl: string;
+  reviewed: string;
+  accent: "saffron" | "emerald" | "coral" | "indigo";
+  artwork: string;
+};
+
+export type SchemeProfileInput = {
+  age: number;
+  state: string;
+  caste: string;
+  annualIncome: number;
+  occupation: string;
+  gender: string;
+  isStudent: boolean;
+  isFarmer: boolean;
+  isDisabled: boolean;
+};
+
+const artwork = {
+  farmer: "/manus-storage/scheme-sathi-farmer_fa6fb4ad.png",
+  education: "/manus-storage/scheme-sathi-education_87d604a6.png",
+  health: "/manus-storage/scheme-sathi-health_7a34a071.png",
+};
+
+export const schemeCatalog: SchemeCatalogItem[] = [
+  { id: "pmjay", name: "Ayushman Bharat PM-JAY", nameHindi: "आयुष्मान भारत प्रधानमंत्री जन आरोग्य योजना", category: "Health", categoryHindi: "स्वास्थ्य", level: "Central", administeringBody: "National Health Authority", benefits: "Cashless health cover up to ₹5 lakh per family per year at empanelled hospitals.", benefitsHindi: "सूचीबद्ध अस्पतालों में प्रति परिवार प्रति वर्ष ₹5 लाख तक का कैशलेस स्वास्थ्य कवर।", eligibility: { ageMin: 0, incomeMax: 300000, casteCategories: "all", occupations: "all", states: "all" }, documents: ["Aadhaar or alternate ID", "Ration card / family ID", "Mobile number"], documentsHindi: ["आधार या वैकल्पिक पहचान पत्र", "राशन कार्ड / परिवार आईडी", "मोबाइल नंबर"], steps: ["Check your name in the beneficiary list", "Visit a CSC or empanelled hospital", "Carry your ID and complete e-KYC"], stepsHindi: ["लाभार्थी सूची में अपना नाम देखें", "सीएससी या सूचीबद्ध अस्पताल जाएँ", "पहचान पत्र लेकर ई-केवाईसी पूरा करें"], portalUrl: "https://pmjay.gov.in/", reviewed: "Reviewed 18 Jun 2026", accent: "emerald", artwork: artwork.health },
+  { id: "pmkisan", name: "PM-KISAN Samman Nidhi", nameHindi: "प्रधानमंत्री किसान सम्मान निधि", category: "Agriculture", categoryHindi: "कृषि", level: "Central", administeringBody: "Department of Agriculture & Farmers Welfare", benefits: "Income support of ₹6,000 per year for eligible landholding farmers.", benefitsHindi: "पात्र भूमिधारक किसानों को हर साल ₹6,000 की आय सहायता।", eligibility: { ageMin: 18, casteCategories: "all", occupations: ["Farmer", "Agriculture"], states: "all", requiresFarmer: true }, documents: ["Aadhaar card", "Land ownership record", "Bank account details"], documentsHindi: ["आधार कार्ड", "भूमि स्वामित्व रिकॉर्ड", "बैंक खाते का विवरण"], steps: ["Open the PM-KISAN portal", "Complete farmer registration with land details", "Finish Aadhaar-linked e-KYC"], stepsHindi: ["पीएम-किसान पोर्टल खोलें", "भूमि विवरण के साथ किसान पंजीकरण करें", "आधार से जुड़ी ई-केवाईसी पूरी करें"], portalUrl: "https://pmkisan.gov.in/", reviewed: "Reviewed 12 Jun 2026", accent: "saffron", artwork: artwork.farmer },
+  { id: "pmfby", name: "Pradhan Mantri Fasal Bima Yojana", nameHindi: "प्रधानमंत्री फसल बीमा योजना", category: "Agriculture", categoryHindi: "कृषि", level: "Central", administeringBody: "Ministry of Agriculture & Farmers Welfare", benefits: "Affordable crop insurance against natural risks, pests and diseases for notified crops.", benefitsHindi: "अधिसूचित फसलों के लिए प्राकृतिक जोखिम, कीट और रोगों से किफायती फसल बीमा।", eligibility: { ageMin: 18, occupations: ["Farmer", "Agriculture"], states: "all", requiresFarmer: true }, documents: ["Aadhaar card", "Land or tenancy record", "Sowing declaration and bank details"], documentsHindi: ["आधार कार्ड", "भूमि या किरायेदारी रिकॉर्ड", "बुवाई घोषणा और बैंक विवरण"], steps: ["Check the notified crop and season", "Apply through a bank, CSC or the portal", "Keep the acknowledgement for claim support"], stepsHindi: ["अधिसूचित फसल और मौसम देखें", "बैंक, सीएससी या पोर्टल से आवेदन करें", "दावे के लिए पावती सुरक्षित रखें"], portalUrl: "https://pmfby.gov.in/", reviewed: "Reviewed 09 Jun 2026", accent: "saffron", artwork: artwork.farmer },
+  { id: "nsp", name: "National Scholarship Portal", nameHindi: "राष्ट्रीय छात्रवृत्ति पोर्टल", category: "Education", categoryHindi: "शिक्षा", level: "Central", administeringBody: "Ministry of Education", benefits: "One-window access to multiple pre-matric, post-matric and merit scholarships.", benefitsHindi: "प्री-मैट्रिक, पोस्ट-मैट्रिक और मेरिट छात्रवृत्तियों तक एक ही जगह से पहुँच।", eligibility: { ageMin: 10, ageMax: 35, incomeMax: 800000, casteCategories: "all", occupations: "all", states: "all", requiresStudent: true }, documents: ["Student ID and Aadhaar", "Income certificate", "Previous marksheet and bank details"], documentsHindi: ["छात्र आईडी और आधार", "आय प्रमाण पत्र", "पिछली अंकतालिका और बैंक विवरण"], steps: ["Create a student profile on NSP", "Select the scholarship that fits your course", "Submit documents through your institute"], stepsHindi: ["एनएसपी पर छात्र प्रोफाइल बनाएँ", "अपने पाठ्यक्रम के लिए छात्रवृत्ति चुनें", "संस्थान के माध्यम से दस्तावेज जमा करें"], portalUrl: "https://scholarships.gov.in/", reviewed: "Reviewed 04 Jun 2026", accent: "indigo", artwork: artwork.education },
+  { id: "pmuy", name: "Pradhan Mantri Ujjwala Yojana", nameHindi: "प्रधानमंत्री उज्ज्वला योजना", category: "Women & Family", categoryHindi: "महिला एवं परिवार", level: "Central", administeringBody: "Ministry of Petroleum & Natural Gas", benefits: "Deposit-free LPG connection support for eligible adult women from low-income households.", benefitsHindi: "कम आय वाले परिवारों की पात्र वयस्क महिलाओं के लिए जमा-रहित एलपीजी कनेक्शन सहायता।", eligibility: { ageMin: 18, incomeMax: 300000, genders: ["Female"], states: "all" }, documents: ["Aadhaar of applicant and adult family members", "Address proof", "Bank account details"], documentsHindi: ["आवेदक और वयस्क परिवार सदस्यों का आधार", "पता प्रमाण", "बैंक खाते का विवरण"], steps: ["Visit an LPG distributor", "Submit KYC and household declaration", "Collect connection details after verification"], stepsHindi: ["एलपीजी वितरक के पास जाएँ", "केवाईसी और परिवार घोषणा जमा करें", "सत्यापन के बाद कनेक्शन विवरण प्राप्त करें"], portalUrl: "https://www.pmuy.gov.in/", reviewed: "Reviewed 27 May 2026", accent: "coral", artwork: artwork.health },
+  { id: "pmsvanidhi", name: "PM SVANidhi", nameHindi: "पीएम स्वनिधि", category: "Livelihood", categoryHindi: "आजीविका", level: "Central", administeringBody: "Ministry of Housing & Urban Affairs", benefits: "Collateral-free working capital support with incentives for street vendors who repay on time.", benefitsHindi: "समय पर भुगतान करने वाले स्ट्रीट वेंडर्स के लिए बिना गारंटी कार्यशील पूंजी सहायता और प्रोत्साहन।", eligibility: { ageMin: 18, occupations: ["Street Vendor", "Small Business", "Business Owner", "Self-Employed"], states: "all" }, documents: ["Certificate of vending or local survey record", "Aadhaar card", "Bank account and mobile number"], documentsHindi: ["वेंडिंग प्रमाण पत्र या स्थानीय सर्वे रिकॉर्ड", "आधार कार्ड", "बैंक खाता और मोबाइल नंबर"], steps: ["Contact your urban local body or lending partner", "Submit vendor verification details", "Track loan and digital cashback incentives"], stepsHindi: ["शहरी स्थानीय निकाय या ऋण भागीदार से संपर्क करें", "वेंडर सत्यापन विवरण जमा करें", "ऋण और डिजिटल कैशबैक प्रोत्साहन ट्रैक करें"], portalUrl: "https://pmsvanidhi.mohua.gov.in/", reviewed: "Reviewed 22 May 2026", accent: "saffron", artwork: artwork.farmer },
+  { id: "standup-india", name: "Stand-Up India", nameHindi: "स्टैंड-अप इंडिया", category: "Enterprise", categoryHindi: "उद्यमिता", level: "Central", administeringBody: "Department of Financial Services", benefits: "Bank loans for greenfield enterprises promoted by women or SC/ST entrepreneurs.", benefitsHindi: "महिला या एससी/एसटी उद्यमियों द्वारा शुरू किए गए नए उद्यमों के लिए बैंक ऋण।", eligibility: { ageMin: 18, casteCategories: ["SC", "ST", "all"], occupations: ["Entrepreneur", "Business Owner", "Self-Employed"], states: "all", genders: ["Female", "all"] }, documents: ["Identity and address proof", "Business plan", "Caste or woman entrepreneur proof where applicable"], documentsHindi: ["पहचान और पता प्रमाण", "व्यवसाय योजना", "लागू होने पर जाति या महिला उद्यमी प्रमाण"], steps: ["Prepare a viable greenfield business plan", "Apply through the portal or bank branch", "Complete lender due diligence"], stepsHindi: ["व्यवहार्य नए व्यवसाय की योजना बनाएँ", "पोर्टल या बैंक शाखा से आवेदन करें", "ऋणदाता की जाँच पूरी करें"], portalUrl: "https://www.standupmitra.in/", reviewed: "Reviewed 16 May 2026", accent: "coral", artwork: artwork.education },
+  { id: "pmay-urban", name: "PMAY — Urban Housing", nameHindi: "प्रधानमंत्री आवास योजना — शहरी", category: "Housing", categoryHindi: "आवास", level: "Central", administeringBody: "Ministry of Housing & Urban Affairs", benefits: "Support for eligible urban families to build, buy or improve a pucca home.", benefitsHindi: "पात्र शहरी परिवारों को पक्का घर बनाने, खरीदने या सुधारने में सहायता।", eligibility: { ageMin: 18, incomeMax: 1800000, states: "all" }, documents: ["Identity and address proof", "Income certificate", "Land or property documents if applicable"], documentsHindi: ["पहचान और पता प्रमाण", "आय प्रमाण पत्र", "लागू होने पर भूमि या संपत्ति दस्तावेज"], steps: ["Check the housing vertical available in your city", "Apply through the local body or official portal", "Track verification and sanction status"], stepsHindi: ["अपने शहर में उपलब्ध आवास विकल्प देखें", "स्थानीय निकाय या आधिकारिक पोर्टल से आवेदन करें", "सत्यापन और स्वीकृति स्थिति ट्रैक करें"], portalUrl: "https://pmay-urban.gov.in/", reviewed: "Reviewed 10 May 2026", accent: "indigo", artwork: artwork.health },
+  { id: "nsap", name: "National Social Assistance Programme", nameHindi: "राष्ट्रीय सामाजिक सहायता कार्यक्रम", category: "Social Security", categoryHindi: "सामाजिक सुरक्षा", level: "Central", administeringBody: "Ministry of Rural Development", benefits: "Social assistance pensions for eligible elderly persons, widows and persons with disabilities.", benefitsHindi: "पात्र बुजुर्गों, विधवाओं और दिव्यांग व्यक्तियों के लिए सामाजिक सहायता पेंशन।", eligibility: { ageMin: 18, incomeMax: 300000, states: "all", requiresDisability: true }, documents: ["Age or disability proof", "Aadhaar or alternate ID", "Bank or post-office account"], documentsHindi: ["आयु या दिव्यांगता प्रमाण", "आधार या वैकल्पिक पहचान पत्र", "बैंक या डाकघर खाता"], steps: ["Contact your Gram Panchayat or municipal office", "Submit the pension application", "Keep acknowledgement for status checks"], stepsHindi: ["ग्राम पंचायत या नगर कार्यालय से संपर्क करें", "पेंशन आवेदन जमा करें", "स्थिति जाँच के लिए पावती रखें"], portalUrl: "https://nsap.nic.in/", reviewed: "Reviewed 03 May 2026", accent: "emerald", artwork: artwork.health },
+  { id: "up-kanya", name: "Mukhyamantri Kanya Sumangala", nameHindi: "मुख्यमंत्री कन्या सुमंगला योजना", category: "Women & Family", categoryHindi: "महिला एवं परिवार", level: "State", administeringBody: "Government of Uttar Pradesh", benefits: "Stage-wise financial support for the health, education and development of a girl child in Uttar Pradesh.", benefitsHindi: "उत्तर प्रदेश में बालिका के स्वास्थ्य, शिक्षा और विकास के लिए चरणबद्ध आर्थिक सहायता।", eligibility: { ageMin: 0, ageMax: 25, incomeMax: 300000, genders: ["Female"], states: ["Uttar Pradesh"] }, documents: ["UP residence proof", "Girl child birth certificate", "Family income certificate and bank details"], documentsHindi: ["उत्तर प्रदेश निवास प्रमाण", "बालिका का जन्म प्रमाण पत्र", "परिवार आय प्रमाण और बैंक विवरण"], steps: ["Register on the state portal", "Upload stage-specific documents", "Track approval and instalment status"], stepsHindi: ["राज्य पोर्टल पर पंजीकरण करें", "चरण के अनुसार दस्तावेज अपलोड करें", "स्वीकृति और किस्त की स्थिति ट्रैक करें"], portalUrl: "https://mksy.up.gov.in/", reviewed: "Reviewed 18 Apr 2026", accent: "coral", artwork: artwork.education },
+  { id: "maha-ladki", name: "Majhi Ladki Bahin Yojana", nameHindi: "मुख्यमंत्री माझी लाडकी बहिन योजना", category: "Women & Family", categoryHindi: "महिला एवं परिवार", level: "State", administeringBody: "Government of Maharashtra", benefits: "Direct support for eligible women residents of Maharashtra, subject to current state criteria.", benefitsHindi: "वर्तमान राज्य मानदंडों के अधीन महाराष्ट्र की पात्र महिला निवासियों के लिए प्रत्यक्ष सहायता।", eligibility: { ageMin: 21, ageMax: 65, incomeMax: 250000, genders: ["Female"], states: ["Maharashtra"] }, documents: ["Maharashtra residence proof", "Aadhaar-linked mobile", "Bank account and income declaration"], documentsHindi: ["महाराष्ट्र निवास प्रमाण", "आधार से जुड़ा मोबाइल", "बैंक खाता और आय घोषणा"], steps: ["Use the official state application channel", "Complete identity and bank verification", "Check the current notice before applying"], stepsHindi: ["आधिकारिक राज्य आवेदन माध्यम का उपयोग करें", "पहचान और बैंक सत्यापन पूरा करें", "आवेदन से पहले वर्तमान सरकारी सूचना देखें"], portalUrl: "https://ladakibahin.maharashtra.gov.in/", reviewed: "Reviewed 11 Apr 2026", accent: "saffron", artwork: artwork.health },
+];
