@@ -34,6 +34,8 @@ export type Scheme = {
   reviewed: string;
   accent: "saffron" | "emerald" | "coral" | "indigo";
   artwork: string;
+  applicationDeadline?: number | null;
+  deadlineLabel?: string | null;
 };
 
 export type UserProfile = {
@@ -132,6 +134,8 @@ export const schemes: Scheme[] = [
     reviewed: "Reviewed 04 Jun 2026",
     accent: "indigo",
     artwork: educationArt,
+    applicationDeadline: Date.UTC(2026, 9, 31, 18, 29, 59),
+    deadlineLabel: "Student applications close 31 Oct 2026",
   },
   {
     id: "pmuy",

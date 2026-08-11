@@ -127,6 +127,28 @@ Build/type checks, responsive screenshot pass, keyboard/focus checks, empty/erro
 
 Application start se result tak bina dead-end ke chale; English aur Hindi views mein meaning parity rahe; state/gender/occupation rules dataset ke saath match hon; results clearly bataye ki scheme kyun match hui; details page par application-ready information scan ho; local saved profile aur saved schemes refresh ke baad persist karein; mobile viewport par controls accessible rahein; aur UI generic starter template jaisa na lage.
 
+## Application Desk & Deadline Blueprint
+
+### Product intent
+
+Authenticated users ke liye **Application Desk** ek private, task-oriented workspace hoga. Har tracked scheme ke paas clear status, application reference, deadline, next action aur reminder signal hoga. User ko public scheme search aur private application progress ke beech context switch nahi karna padega.
+
+### Data model
+
+`scheme_catalog` mein optional `applicationDeadline` aur `deadlineLabel` add honge. `tracked_applications` user aur scheme ka unique relation rakhega, saath mein status (`considering`, `preparing`, `submitted`, `approved`, `rejected`, `closed`), reference number, user deadline, notes aur timestamps. `application_reminders` per tracked application reminder time, reminder kind, delivery state aur Heartbeat `taskUid` store karega. Scheduled callbacks hamesha `taskUid` se reminder lookup karenge, payload se ID trust nahi karenge.
+
+### Dashboard structure
+
+Top par **At a glance** counts, followed by an editorial deadline strip. Main board mein status columns ke badle compact application cards honge—current status, deadline countdown, next step, reminder state aur one-click status update ke saath. Mobile par same cards chronological due-date list mein stack honge. Sign-in ke bina dashboard account prompt dikhayega.
+
+### Reminder behavior
+
+User date/time choose karke ek application reminder schedule kar sakta hai. Backend six-field UTC Heartbeat schedule create karta hai, `taskUid` database row mein persist karta hai, aur callback `/api/scheduled/application-reminder` par cron identity authenticate karke reminder status ko delivered mark karta hai. Initial delivery channel in-app notification record hai; dashboard refresh par pending/delivered reminder timeline visible rahegi. Production schedule creation ke liye deployment required hoga.
+
+### Discovery controls
+
+Results workspace mein state selector, category filters, scheme level, deadline window (`Any`, `Closing soon`, `Open-ended`) aur sorting (`Best match`, `Deadline soonest`, `Recently reviewed`, `Name`, `Category`) honge. Profile match results still priority maintain karenge; deadline sort only visible catalogue data ko reorder karega.
+
 ## Style Decisions
 
 - Discovery cards equal SaaS-style grid nahi honge; category shelf mein ek emphasized lead category aur quieter supporting entries ka editorial rhythm rahega.

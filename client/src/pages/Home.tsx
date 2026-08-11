@@ -62,7 +62,7 @@ function AppHeader({ language, setLanguage, dark, setDark, onHome, onStart, isAu
         <span><strong>Scheme Sathi</strong><small>Government schemes, made clear.</small></span>
       </button>
       <nav className={`site-nav ${open ? "is-open" : ""}`}>
-        <button onClick={onHome}>{languageText(language, "Discover", "खोजें")}</button>
+        <button onClick={() => { window.location.assign("/discover"); setOpen(false); }}>{languageText(language, "Discover", "खोजें")}</button>
         <button onClick={() => { onStart(); setOpen(false); }}>{languageText(language, "Find my matches", "मेरे लिए खोजें")}</button>
         <a href="#how-it-works" onClick={() => setOpen(false)}>{languageText(language, "How it works", "कैसे काम करता है")}</a>
       </nav>

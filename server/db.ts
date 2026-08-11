@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, savedSchemes, schemeCatalog, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationReminders, InsertUser, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
+import type { ApplicationStatus } from "@shared/applicationTracker";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -98,6 +99,7 @@ function mapScheme(row: typeof schemeCatalog.$inferSelect): SchemeCatalogItem {
     level: row.level, administeringBody: row.administeringBody, benefits: row.benefits, benefitsHindi: row.benefitsHindi,
     eligibility: row.eligibility, documents: row.documents, documentsHindi: row.documentsHindi, steps: row.steps,
     stepsHindi: row.stepsHindi, portalUrl: row.portalUrl, reviewed: row.reviewed, accent: row.accent, artwork: row.artwork,
+    applicationDeadline: row.applicationDeadline?.getTime() ?? null, deadlineLabel: row.deadlineLabel ?? null,
   };
 }
 
@@ -105,20 +107,37 @@ function mapScheme(row: typeof schemeCatalog.$inferSelect): SchemeCatalogItem {
 export async function ensureSchemeCatalog() {
   const db = await getDb();
   if (!db) databaseUnavailable();
-  await db.insert(schemeCatalog).values(seedCatalog).onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+  const catalogSeedValues = seedCatalog.map(({ applicationDeadline, deadlineLabel, ...scheme }) => ({
+    ...scheme,
+    applicationDeadline: applicationDeadline ? new Date(applicationDeadline) : null,
+    deadlineLabel: deadlineLabel ?? null,
+  }));
+  await db.insert(schemeCatalog).values(catalogSeedValues).onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+  // NSP publishes a current application deadline; other catalog entries intentionally remain open-ended until an official deadline is confirmed.
+  await db.update(schemeCatalog).set({ applicationDeadline: new Date(Date.UTC(2026, 9, 31, 18, 29, 59)), deadlineLabel: "Student applications close 31 Oct 2026" }).where(eq(schemeCatalog.id, "nsp"));
   return db;
 }
 
-export async function listSchemeCatalog(filters?: { category?: string; level?: "Central" | "State"; query?: string }) {
+export async function listSchemeCatalog(filters?: { category?: string; level?: "Central" | "State"; state?: string; deadline?: "announced" | "closingSoon" | "openEnded"; sort?: "name" | "category" | "deadline" | "reviewed"; query?: string }) {
   const db = await ensureSchemeCatalog();
   const rows = await db.select().from(schemeCatalog);
   const query = filters?.query?.trim().toLowerCase();
-  return rows.map(mapScheme).filter((scheme) => {
+  const today = Date.now();
+  const closingSoon = today + 90 * 24 * 60 * 60 * 1000;
+  const filtered = rows.map(mapScheme).filter((scheme) => {
     const matchesCategory = !filters?.category || filters.category === "all" || scheme.category === filters.category;
     const matchesLevel = !filters?.level || scheme.level === filters.level;
+    const stateRule = scheme.eligibility.states;
+    const matchesState = !filters?.state || filters.state === "all" || stateRule === undefined || stateRule === "all" || stateRule.includes(filters.state);
+    const matchesDeadline = !filters?.deadline || (filters.deadline === "announced" && !!scheme.applicationDeadline) || (filters.deadline === "openEnded" && !scheme.applicationDeadline) || (filters.deadline === "closingSoon" && !!scheme.applicationDeadline && scheme.applicationDeadline >= today && scheme.applicationDeadline <= closingSoon);
     const searchable = `${scheme.name} ${scheme.nameHindi} ${scheme.benefits} ${scheme.category}`.toLowerCase();
-    return matchesCategory && matchesLevel && (!query || searchable.includes(query));
+    return matchesCategory && matchesLevel && matchesState && matchesDeadline && (!query || searchable.includes(query));
   });
+  if (filters?.sort === "name") return filtered.sort((a, b) => a.name.localeCompare(b.name));
+  if (filters?.sort === "category") return filtered.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+  if (filters?.sort === "deadline") return filtered.sort((a, b) => (a.applicationDeadline ?? Number.MAX_SAFE_INTEGER) - (b.applicationDeadline ?? Number.MAX_SAFE_INTEGER));
+  if (filters?.sort === "reviewed") return filtered.sort((a, b) => b.reviewed.localeCompare(a.reviewed));
+  return filtered;
 }
 
 export async function getSchemeById(schemeId: string) {
@@ -160,4 +179,96 @@ export async function toggleSavedScheme(userId: number, schemeId: string) {
   }
   await db.insert(savedSchemes).values({ userId, schemeId });
   return { schemeId, saved: true };
+}
+
+function mapReminder(row: typeof applicationReminders.$inferSelect) {
+  return { id: row.id, remindAt: row.remindAt.getTime(), status: row.status, deliveredAt: row.deliveredAt?.getTime() ?? null, scheduleCronTaskUid: row.scheduleCronTaskUid ?? null };
+}
+
+async function getTrackedApplication(userId: number, trackedApplicationId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(trackedApplications).where(and(eq(trackedApplications.id, trackedApplicationId), eq(trackedApplications.userId, userId))).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listTrackedApplications(userId: number) {
+  const db = await ensureSchemeCatalog();
+  const applications = await db.select().from(trackedApplications).where(eq(trackedApplications.userId, userId));
+  return Promise.all(applications.map(async (application) => {
+    const scheme = await getSchemeById(application.schemeId);
+    const reminders = await db.select().from(applicationReminders).where(eq(applicationReminders.trackedApplicationId, application.id));
+    return {
+      id: application.id, schemeId: application.schemeId, status: application.status, applicationReference: application.applicationReference ?? null,
+      applicationDeadline: application.applicationDeadline?.getTime() ?? scheme?.applicationDeadline ?? null,
+      deadlineLabel: application.deadlineLabel ?? scheme?.deadlineLabel ?? null, notes: application.notes ?? null,
+      createdAt: application.createdAt.getTime(), updatedAt: application.updatedAt.getTime(), scheme: scheme ?? null,
+      reminders: reminders.map(mapReminder).sort((a, b) => a.remindAt - b.remindAt),
+    };
+  }));
+}
+
+export async function trackSchemeApplication(userId: number, schemeId: string) {
+  const db = await ensureSchemeCatalog();
+  const scheme = await getSchemeById(schemeId);
+  if (!scheme) throw new Error("Scheme not found");
+  await db.insert(trackedApplications).values({ userId, schemeId, applicationDeadline: scheme.applicationDeadline ? new Date(scheme.applicationDeadline) : null, deadlineLabel: scheme.deadlineLabel ?? null }).onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+  const tracked = await db.select().from(trackedApplications).where(and(eq(trackedApplications.userId, userId), eq(trackedApplications.schemeId, schemeId))).limit(1);
+  return tracked[0];
+}
+
+export async function updateTrackedApplication(userId: number, trackedApplicationId: number, patch: { status?: ApplicationStatus; applicationReference?: string | null; applicationDeadline?: number | null; deadlineLabel?: string | null; notes?: string | null }) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const existing = await getTrackedApplication(userId, trackedApplicationId);
+  if (!existing) throw new Error("Tracked application not found");
+  const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.status !== undefined) updateSet.status = patch.status;
+  if (patch.applicationReference !== undefined) updateSet.applicationReference = patch.applicationReference || null;
+  if (patch.applicationDeadline !== undefined) updateSet.applicationDeadline = patch.applicationDeadline ? new Date(patch.applicationDeadline) : null;
+  if (patch.deadlineLabel !== undefined) updateSet.deadlineLabel = patch.deadlineLabel || null;
+  if (patch.notes !== undefined) updateSet.notes = patch.notes || null;
+  await db.update(trackedApplications).set(updateSet).where(eq(trackedApplications.id, trackedApplicationId));
+  return getTrackedApplication(userId, trackedApplicationId);
+}
+
+export async function createApplicationReminder(userId: number, trackedApplicationId: number, remindAt: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const tracked = await getTrackedApplication(userId, trackedApplicationId);
+  if (!tracked) throw new Error("Tracked application not found");
+  const result = await db.insert(applicationReminders).values({ trackedApplicationId, remindAt: new Date(remindAt), status: "scheduled" });
+  const rows = await db.select().from(applicationReminders).where(eq(applicationReminders.id, Number(result[0].insertId))).limit(1);
+  return rows[0];
+}
+
+export async function assignReminderHeartbeat(userId: number, reminderId: number, taskUid: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ reminder: applicationReminders, application: trackedApplications }).from(applicationReminders).innerJoin(trackedApplications, eq(applicationReminders.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationReminders.id, reminderId), eq(trackedApplications.userId, userId))).limit(1);
+  if (!rows[0]) throw new Error("Reminder not found");
+  await db.update(applicationReminders).set({ scheduleCronTaskUid: taskUid, updatedAt: new Date() }).where(eq(applicationReminders.id, reminderId));
+  return { ...mapReminder(rows[0].reminder), scheduleCronTaskUid: taskUid };
+}
+
+export async function cancelApplicationReminder(userId: number, reminderId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ reminder: applicationReminders, application: trackedApplications }).from(applicationReminders).innerJoin(trackedApplications, eq(applicationReminders.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationReminders.id, reminderId), eq(trackedApplications.userId, userId))).limit(1);
+  if (!rows[0]) throw new Error("Reminder not found");
+  await db.update(applicationReminders).set({ status: "cancelled", updatedAt: new Date() }).where(eq(applicationReminders.id, reminderId));
+  return mapReminder(rows[0].reminder);
+}
+
+export async function getApplicationReminderByTaskUid(taskUid: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(applicationReminders).where(eq(applicationReminders.scheduleCronTaskUid, taskUid)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function markApplicationReminderDelivered(reminderId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.update(applicationReminders).set({ status: "delivered", deliveredAt: new Date(), updatedAt: new Date() }).where(eq(applicationReminders.id, reminderId));
 }

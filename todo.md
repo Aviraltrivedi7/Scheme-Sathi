@@ -28,3 +28,18 @@
 - [x] Verify profile submission to ranked results end to end.
 - [x] Verify scheme details, save/unsave, and refresh persistence.
 - [x] Document environment variables, database setup, seed process, and remaining operational steps.
+
+## Application dashboard and discovery upgrade
+
+- [x] Inspect dashboard layout, reminder scheduling conventions, and current catalog contract.
+- [x] Define application statuses, deadline fields, reminder rules, notification content, and user-level access rules.
+- [x] Add application tracker and reminder database tables with safe foreign-key relationships.
+- [x] Add deadline metadata and application state support to the scheme catalog.
+- [x] Implement authenticated application tracking, status updates, and reminder APIs.
+- [x] Implement deadline reminder scheduling and delivery behavior.
+- [x] Build a user dashboard for tracked applications, due dates, reminders, and status updates.
+- [x] Add advanced state, category, deadline-window, and deadline sorting controls to scheme discovery.
+- [x] Test dashboard access, status persistence, reminder behavior, filters, and sorting.
+- [x] Document the tracker workflow, reminder operations, and user-facing behavior.
+- [ ] Verify an authenticated user can track a scheme, update its status/reference, refresh, and retain the stored values.
+- [ ] After publishing, verify a live reminder create, cancel, and scheduled callback delivery cycle in the production dashboard.

@@ -34,6 +34,8 @@ export type SchemeCatalogItem = {
   reviewed: string;
   accent: "saffron" | "emerald" | "coral" | "indigo";
   artwork: string;
+  applicationDeadline?: number | null;
+  deadlineLabel?: string | null;
 };
 
 export type SchemeProfileInput = {

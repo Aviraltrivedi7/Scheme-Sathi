@@ -1,5 +1,6 @@
 import { boolean, index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 import type { EligibilityRule, SchemeLevel } from "@shared/schemeCatalog";
+import type { ApplicationStatus, ReminderStatus } from "@shared/applicationTracker";
 
 /**
  * Core user table backing auth flow.
@@ -46,6 +47,8 @@ export const schemeCatalog = mysqlTable("scheme_catalog", {
   reviewed: varchar("reviewed", { length: 64 }).notNull(),
   accent: mysqlEnum("accent", ["saffron", "emerald", "coral", "indigo"]).notNull(),
   artwork: varchar("artwork", { length: 512 }).notNull(),
+  applicationDeadline: timestamp("applicationDeadline"),
+  deadlineLabel: varchar("deadlineLabel", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [index("scheme_catalog_category_idx").on(table.category), index("scheme_catalog_level_idx").on(table.level)]);
@@ -75,5 +78,32 @@ export const savedSchemes = mysqlTable("saved_schemes", {
   savedAt: timestamp("savedAt").defaultNow().notNull(),
 }, (table) => [uniqueIndex("saved_schemes_user_scheme_unique").on(table.userId, table.schemeId), index("saved_schemes_user_idx").on(table.userId)]);
 
+/** Private application desk entries. A user may track each catalog scheme once. */
+export const trackedApplications = mysqlTable("tracked_applications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  schemeId: varchar("schemeId", { length: 96 }).notNull().references(() => schemeCatalog.id, { onDelete: "cascade" }),
+  status: mysqlEnum("status", ["considering", "preparing", "submitted", "approved", "rejected", "closed"]).$type<ApplicationStatus>().default("considering").notNull(),
+  applicationReference: varchar("applicationReference", { length: 128 }),
+  applicationDeadline: timestamp("applicationDeadline"),
+  deadlineLabel: varchar("deadlineLabel", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [uniqueIndex("tracked_applications_user_scheme_unique").on(table.userId, table.schemeId), index("tracked_applications_user_status_idx").on(table.userId, table.status)]);
+
+/** User-created deadline reminders. Each task UID is persisted and dereferenced only by the cron callback. */
+export const applicationReminders = mysqlTable("application_reminders", {
+  id: int("id").autoincrement().primaryKey(),
+  trackedApplicationId: int("trackedApplicationId").notNull().references(() => trackedApplications.id, { onDelete: "cascade" }),
+  remindAt: timestamp("remindAt").notNull(),
+  status: mysqlEnum("status", ["scheduled", "delivered", "cancelled", "failed"]).$type<ReminderStatus>().default("scheduled").notNull(),
+  scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
+  deliveredAt: timestamp("deliveredAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [uniqueIndex("application_reminders_task_uid_unique").on(table.scheduleCronTaskUid), index("application_reminders_application_idx").on(table.trackedApplicationId), index("application_reminders_status_idx").on(table.status)]);
+
 export type SchemeCatalogRow = typeof schemeCatalog.$inferSelect;
 export type UserSchemeProfile = typeof userSchemeProfiles.$inferSelect;
+export type TrackedApplication = typeof trackedApplications.$inferSelect;
