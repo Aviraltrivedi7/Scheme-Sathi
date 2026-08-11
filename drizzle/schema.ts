@@ -1,6 +1,7 @@
 import { boolean, index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 import type { EligibilityRule, SchemeLevel } from "@shared/schemeCatalog";
 import type { ApplicationStatus, ReminderStatus } from "@shared/applicationTracker";
+import type { OcrExtraction } from "../server/documentOcr";
 
 /**
  * Core user table backing auth flow.
@@ -114,6 +115,10 @@ export const applicationDocuments = mysqlTable("application_documents", {
   fileName: varchar("fileName", { length: 255 }).notNull(),
   mimeType: varchar("mimeType", { length: 128 }).notNull(),
   expiresAt: timestamp("expiresAt"),
+  ocrStatus: mysqlEnum("ocrStatus", ["notRequested", "processing", "complete", "failed"]).default("notRequested").notNull(),
+  ocrExtraction: json("ocrExtraction").$type<OcrExtraction | null>(),
+  ocrError: varchar("ocrError", { length: 500 }),
+  ocrVerifiedAt: timestamp("ocrVerifiedAt"),
   uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("application_documents_item_unique").on(table.trackedApplicationId, table.documentName), index("application_documents_application_idx").on(table.trackedApplicationId)]);

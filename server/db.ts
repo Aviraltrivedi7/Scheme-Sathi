@@ -5,8 +5,9 @@ import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
 import { safeStorageFileName, validateDocumentUpload } from "./documentUpload";
-import { storagePut } from "./storage";
+import { storageGetSignedUrl, storagePut } from "./storage";
 import { expiryNoticeKind, getDocumentExpiryState } from "./documentExpiry";
+import { extractDocumentDetails } from "./documentOcr";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -208,7 +209,7 @@ export async function listTrackedApplications(userId: number) {
       deadlineLabel: application.deadlineLabel ?? scheme?.deadlineLabel ?? null, notes: application.notes ?? null,
       createdAt: application.createdAt.getTime(), updatedAt: application.updatedAt.getTime(), scheme: scheme ?? null,
       reminders: reminders.map(mapReminder).sort((a, b) => a.remindAt - b.remindAt),
-      documents: documents.map((document) => ({ id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), uploadedAt: document.uploadedAt.getTime() })),
+      documents: documents.map((document) => ({ id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, uploadedAt: document.uploadedAt.getTime() })),
     };
   }));
 }
@@ -287,7 +288,7 @@ export async function uploadApplicationDocument(userId: number, trackedApplicati
   if (!scheme || !scheme.documents.includes(documentName)) throw new Error("Document is not part of this scheme checklist");
   const bytes = validateDocumentUpload(fileName, mimeType, base64Data);
   const uploaded = await storagePut(`applications/${userId}/${trackedApplicationId}/${safeStorageFileName(fileName)}`, bytes, mimeType);
-  await db.insert(applicationDocuments).values({ trackedApplicationId, documentName, storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null }).onDuplicateKeyUpdate({ set: { storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null, updatedAt: new Date() } });
+  await db.insert(applicationDocuments).values({ trackedApplicationId, documentName, storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null }).onDuplicateKeyUpdate({ set: { storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null, ocrStatus: "notRequested", ocrExtraction: null, ocrError: null, ocrVerifiedAt: null, updatedAt: new Date() } });
   const rows = await db.select().from(applicationDocuments).where(and(eq(applicationDocuments.trackedApplicationId, trackedApplicationId), eq(applicationDocuments.documentName, documentName))).limit(1);
   if (rows[0]) await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.applicationDocumentId, rows[0].id));
   return rows[0];
@@ -299,6 +300,36 @@ export async function removeApplicationDocument(userId: number, documentId: numb
   const rows = await db.select({ document: applicationDocuments, application: trackedApplications }).from(applicationDocuments).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationDocuments.id, documentId), eq(trackedApplications.userId, userId))).limit(1);
   if (!rows[0]) throw new Error("Uploaded document not found");
   await db.delete(applicationDocuments).where(eq(applicationDocuments.id, documentId));
+}
+
+async function getOwnedApplicationDocument(userId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ document: applicationDocuments, application: trackedApplications }).from(applicationDocuments).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationDocuments.id, documentId), eq(trackedApplications.userId, userId))).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getApplicationDocumentPreview(userId: number, documentId: number) {
+  const owned = await getOwnedApplicationDocument(userId, documentId);
+  if (!owned) throw new Error("Uploaded document not found");
+  return { documentId, fileName: owned.document.fileName, mimeType: owned.document.mimeType, url: await storageGetSignedUrl(owned.document.storageKey) };
+}
+
+export async function runApplicationDocumentOcr(userId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const owned = await getOwnedApplicationDocument(userId, documentId);
+  if (!owned) throw new Error("Uploaded document not found");
+  await db.update(applicationDocuments).set({ ocrStatus: "processing", ocrError: null, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+  try {
+    const extraction = await extractDocumentDetails({ signedUrl: await storageGetSignedUrl(owned.document.storageKey), mimeType: owned.document.mimeType, checklistName: owned.document.documentName, fileName: owned.document.fileName });
+    await db.update(applicationDocuments).set({ ocrStatus: "complete", ocrExtraction: extraction, ocrError: null, ocrVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+    return extraction;
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : "OCR processing could not be completed";
+    await db.update(applicationDocuments).set({ ocrStatus: "failed", ocrError: message, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+    throw new Error("OCR processing could not be completed. Please retry or review the document manually.");
+  }
 }
 
 export async function updateApplicationDocumentExpiry(userId: number, documentId: number, expiresAt: number | null) {

@@ -67,3 +67,14 @@
 - [x] Add expiry dates, re-upload controls, and reminder indicators to document checklist items.
 - [x] Test expiry logic, reminder idempotency, bilingual labels, and dashboard states.
 - [x] Document reminder scheduling behavior and development-only limitations.
+
+## Document preview and OCR verification
+
+- [x] Inspect secure storage preview, OCR/AI integration, and document privacy conventions.
+- [x] Define preview authorization, OCR output, verification states, and retention behavior.
+- [x] Add OCR extraction and verification metadata to the document schema.
+- [x] Implement protected preview and AI OCR extraction APIs with owner checks.
+- [x] Build dashboard document preview, extracted-detail review, and accuracy guidance UI.
+- [x] Add clear loading, failure, retry, and manual-review states for OCR results.
+- [x] Test preview authorization, OCR response validation, persistence, and dashboard interactions.
+- [x] Document OCR privacy boundaries, verification behavior, and operational requirements.

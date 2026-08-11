@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getDocumentReminderSetting, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, saveDocumentReminderTask, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
+import { assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getApplicationDocumentPreview, getDocumentReminderSetting, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, runApplicationDocumentOcr, saveDocumentReminderTask, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
 import { buildReminderCron } from "./applicationReminder";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { createHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
@@ -88,6 +88,8 @@ export const appRouter = router({
     upload: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), documentName: z.string().min(1).max(255), fileName: z.string().min(1).max(180), mimeType: z.string().min(1).max(128), base64Data: z.string().min(1).max(8_000_000), expiresAt: z.number().int().positive().nullable().optional() })).mutation(async ({ ctx, input }) => ({ document: await uploadApplicationDocument(ctx.user.id, input.trackedApplicationId, input.documentName, input.fileName, input.mimeType, input.base64Data, input.expiresAt) })),
     remove: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await removeApplicationDocument(ctx.user.id, input.documentId); return { removed: true }; }),
     updateExpiry: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), expiresAt: z.number().int().positive().nullable() })).mutation(async ({ ctx, input }) => { await updateApplicationDocumentExpiry(ctx.user.id, input.documentId, input.expiresAt); return { updated: true }; }),
+    preview: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).query(async ({ ctx, input }) => ({ preview: await getApplicationDocumentPreview(ctx.user.id, input.documentId) })),
+    extract: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => ({ extraction: await runApplicationDocumentOcr(ctx.user.id, input.documentId) })),
     notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listDocumentExpiryNotifications(ctx.user.id) })),
     markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markDocumentExpiryNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
   }),

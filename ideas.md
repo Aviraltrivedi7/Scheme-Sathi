@@ -169,6 +169,12 @@ Every uploaded checklist item can include an optional expiry date. An item is ma
 
 Checklist item identity remains English internally so document storage and upload validation stay stable. The user interface pairs each required document with the Hindi entry at the same catalog position, and lets the user toggle between English and Hindi labels. Progress, expiry, re-upload, and alert language follow that view preference.
 
+## Secure Preview & OCR Review Contract
+
+Only the owner of a tracked application can request its document preview. The server generates a short-lived signed storage URL after ownership verification; the raw private storage key never reaches the browser. The dashboard shows images inline and PDFs in an embedded viewer, with a clear close action.
+
+OCR begins only when the user clicks **Extract details**. A server-side vision model receives the short-lived signed URL and returns bounded structured fields: document type, detected name, reference values, dates, key details, concerns, and confidence. OCR output is private to the document owner, is advisory only, and never claims legal validity, identity verification, or scheme eligibility. Failed extraction remains retryable and every result exposes a manual-review prompt.
+
 ## Style Decisions
 
 - Discovery cards equal SaaS-style grid nahi honge; category shelf mein ek emphasized lead category aur quieter supporting entries ka editorial rhythm rahega.
