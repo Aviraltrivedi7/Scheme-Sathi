@@ -78,3 +78,10 @@
 - [x] Add clear loading, failure, retry, and manual-review states for OCR results.
 - [x] Test preview authorization, OCR response validation, persistence, and dashboard interactions.
 - [x] Document OCR privacy boundaries, verification behavior, and operational requirements.
+
+## OCR verification status badges
+
+- [x] Review OCR lifecycle states and current document checklist status rendering.
+- [x] Define accessible color, label, and next-action rules for each OCR state.
+- [x] Add color-coded OCR verification badges to uploaded document checklist items.
+- [x] Verify badge rendering and state guidance through reusable state mapping tests covering success, pending, and manual-review outcomes; document checklist display consumes that mapping.
