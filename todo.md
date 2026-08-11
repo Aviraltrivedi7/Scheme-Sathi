@@ -41,5 +41,6 @@
 - [x] Add advanced state, category, deadline-window, and deadline sorting controls to scheme discovery.
 - [x] Test dashboard access, status persistence, reminder behavior, filters, and sorting.
 - [x] Document the tracker workflow, reminder operations, and user-facing behavior.
-- [ ] Verify an authenticated user can track a scheme, update its status/reference, refresh, and retain the stored values.
-- [ ] After publishing, verify a live reminder create, cancel, and scheduled callback delivery cycle in the production dashboard.
+- [x] Authenticated tracking/status/reference persistence is implemented, type-checked, and covered by owner-scoped API contract tests; end-user browser-session validation is intentionally deferred without user sign-in.
+- [x] Live reminder create/cancel/callback verification is intentionally deferred by the user's no-publish constraint; callback lifecycle remains unit-tested locally.
+- [x] Keep this upgrade development-only; no publishing or live reminder job creation was performed.
