@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getApplicationDocumentPreview, getDocumentReminderSetting, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, runApplicationDocumentOcr, saveDocumentReminderTask, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
+import { approveApplicationDocumentOcr, assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getApplicationDocumentPreview, getDocumentReminderSetting, getOcrPolicy, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, runApplicationDocumentOcr, saveDocumentReminderTask, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateOcrPolicy, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
 import { buildReminderCron } from "./applicationReminder";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { createHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
@@ -58,7 +58,7 @@ export const appRouter = router({
     }),
   }),
   applications: router({
-    list: protectedProcedure.query(async ({ ctx }) => ({ applications: await listTrackedApplications(ctx.user.id) })),
+    list: protectedProcedure.query(async ({ ctx }) => ({ applications: await listTrackedApplications(ctx.user.id), ocrPolicy: await getOcrPolicy() })),
     track: protectedProcedure.input(z.object({ schemeId: z.string().min(1).max(96) })).mutation(async ({ ctx, input }) => ({ application: await trackSchemeApplication(ctx.user.id, input.schemeId) })),
     update: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), status: z.enum(applicationStatuses).optional(), applicationReference: z.string().max(128).nullable().optional(), applicationDeadline: z.number().int().positive().nullable().optional(), deadlineLabel: z.string().max(255).nullable().optional(), notes: z.string().max(4000).nullable().optional() })).mutation(async ({ ctx, input }) => {
       const { trackedApplicationId, ...patch } = input;
@@ -90,6 +90,7 @@ export const appRouter = router({
     updateExpiry: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), expiresAt: z.number().int().positive().nullable() })).mutation(async ({ ctx, input }) => { await updateApplicationDocumentExpiry(ctx.user.id, input.documentId, input.expiresAt); return { updated: true }; }),
     preview: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).query(async ({ ctx, input }) => ({ preview: await getApplicationDocumentPreview(ctx.user.id, input.documentId) })),
     extract: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => ({ extraction: await runApplicationDocumentOcr(ctx.user.id, input.documentId) })),
+    approveOcr: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await approveApplicationDocumentOcr(ctx.user.id, input.documentId); return { approved: true }; }),
     notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listDocumentExpiryNotifications(ctx.user.id) })),
     markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markDocumentExpiryNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
   }),
@@ -110,6 +111,10 @@ export const appRouter = router({
         const job = await createHeartbeatJob({ name: "scheme-sathi-document-expiry-daily", cron: "0 0 3 * * *", path: "/api/scheduled/document-expiry-reminders", payload: {}, description: "Daily scan for expiring or expired Scheme Sathi document uploads" }, sessionToken);
         return { setting: await saveDocumentReminderTask(job.taskUid), alreadyEnabled: false, nextExecutionAt: job.nextExecutionAt ?? null };
       }),
+    }),
+    ocrPolicy: router({
+      get: adminProcedure.query(async () => ({ policy: await getOcrPolicy() })),
+      update: adminProcedure.input(z.object({ minimumConfidence: z.enum(["low", "medium", "high"]) })).mutation(async ({ ctx, input }) => ({ policy: await updateOcrPolicy(ctx.user.id, input.minimumConfidence) })),
     }),
   }),
 });

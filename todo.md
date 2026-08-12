@@ -85,3 +85,18 @@
 - [x] Define accessible color, label, and next-action rules for each OCR state.
 - [x] Add color-coded OCR verification badges to uploaded document checklist items.
 - [x] Verify badge rendering and state guidance through reusable state mapping tests covering success, pending, and manual-review outcomes; document checklist display consumes that mapping.
+
+## Document timeline, OCR policy, and user approval
+
+- [x] Inspect current document events, OCR lifecycle, and administrator configuration conventions.
+- [x] Define timeline event taxonomy, user approval semantics, and configurable OCR manual-review policy.
+- [x] Add document event and OCR policy persistence schema with user/admin ownership safeguards.
+- [x] Implement activity recording, user OCR approval, and threshold-aware OCR status APIs.
+- [x] Implement admin-only OCR confidence policy controls.
+- [x] Apply the configured OCR confidence threshold server-side when returning document review state, with threshold-variation tests.
+- [x] Build document activity timeline and user approval control in the dashboard.
+- [x] Build OCR policy configuration in the admin interface.
+- [x] Test timeline events, threshold behavior, approval persistence, and access controls.
+- [x] Document timeline retention, OCR policy, and user verification behavior.
+- [x] Add test coverage for timeline event construction/order and OCR approval persistence payloads.
+- [x] Save and verify timeline, OCR policy, and user approval handoff documentation.

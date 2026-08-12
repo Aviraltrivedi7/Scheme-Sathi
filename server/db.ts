@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentExpiryNotifications, documentReminderSettings, InsertUser, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -8,6 +8,8 @@ import { safeStorageFileName, validateDocumentUpload } from "./documentUpload";
 import { storageGetSignedUrl, storagePut } from "./storage";
 import { expiryNoticeKind, getDocumentExpiryState } from "./documentExpiry";
 import { extractDocumentDetails } from "./documentOcr";
+import { needsManualOcrReview, type OcrConfidence } from "@shared/ocrPolicy";
+import { buildDocumentActivityInsert, buildOcrApprovalUpdate, toDocumentTimeline, type DocumentActivityKind } from "./documentActivity";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -198,6 +200,7 @@ async function getTrackedApplication(userId: number, trackedApplicationId: numbe
 
 export async function listTrackedApplications(userId: number) {
   const db = await ensureSchemeCatalog();
+  const ocrPolicy = await getOcrPolicy();
   const applications = await db.select().from(trackedApplications).where(eq(trackedApplications.userId, userId));
   return Promise.all(applications.map(async (application) => {
     const scheme = await getSchemeById(application.schemeId);
@@ -209,7 +212,11 @@ export async function listTrackedApplications(userId: number) {
       deadlineLabel: application.deadlineLabel ?? scheme?.deadlineLabel ?? null, notes: application.notes ?? null,
       createdAt: application.createdAt.getTime(), updatedAt: application.updatedAt.getTime(), scheme: scheme ?? null,
       reminders: reminders.map(mapReminder).sort((a, b) => a.remindAt - b.remindAt),
-      documents: documents.map((document) => ({ id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, uploadedAt: document.uploadedAt.getTime() })),
+      documents: await Promise.all(documents.map(async (document) => {
+        const events = await db.select().from(documentActivityEvents).where(eq(documentActivityEvents.applicationDocumentId, document.id)).orderBy(desc(documentActivityEvents.createdAt));
+        const needsManualReview = document.ocrStatus === "failed" || (document.ocrStatus === "complete" && document.ocrExtraction ? needsManualOcrReview(document.ocrExtraction.confidence, document.ocrExtraction.concerns, ocrPolicy.minimumConfidence) : false);
+        return { id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity: toDocumentTimeline(events) };
+      })),
     };
   }));
 }
@@ -286,11 +293,15 @@ export async function uploadApplicationDocument(userId: number, trackedApplicati
   if (!tracked) throw new Error("Tracked application not found");
   const scheme = await getSchemeById(tracked.schemeId);
   if (!scheme || !scheme.documents.includes(documentName)) throw new Error("Document is not part of this scheme checklist");
+  const previous = await db.select({ id: applicationDocuments.id }).from(applicationDocuments).where(and(eq(applicationDocuments.trackedApplicationId, trackedApplicationId), eq(applicationDocuments.documentName, documentName))).limit(1);
   const bytes = validateDocumentUpload(fileName, mimeType, base64Data);
   const uploaded = await storagePut(`applications/${userId}/${trackedApplicationId}/${safeStorageFileName(fileName)}`, bytes, mimeType);
   await db.insert(applicationDocuments).values({ trackedApplicationId, documentName, storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null }).onDuplicateKeyUpdate({ set: { storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null, ocrStatus: "notRequested", ocrExtraction: null, ocrError: null, ocrVerifiedAt: null, updatedAt: new Date() } });
   const rows = await db.select().from(applicationDocuments).where(and(eq(applicationDocuments.trackedApplicationId, trackedApplicationId), eq(applicationDocuments.documentName, documentName))).limit(1);
-  if (rows[0]) await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.applicationDocumentId, rows[0].id));
+  if (rows[0]) {
+    await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.applicationDocumentId, rows[0].id));
+    await recordDocumentActivity(rows[0].id, previous[0] ? "reuploaded" : "uploaded", previous[0] ? "Fresh file uploaded; OCR verification reset." : "Document uploaded to checklist.");
+  }
   return rows[0];
 }
 
@@ -309,6 +320,12 @@ async function getOwnedApplicationDocument(userId: number, documentId: number) {
   return rows[0] ?? null;
 }
 
+async function recordDocumentActivity(documentId: number, kind: DocumentActivityKind, detail?: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.insert(documentActivityEvents).values(buildDocumentActivityInsert(documentId, kind, detail));
+}
+
 export async function getApplicationDocumentPreview(userId: number, documentId: number) {
   const owned = await getOwnedApplicationDocument(userId, documentId);
   if (!owned) throw new Error("Uploaded document not found");
@@ -321,13 +338,16 @@ export async function runApplicationDocumentOcr(userId: number, documentId: numb
   const owned = await getOwnedApplicationDocument(userId, documentId);
   if (!owned) throw new Error("Uploaded document not found");
   await db.update(applicationDocuments).set({ ocrStatus: "processing", ocrError: null, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+  await recordDocumentActivity(documentId, "ocrStarted", "AI extraction started.");
   try {
     const extraction = await extractDocumentDetails({ signedUrl: await storageGetSignedUrl(owned.document.storageKey), mimeType: owned.document.mimeType, checklistName: owned.document.documentName, fileName: owned.document.fileName });
     await db.update(applicationDocuments).set({ ocrStatus: "complete", ocrExtraction: extraction, ocrError: null, ocrVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+    await recordDocumentActivity(documentId, "ocrCompleted", `AI extraction completed with ${extraction.confidence} confidence.`);
     return extraction;
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : "OCR processing could not be completed";
     await db.update(applicationDocuments).set({ ocrStatus: "failed", ocrError: message, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+    await recordDocumentActivity(documentId, "ocrFailed", "AI extraction failed; manual review or retry is required.");
     throw new Error("OCR processing could not be completed. Please retry or review the document manually.");
   }
 }
@@ -338,7 +358,34 @@ export async function updateApplicationDocumentExpiry(userId: number, documentId
   const rows = await db.select({ document: applicationDocuments, application: trackedApplications }).from(applicationDocuments).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(applicationDocuments.id, documentId), eq(trackedApplications.userId, userId))).limit(1);
   if (!rows[0]) throw new Error("Uploaded document not found");
   await db.update(applicationDocuments).set({ expiresAt: expiresAt ? new Date(expiresAt) : null, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+  await recordDocumentActivity(documentId, "expiryUpdated", expiresAt ? "Document expiry date updated." : "Document expiry date cleared.");
   if (expiresAt && expiresAt > Date.now()) await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.applicationDocumentId, documentId));
+}
+
+export async function approveApplicationDocumentOcr(userId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const owned = await getOwnedApplicationDocument(userId, documentId);
+  if (!owned || owned.document.ocrStatus !== "complete") throw new Error("Complete OCR extraction is required before approval");
+  await db.update(applicationDocuments).set(buildOcrApprovalUpdate(new Date())).where(eq(applicationDocuments.id, documentId));
+  await recordDocumentActivity(documentId, "userVerified", "User manually verified extracted details.");
+}
+
+export async function getOcrPolicy() {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(ocrPolicySettings).where(eq(ocrPolicySettings.id, "default")).limit(1);
+  if (rows[0]) return rows[0];
+  await db.insert(ocrPolicySettings).values({ id: "default", minimumConfidence: "medium" });
+  const created = await db.select().from(ocrPolicySettings).where(eq(ocrPolicySettings.id, "default")).limit(1);
+  return created[0]!;
+}
+
+export async function updateOcrPolicy(userId: number, minimumConfidence: OcrConfidence) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.insert(ocrPolicySettings).values({ id: "default", minimumConfidence, updatedByUserId: userId }).onDuplicateKeyUpdate({ set: { minimumConfidence, updatedByUserId: userId, updatedAt: new Date() } });
+  return getOcrPolicy();
 }
 
 export async function listDocumentExpiryNotifications(userId: number) {

@@ -72,3 +72,11 @@ OCR output is private metadata attached to the document record. A document re-up
 ### OCR Status Badges
 
 Each uploaded document now exposes a non-color-only OCR status label alongside an icon. **Green — Details extracted** appears when a complete extraction has no model-reported concern and is not low confidence. **Amber — OCR pending** or **OCR in progress** marks an unrequested or currently running extraction. **Red — Manual review needed** appears for a failed extraction, a low-confidence result, or a result with OCR concerns. The badge text is bilingual with the checklist toggle and points the user to the applicable next action: start/retry extraction or manually compare the preview before submission.
+
+## Document Activity, OCR Policy, and User Approval
+
+Each application document now maintains an immutable activity timeline. Server-side actions append concise events for upload/re-upload, expiry updates, OCR start/completion/failure, and the owner's final manual verification. The timeline is returned only inside the authenticated user's own tracked application data and is deleted with the document record.
+
+An authenticated owner may select **I verified these details** only after OCR has completed. This records a `userVerifiedAt` timestamp and a timeline event, confirming the user reviewed the extracted summary against the private document preview. It does not make a legal, identity, or eligibility claim.
+
+Administrators can set the singleton OCR minimum confidence policy to **low**, **medium**, or **high**. The backend applies this policy while serializing each document's authoritative `needsManualReview` state: any model concern is flagged regardless of confidence, and confidence below the configured threshold also requires manual review. The client consumes the policy for explanatory badges, while the server-provided state prevents downstream features from recalculating review rules independently. Development verification covers timeline event creation/order, approval persistence payload, admin-only policy controls, threshold variation, concern-driven review, and **31 automated tests** plus TypeScript and production build checks.

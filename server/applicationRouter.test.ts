@@ -3,7 +3,7 @@ import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
   listSchemeCatalog: vi.fn(), getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
-  listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(),
+  listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), getOcrPolicy: vi.fn(),
   createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
 
@@ -21,6 +21,14 @@ function authenticatedContext(): TrpcContext {
 }
 
 describe("application tracker router", () => {
+  it("returns the configured OCR policy alongside the authenticated user's applications", async () => {
+    mocks.listTrackedApplications.mockResolvedValue([]);
+    mocks.getOcrPolicy.mockResolvedValue({ id: "default", minimumConfidence: "high" });
+    const result = await appRouter.createCaller(authenticatedContext()).applications.list();
+    expect(mocks.listTrackedApplications).toHaveBeenCalledWith(42);
+    expect(result.ocrPolicy.minimumConfidence).toBe("high");
+  });
+
   it("tracks a scheme for the authenticated owner", async () => {
     mocks.trackSchemeApplication.mockResolvedValue({ id: 9, userId: 42, schemeId: "nsp", status: "considering" });
     const caller = appRouter.createCaller(authenticatedContext());

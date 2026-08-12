@@ -16,4 +16,9 @@ describe("OCR status badges", () => {
     expect(getOcrBadge("complete", { confidence: "low", concerns: [] }, "en").tone).toBe("manual");
     expect(getOcrBadge("complete", { confidence: "medium", concerns: ["Unreadable stamp"] }, "en").tone).toBe("manual");
   });
+
+  it("honors an administrator's configured minimum confidence threshold", () => {
+    expect(getOcrBadge("complete", { confidence: "medium", concerns: [] }, "en", "high").tone).toBe("manual");
+    expect(getOcrBadge("complete", { confidence: "high", concerns: [] }, "en", "high").tone).toBe("success");
+  });
 });

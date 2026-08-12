@@ -119,9 +119,27 @@ export const applicationDocuments = mysqlTable("application_documents", {
   ocrExtraction: json("ocrExtraction").$type<OcrExtraction | null>(),
   ocrError: varchar("ocrError", { length: 500 }),
   ocrVerifiedAt: timestamp("ocrVerifiedAt"),
+  userVerifiedAt: timestamp("userVerifiedAt"),
   uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("application_documents_item_unique").on(table.trackedApplicationId, table.documentName), index("application_documents_application_idx").on(table.trackedApplicationId)]);
+
+/** Immutable user-facing document history, written only by server-side document actions. */
+export const documentActivityEvents = mysqlTable("document_activity_events", {
+  id: int("id").autoincrement().primaryKey(),
+  applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
+  kind: mysqlEnum("kind", ["uploaded", "reuploaded", "expiryUpdated", "ocrStarted", "ocrCompleted", "ocrFailed", "userVerified"]).notNull(),
+  detail: varchar("detail", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [index("document_activity_document_idx").on(table.applicationDocumentId), index("document_activity_created_idx").on(table.createdAt)]);
+
+/** Singleton policy for deciding when a completed OCR result needs a manual user review. */
+export const ocrPolicySettings = mysqlTable("ocr_policy_settings", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  minimumConfidence: mysqlEnum("minimumConfidence", ["low", "medium", "high"]).default("medium").notNull(),
+  updatedByUserId: int("updatedByUserId").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
 
 /** User-visible document follow-up notices, deduplicated per document and state. */
 export const documentExpiryNotifications = mysqlTable("document_expiry_notifications", {

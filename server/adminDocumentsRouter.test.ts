@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
-  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(),
+  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(),
   getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
   listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
@@ -44,5 +44,20 @@ describe("document and admin routers", () => {
     expect(mocks.runApplicationDocumentOcr).toHaveBeenCalledWith(5, 3);
     expect(preview.preview.fileName).toBe("income.pdf");
     expect(extraction.extraction.confidence).toBe("medium");
+  });
+
+  it("records owner approval only after a user confirms OCR details", async () => {
+    mocks.approveApplicationDocumentOcr.mockResolvedValue(undefined);
+    const result = await appRouter.createCaller(context("user")).documents.approveOcr({ documentId: 3 });
+    expect(mocks.approveApplicationDocumentOcr).toHaveBeenCalledWith(5, 3);
+    expect(result).toEqual({ approved: true });
+  });
+
+  it("allows only admins to adjust the OCR manual-review threshold", async () => {
+    mocks.updateOcrPolicy.mockResolvedValue({ id: "default", minimumConfidence: "high" });
+    const result = await appRouter.createCaller(context("admin")).admin.ocrPolicy.update({ minimumConfidence: "high" });
+    expect(mocks.updateOcrPolicy).toHaveBeenCalledWith(5, "high");
+    expect(result.policy).toMatchObject({ minimumConfidence: "high" });
+    await expect(appRouter.createCaller(context("user")).admin.ocrPolicy.get()).rejects.toThrow();
   });
 });
