@@ -62,7 +62,7 @@ describe("document and admin routers", () => {
   });
 
   it("filters owner-scoped history and exports only that selected history as a PDF", async () => {
-    mocks.listDocumentVerificationHistory.mockResolvedValue([{ kind: "userVerified" }]);
+    mocks.listDocumentVerificationHistory.mockResolvedValue([{ documentId: 3, documentName: "Income certificate", fileName: "income.pdf", mimeType: "application/pdf", schemeName: "National Scholarship Portal", kind: "userVerified", detail: null, createdAt: 1790000000000 }]);
     mocks.exportDocumentVerificationHistoryPdf.mockResolvedValue({ fileName: "history.pdf", base64Data: "JVBERg==", eventCount: 1 });
     const caller = appRouter.createCaller(context("user"));
     const filters = { startAt: 1790000000000, endAt: 1795000000000, sort: "oldest" as const };
@@ -71,6 +71,7 @@ describe("document and admin routers", () => {
     expect(mocks.listDocumentVerificationHistory).toHaveBeenCalledWith(5, filters);
     expect(mocks.exportDocumentVerificationHistoryPdf).toHaveBeenCalledWith(5, filters);
     expect(history.events).toHaveLength(1);
+    expect(history.events[0]).toMatchObject({ documentId: 3, mimeType: "application/pdf" });
     expect(pdf.fileName).toBe("history.pdf");
   });
 

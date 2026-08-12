@@ -114,3 +114,15 @@
 - [x] Document export privacy, batch safety limits, and timeline query behavior.
 - [x] Parse generated verification-history PDFs in tests and assert expected document/activity fields are present.
 - [x] Add helper-level date-range and newest/oldest sort tests for timeline filtering behavior.
+
+## Verification History search, hover preview, and OCR progress
+
+- [x] Review current document preview authorization, history event payloads, and batch OCR component state.
+- [x] Define safe hover-preview scope, keyword matching, and per-document batch progress behavior.
+- [x] Extend private history data and preview access only as needed for owner-scoped document hover previews.
+- [x] Add debounced quick search for verification-history document names, schemes, activity labels, and notes.
+- [x] Build keyboard-accessible hover/focus document previews without exposing raw storage keys or persistent URLs.
+- [x] Add batch OCR progress bar, running/completed/failed counts, and detailed per-document feedback.
+- [x] Test preview authorization, search matching, progress calculations, error states, and responsive interactions.
+- [x] Document hover-preview privacy boundaries, search scope, and batch-progress behavior.
+- [x] Add a focused test for the hover-preview loading and unavailable-message states, then record mobile layout verification.

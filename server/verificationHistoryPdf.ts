@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
-export type VerificationHistoryEvent = { documentName: string; fileName: string; schemeName: string; kind: string; detail: string | null; createdAt: number };
+export type VerificationHistoryEvent = { documentId?: number; documentName: string; fileName: string; mimeType?: string; schemeName: string; kind: string; detail: string | null; createdAt: number };
 
 const labels: Record<string, string> = { uploaded: "Document uploaded", reuploaded: "Fresh copy uploaded", expiryUpdated: "Expiry date updated", ocrStarted: "OCR started", ocrCompleted: "OCR details extracted", ocrFailed: "OCR needs attention", userVerified: "User verified details" };
 

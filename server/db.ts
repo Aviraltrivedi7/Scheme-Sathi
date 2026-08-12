@@ -382,7 +382,7 @@ export async function listDocumentVerificationHistory(userId: number, filters?: 
     const at = row.event.createdAt.getTime();
     let schemeName = schemeCache.get(row.application.schemeId);
     if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); }
-    events.push({ documentName: row.document.documentName, fileName: row.document.fileName, schemeName, kind: row.event.kind, detail: row.event.detail ?? null, createdAt: at });
+    events.push({ documentId: row.document.id, documentName: row.document.documentName, fileName: row.document.fileName, mimeType: row.document.mimeType, schemeName, kind: row.event.kind, detail: row.event.detail ?? null, createdAt: at });
   }
   return filterVerificationHistory(events, filters);
 }
