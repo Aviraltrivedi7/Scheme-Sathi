@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
-  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(),
+  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(),
   getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
   listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
@@ -59,5 +59,31 @@ describe("document and admin routers", () => {
     expect(mocks.updateOcrPolicy).toHaveBeenCalledWith(5, "high");
     expect(result.policy).toMatchObject({ minimumConfidence: "high" });
     await expect(appRouter.createCaller(context("user")).admin.ocrPolicy.get()).rejects.toThrow();
+  });
+
+  it("filters owner-scoped history and exports only that selected history as a PDF", async () => {
+    mocks.listDocumentVerificationHistory.mockResolvedValue([{ kind: "userVerified" }]);
+    mocks.exportDocumentVerificationHistoryPdf.mockResolvedValue({ fileName: "history.pdf", base64Data: "JVBERg==", eventCount: 1 });
+    const caller = appRouter.createCaller(context("user"));
+    const filters = { startAt: 1790000000000, endAt: 1795000000000, sort: "oldest" as const };
+    const history = await caller.documents.history(filters);
+    const pdf = await caller.documents.exportHistoryPdf(filters);
+    expect(mocks.listDocumentVerificationHistory).toHaveBeenCalledWith(5, filters);
+    expect(mocks.exportDocumentVerificationHistoryPdf).toHaveBeenCalledWith(5, filters);
+    expect(history.events).toHaveLength(1);
+    expect(pdf.fileName).toBe("history.pdf");
+  });
+
+  it("returns per-document outcomes for batch OCR and batch approval without treating a partial failure as total failure", async () => {
+    const outcomes = [{ documentId: 3, ok: true }, { documentId: 4, ok: false, message: "Manual retry required" }];
+    mocks.runBatchDocumentOcr.mockResolvedValue(outcomes);
+    mocks.approveBatchDocumentOcr.mockResolvedValue(outcomes);
+    const caller = appRouter.createCaller(context("user"));
+    const ocr = await caller.documents.batchExtract({ documentIds: [3, 3, 4] });
+    const approval = await caller.documents.batchApproveOcr({ documentIds: [3, 4] });
+    expect(mocks.runBatchDocumentOcr).toHaveBeenCalledWith(5, [3, 4]);
+    expect(mocks.approveBatchDocumentOcr).toHaveBeenCalledWith(5, [3, 4]);
+    expect(ocr.outcomes.filter((outcome) => !outcome.ok)).toHaveLength(1);
+    expect(approval.outcomes.filter((outcome) => outcome.ok)).toHaveLength(1);
   });
 });

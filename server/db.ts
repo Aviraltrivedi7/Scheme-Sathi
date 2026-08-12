@@ -10,6 +10,7 @@ import { expiryNoticeKind, getDocumentExpiryState } from "./documentExpiry";
 import { extractDocumentDetails } from "./documentOcr";
 import { needsManualOcrReview, type OcrConfidence } from "@shared/ocrPolicy";
 import { buildDocumentActivityInsert, buildOcrApprovalUpdate, toDocumentTimeline, type DocumentActivityKind } from "./documentActivity";
+import { createVerificationHistoryPdf, filterVerificationHistory, type VerificationHistoryEvent } from "./verificationHistoryPdf";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -369,6 +370,44 @@ export async function approveApplicationDocumentOcr(userId: number, documentId: 
   if (!owned || owned.document.ocrStatus !== "complete") throw new Error("Complete OCR extraction is required before approval");
   await db.update(applicationDocuments).set(buildOcrApprovalUpdate(new Date())).where(eq(applicationDocuments.id, documentId));
   await recordDocumentActivity(documentId, "userVerified", "User manually verified extracted details.");
+}
+
+export async function listDocumentVerificationHistory(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest" }) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ event: documentActivityEvents, document: applicationDocuments, application: trackedApplications }).from(documentActivityEvents).innerJoin(applicationDocuments, eq(documentActivityEvents.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(eq(trackedApplications.userId, userId));
+  const schemeCache = new Map<string, string>();
+  const events: VerificationHistoryEvent[] = [];
+  for (const row of rows) {
+    const at = row.event.createdAt.getTime();
+    let schemeName = schemeCache.get(row.application.schemeId);
+    if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); }
+    events.push({ documentName: row.document.documentName, fileName: row.document.fileName, schemeName, kind: row.event.kind, detail: row.event.detail ?? null, createdAt: at });
+  }
+  return filterVerificationHistory(events, filters);
+}
+
+export async function exportDocumentVerificationHistoryPdf(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest" }) {
+  const events = (await listDocumentVerificationHistory(userId, filters)).slice(0, 200);
+  return { fileName: "scheme-sathi-verification-history.pdf", base64Data: Buffer.from(await createVerificationHistoryPdf(events)).toString("base64"), eventCount: events.length };
+}
+
+export async function runBatchDocumentOcr(userId: number, documentIds: number[]) {
+  const outcomes: { documentId: number; ok: boolean; message?: string }[] = [];
+  for (const documentId of documentIds) {
+    try { await runApplicationDocumentOcr(userId, documentId); outcomes.push({ documentId, ok: true }); }
+    catch (error) { outcomes.push({ documentId, ok: false, message: error instanceof Error ? error.message : "OCR processing failed" }); }
+  }
+  return outcomes;
+}
+
+export async function approveBatchDocumentOcr(userId: number, documentIds: number[]) {
+  const outcomes: { documentId: number; ok: boolean; message?: string }[] = [];
+  for (const documentId of documentIds) {
+    try { await approveApplicationDocumentOcr(userId, documentId); outcomes.push({ documentId, ok: true }); }
+    catch (error) { outcomes.push({ documentId, ok: false, message: error instanceof Error ? error.message : "Approval failed" }); }
+  }
+  return outcomes;
 }
 
 export async function getOcrPolicy() {

@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { approveApplicationDocumentOcr, assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, getApplicationDocumentPreview, getDocumentReminderSetting, getOcrPolicy, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, runApplicationDocumentOcr, saveDocumentReminderTask, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateOcrPolicy, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
+import { approveApplicationDocumentOcr, approveBatchDocumentOcr, assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, exportDocumentVerificationHistoryPdf, getApplicationDocumentPreview, getDocumentReminderSetting, getOcrPolicy, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listDocumentVerificationHistory, listSavedSchemeIds, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, runApplicationDocumentOcr, runBatchDocumentOcr, saveDocumentReminderTask, saveUserSchemeProfile, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateOcrPolicy, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
 import { buildReminderCron } from "./applicationReminder";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { createHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
@@ -21,6 +21,7 @@ const profileInput = z.object({
   isFarmer: z.boolean(),
   isDisabled: z.boolean(),
 });
+const timelineFilters = z.object({ startAt: z.number().int().positive().optional(), endAt: z.number().int().positive().optional(), sort: z.enum(["newest", "oldest"]).optional() }).refine((input) => !input.startAt || !input.endAt || input.startAt <= input.endAt, { message: "Start date must precede end date." });
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -91,6 +92,10 @@ export const appRouter = router({
     preview: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).query(async ({ ctx, input }) => ({ preview: await getApplicationDocumentPreview(ctx.user.id, input.documentId) })),
     extract: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => ({ extraction: await runApplicationDocumentOcr(ctx.user.id, input.documentId) })),
     approveOcr: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await approveApplicationDocumentOcr(ctx.user.id, input.documentId); return { approved: true }; }),
+    history: protectedProcedure.input(timelineFilters.optional()).query(async ({ ctx, input }) => ({ events: await listDocumentVerificationHistory(ctx.user.id, input) })),
+    exportHistoryPdf: protectedProcedure.input(timelineFilters.optional()).mutation(async ({ ctx, input }) => exportDocumentVerificationHistoryPdf(ctx.user.id, input)),
+    batchExtract: protectedProcedure.input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(5) })).mutation(async ({ ctx, input }) => ({ outcomes: await runBatchDocumentOcr(ctx.user.id, Array.from(new Set(input.documentIds))) })),
+    batchApproveOcr: protectedProcedure.input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(10) })).mutation(async ({ ctx, input }) => ({ outcomes: await approveBatchDocumentOcr(ctx.user.id, Array.from(new Set(input.documentIds))) })),
     notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listDocumentExpiryNotifications(ctx.user.id) })),
     markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markDocumentExpiryNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
   }),

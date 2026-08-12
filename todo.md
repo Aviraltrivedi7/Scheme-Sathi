@@ -100,3 +100,17 @@
 - [x] Document timeline retention, OCR policy, and user verification behavior.
 - [x] Add test coverage for timeline event construction/order and OCR approval persistence payloads.
 - [x] Save and verify timeline, OCR policy, and user approval handoff documentation.
+
+## Timeline export, filtering, and batch OCR review
+
+- [x] Inspect timeline/document data, PDF export options, batch OCR controls, and current ownership boundaries.
+- [x] Define verification-history PDF content, date/sort filters, batch review semantics, and safe limits.
+- [x] Implement owner-scoped verification-history PDF export and download endpoint.
+- [x] Implement timeline date-range and sorting filters in protected queries.
+- [x] Implement batch OCR extraction and batch user approval APIs with per-document outcomes.
+- [x] Build timeline filter/sort controls and PDF export action in the dashboard.
+- [x] Build multi-document selection, batch review, and batch approval controls.
+- [x] Test export access, PDF content, filter behavior, batch partial failures, and authorization.
+- [x] Document export privacy, batch safety limits, and timeline query behavior.
+- [x] Parse generated verification-history PDFs in tests and assert expected document/activity fields are present.
+- [x] Add helper-level date-range and newest/oldest sort tests for timeline filtering behavior.
