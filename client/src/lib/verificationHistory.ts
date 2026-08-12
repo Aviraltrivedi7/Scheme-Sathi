@@ -25,3 +25,7 @@ export function filterVerificationHistoryByQuery<T extends VerificationHistorySe
 export function historyPreviewFeedback(state: "loading" | "unavailable") {
   return state === "loading" ? "Loading secure preview…" : "Preview unavailable. Try the full preview from your checklist.";
 }
+
+export function thumbnailFeedback(state: "loading" | "unavailable") {
+  return state === "loading" ? "Preparing first page…" : "Thumbnail unavailable";
+}

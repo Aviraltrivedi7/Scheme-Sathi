@@ -126,3 +126,14 @@
 - [x] Test preview authorization, search matching, progress calculations, error states, and responsive interactions.
 - [x] Document hover-preview privacy boundaries, search scope, and batch-progress behavior.
 - [x] Add a focused test for the hover-preview loading and unavailable-message states, then record mobile layout verification.
+
+## Saved history filters, thumbnails, and OCR queue controls
+
+- [x] Review current history filters, document preview contract, rendering options, and batch OCR queue state.
+- [x] Define owner-scoped saved-filter persistence, thumbnail privacy/fallback behavior, and queue cancellation/retry semantics.
+- [x] Add protected persistence and typed APIs for named verification-history filter presets.
+- [x] Implement safe document thumbnail generation or fallback access without exposing storage keys or durable URLs.
+- [x] Add saved-filter management and thumbnail-first history glance controls to the dashboard.
+- [x] Add batch OCR queue cancellation, queued-document retry, and failed-document retry controls with clear status messaging.
+- [x] Test saved-filter ownership, thumbnail fallback/access boundaries, queue cancellation, retries, and responsive states.
+- [x] Document saved-filter privacy, thumbnail behavior, and OCR queue-control limitations.

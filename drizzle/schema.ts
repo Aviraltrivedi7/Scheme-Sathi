@@ -133,6 +133,19 @@ export const documentActivityEvents = mysqlTable("document_activity_events", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => [index("document_activity_document_idx").on(table.applicationDocumentId), index("document_activity_created_idx").on(table.createdAt)]);
 
+/** Named private presets for a user's Verification History date, order, and keyword search criteria. */
+export const savedVerificationHistoryFilters = mysqlTable("saved_verification_history_filters", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 80 }).notNull(),
+  query: varchar("query", { length: 120 }).notNull().default(""),
+  startAt: timestamp("startAt"),
+  endAt: timestamp("endAt"),
+  sort: mysqlEnum("sort", ["newest", "oldest"]).default("newest").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [uniqueIndex("saved_history_filters_user_name_unique").on(table.userId, table.name), index("saved_history_filters_user_updated_idx").on(table.userId, table.updatedAt)]);
+
 /** Singleton policy for deciding when a completed OCR result needs a manual user review. */
 export const ocrPolicySettings = mysqlTable("ocr_policy_settings", {
   id: varchar("id", { length: 64 }).primaryKey(),

@@ -43,6 +43,13 @@
       "when": 1786534169626,
       "tag": "0005_pink_marrow",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1786540662538,
+      "tag": "0006_sticky_dracula",
+      "breakpoints": true
     }
   ]
 }

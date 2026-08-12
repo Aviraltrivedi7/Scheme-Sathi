@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -11,6 +11,7 @@ import { extractDocumentDetails } from "./documentOcr";
 import { needsManualOcrReview, type OcrConfidence } from "@shared/ocrPolicy";
 import { buildDocumentActivityInsert, buildOcrApprovalUpdate, toDocumentTimeline, type DocumentActivityKind } from "./documentActivity";
 import { createVerificationHistoryPdf, filterVerificationHistory, type VerificationHistoryEvent } from "./verificationHistoryPdf";
+import type { SavedVerificationHistoryFilter, VerificationHistoryFilterPresetInput } from "@shared/verificationHistoryFilters";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -390,6 +391,32 @@ export async function listDocumentVerificationHistory(userId: number, filters?: 
 export async function exportDocumentVerificationHistoryPdf(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest" }) {
   const events = (await listDocumentVerificationHistory(userId, filters)).slice(0, 200);
   return { fileName: "scheme-sathi-verification-history.pdf", base64Data: Buffer.from(await createVerificationHistoryPdf(events)).toString("base64"), eventCount: events.length };
+}
+
+function mapSavedVerificationHistoryFilter(row: typeof savedVerificationHistoryFilters.$inferSelect): SavedVerificationHistoryFilter {
+  return { id: row.id, name: row.name, query: row.query, startAt: row.startAt?.getTime(), endAt: row.endAt?.getTime(), sort: row.sort, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() };
+}
+
+export async function listSavedVerificationHistoryFilters(userId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(savedVerificationHistoryFilters).where(eq(savedVerificationHistoryFilters.userId, userId)).orderBy(desc(savedVerificationHistoryFilters.updatedAt));
+  return rows.map(mapSavedVerificationHistoryFilter);
+}
+
+export async function saveVerificationHistoryFilter(userId: number, input: VerificationHistoryFilterPresetInput) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const values = { userId, name: input.name, query: input.query, startAt: input.startAt ? new Date(input.startAt) : null, endAt: input.endAt ? new Date(input.endAt) : null, sort: input.sort };
+  await db.insert(savedVerificationHistoryFilters).values(values).onDuplicateKeyUpdate({ set: { query: values.query, startAt: values.startAt, endAt: values.endAt, sort: values.sort, updatedAt: new Date() } });
+  const rows = await db.select().from(savedVerificationHistoryFilters).where(and(eq(savedVerificationHistoryFilters.userId, userId), eq(savedVerificationHistoryFilters.name, input.name))).limit(1);
+  return mapSavedVerificationHistoryFilter(rows[0]!);
+}
+
+export async function removeSavedVerificationHistoryFilter(userId: number, filterId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.delete(savedVerificationHistoryFilters).where(and(eq(savedVerificationHistoryFilters.userId, userId), eq(savedVerificationHistoryFilters.id, filterId)));
 }
 
 export async function runBatchDocumentOcr(userId: number, documentIds: number[]) {

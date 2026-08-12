@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
-  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(),
+  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(),
   getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
   listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
@@ -86,5 +86,22 @@ describe("document and admin routers", () => {
     expect(mocks.approveBatchDocumentOcr).toHaveBeenCalledWith(5, [3, 4]);
     expect(ocr.outcomes.filter((outcome) => !outcome.ok)).toHaveLength(1);
     expect(approval.outcomes.filter((outcome) => outcome.ok)).toHaveLength(1);
+  });
+
+  it("keeps saved verification-history filters private to the authenticated owner", async () => {
+    const filter = { id: 12, name: "Scholarship documents", query: "income", startAt: 1790000000000, endAt: undefined, sort: "newest" as const, createdAt: 1790000000000, updatedAt: 1790000000000 };
+    mocks.listSavedVerificationHistoryFilters.mockResolvedValue([filter]);
+    mocks.saveVerificationHistoryFilter.mockResolvedValue(filter);
+    mocks.removeSavedVerificationHistoryFilter.mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(context("user"));
+    const listed = await caller.documents.historyFilters.list();
+    const saved = await caller.documents.historyFilters.save({ name: "Scholarship documents", query: "income", startAt: 1790000000000, sort: "newest" });
+    const removed = await caller.documents.historyFilters.remove({ filterId: 12 });
+    expect(mocks.listSavedVerificationHistoryFilters).toHaveBeenCalledWith(5);
+    expect(mocks.saveVerificationHistoryFilter).toHaveBeenCalledWith(5, { name: "Scholarship documents", query: "income", startAt: 1790000000000, sort: "newest" });
+    expect(mocks.removeSavedVerificationHistoryFilter).toHaveBeenCalledWith(5, 12);
+    expect(listed.filters).toEqual([filter]);
+    expect(saved.filter).toEqual(filter);
+    expect(removed).toEqual({ removed: true });
   });
 });

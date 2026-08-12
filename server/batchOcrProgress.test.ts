@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { batchOcrPercent, batchOcrSummary, createBatchOcrProgress, finishBatchOcrItem, startBatchOcrItem } from "../client/src/lib/batchOcrProgress";
+import { batchOcrPercent, batchOcrSummary, cancelQueuedBatchOcrItems, createBatchOcrProgress, finishBatchOcrItem, startBatchOcrItem } from "../client/src/lib/batchOcrProgress";
 
 describe("batch OCR progress", () => {
   it("tracks queued, active, complete, and failed document outcomes with clear totals", () => {
@@ -15,5 +15,17 @@ describe("batch OCR progress", () => {
     expect(progress).toMatchObject({ completed: 2, succeeded: 1, failed: 1, runningDocumentId: null });
     expect(progress.items[8]).toMatchObject({ state: "failed", message: "Image was unreadable." });
     expect(batchOcrSummary(progress)).toBe("1 of 2 documents extracted; 1 need retry or manual review.");
+  });
+
+  it("cancels only queued files while preserving the completed result and retryable cancelled state", () => {
+    const items = [{ documentId: 7, documentName: "Income certificate" }, { documentId: 8, documentName: "Identity proof" }, { documentId: 9, documentName: "Address proof" }];
+    let progress = createBatchOcrProgress(items);
+    progress = startBatchOcrItem(progress, items[0]);
+    progress = finishBatchOcrItem(progress, 7, true);
+    progress = cancelQueuedBatchOcrItems(progress);
+    expect(progress).toMatchObject({ completed: 3, succeeded: 1, failed: 0, cancelled: 2, runningDocumentId: null });
+    expect(progress.items[8]).toMatchObject({ state: "cancelled", message: "Cancelled before OCR started." });
+    expect(batchOcrPercent(progress)).toBe(100);
+    expect(batchOcrSummary(progress)).toBe("1 of 3 documents extracted; 2 cancelled before processing.");
   });
 });
