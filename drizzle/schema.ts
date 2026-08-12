@@ -142,6 +142,7 @@ export const savedVerificationHistoryFilters = mysqlTable("saved_verification_hi
   startAt: timestamp("startAt"),
   endAt: timestamp("endAt"),
   sort: mysqlEnum("sort", ["newest", "oldest"]).default("newest").notNull(),
+  isDefault: boolean("isDefault").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("saved_history_filters_user_name_unique").on(table.userId, table.name), index("saved_history_filters_user_updated_idx").on(table.userId, table.updatedAt)]);

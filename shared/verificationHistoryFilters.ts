@@ -10,6 +10,7 @@ export type VerificationHistoryFilterPresetInput = {
 
 export type SavedVerificationHistoryFilter = VerificationHistoryFilterPresetInput & {
   id: number;
+  isDefault: boolean;
   createdAt: number;
   updatedAt: number;
 };

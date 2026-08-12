@@ -7,12 +7,13 @@ type ThumbnailState = { status: "loading" | "ready" | "unavailable"; src?: strin
 type PdfLoadingTask = { promise: Promise<{ getPage(pageNumber: number): Promise<{ getViewport(options: { scale: number }): { width: number; height: number }; render(options: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): { promise: Promise<void> } }>; destroy(): Promise<void> }>; destroy?: () => Promise<void> | void };
 const pdfThumbnailCache = new Map<string, string>();
 
-export function DocumentThumbnail({ url, mimeType, fileName, className = "" }: { url: string; mimeType: string; fileName: string; className?: string }) {
+export function DocumentThumbnail({ url, mimeType, fileName, className = "", scale = 0.34 }: { url: string; mimeType: string; fileName: string; className?: string; scale?: number }) {
   const [state, setState] = useState<ThumbnailState>(() => mimeType === "application/pdf" ? { status: "loading" } : { status: "ready", src: url });
 
   useEffect(() => {
     if (mimeType !== "application/pdf") { setState({ status: "ready", src: url }); return; }
-    const cached = pdfThumbnailCache.get(url);
+    const cacheKey = `${url}:${scale}`;
+    const cached = pdfThumbnailCache.get(cacheKey);
     if (cached) { setState({ status: "ready", src: cached }); return; }
     let active = true;
     let loadingTask: PdfLoadingTask | undefined;
@@ -25,14 +26,14 @@ export function DocumentThumbnail({ url, mimeType, fileName, className = "" }: {
         loadingTask = task;
         const pdf = await task.promise;
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 0.34 });
+        const viewport = page.getViewport({ scale });
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.floor(viewport.width)); canvas.height = Math.max(1, Math.floor(viewport.height));
         const context = canvas.getContext("2d");
         if (!context) throw new Error("Canvas preview is unavailable");
         await page.render({ canvasContext: context, viewport }).promise;
         const src = canvas.toDataURL("image/jpeg", 0.78);
-        pdfThumbnailCache.set(url, src);
+        pdfThumbnailCache.set(cacheKey, src);
         if (active) setState({ status: "ready", src });
         await pdf.destroy();
       } catch {
@@ -40,7 +41,7 @@ export function DocumentThumbnail({ url, mimeType, fileName, className = "" }: {
       }
     })();
     return () => { active = false; void loadingTask?.destroy?.(); };
-  }, [mimeType, url]);
+  }, [mimeType, scale, url]);
 
   if (state.status === "loading") return <div className={`document-thumbnail loading ${className}`}><Loader2 className="spin" size={16} /><span>{thumbnailFeedback("loading")}</span></div>;
   if (state.status === "unavailable") return <div className={`document-thumbnail unavailable ${className}`}><ImageOff size={17} /><span>{thumbnailFeedback("unavailable")}</span></div>;

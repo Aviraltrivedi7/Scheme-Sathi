@@ -137,3 +137,13 @@
 - [x] Add batch OCR queue cancellation, queued-document retry, and failed-document retry controls with clear status messaging.
 - [x] Test saved-filter ownership, thumbnail fallback/access boundaries, queue cancellation, retries, and responsive states.
 - [x] Document saved-filter privacy, thumbnail behavior, and OCR queue-control limitations.
+
+## Default history view, expanded thumbnail, and OCR priority ordering
+
+- [x] Review saved-filter database/API contract, current thumbnail hover card, and OCR queue processing order.
+- [x] Define owner-scoped default filter behavior, signed enlarged-preview modal metadata, and queue reordering limits.
+- [x] Add protected default-filter persistence and typed API support for saved history filters.
+- [x] Add click-to-expand thumbnail modal with larger signed preview and safe document metadata.
+- [x] Add accessible drag-and-drop OCR queue priority ordering before extraction begins.
+- [x] Test default-filter restoration, ownership, enlarged-preview fallback, priority ordering, and responsive controls.
+- [x] Document default view behavior, modal privacy boundary, and OCR queue priority limitations.

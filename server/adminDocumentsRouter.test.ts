@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
-  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(),
+  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(), setDefaultVerificationHistoryFilter: vi.fn(),
   getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
   listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
@@ -89,7 +89,7 @@ describe("document and admin routers", () => {
   });
 
   it("keeps saved verification-history filters private to the authenticated owner", async () => {
-    const filter = { id: 12, name: "Scholarship documents", query: "income", startAt: 1790000000000, endAt: undefined, sort: "newest" as const, createdAt: 1790000000000, updatedAt: 1790000000000 };
+    const filter = { id: 12, name: "Scholarship documents", query: "income", startAt: 1790000000000, endAt: undefined, sort: "newest" as const, isDefault: false, createdAt: 1790000000000, updatedAt: 1790000000000 };
     mocks.listSavedVerificationHistoryFilters.mockResolvedValue([filter]);
     mocks.saveVerificationHistoryFilter.mockResolvedValue(filter);
     mocks.removeSavedVerificationHistoryFilter.mockResolvedValue(undefined);
@@ -103,5 +103,17 @@ describe("document and admin routers", () => {
     expect(listed.filters).toEqual([filter]);
     expect(saved.filter).toEqual(filter);
     expect(removed).toEqual({ removed: true });
+  });
+
+  it("sets or clears the default history view only for the authenticated owner", async () => {
+    const defaulted = [{ id: 12, name: "Scholarship documents", query: "income", startAt: 1790000000000, endAt: undefined, sort: "newest" as const, isDefault: true, createdAt: 1790000000000, updatedAt: 1790000000000 }];
+    mocks.setDefaultVerificationHistoryFilter.mockResolvedValue(defaulted);
+    const caller = appRouter.createCaller(context("user"));
+    const set = await caller.documents.historyFilters.setDefault({ filterId: 12 });
+    const cleared = await caller.documents.historyFilters.setDefault({ filterId: null });
+    expect(mocks.setDefaultVerificationHistoryFilter).toHaveBeenNthCalledWith(1, 5, 12);
+    expect(mocks.setDefaultVerificationHistoryFilter).toHaveBeenNthCalledWith(2, 5, null);
+    expect(set.filters).toEqual(defaulted);
+    expect(cleared.filters).toEqual(defaulted);
   });
 });

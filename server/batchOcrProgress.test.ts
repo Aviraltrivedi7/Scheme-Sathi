@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { batchOcrPercent, batchOcrSummary, cancelQueuedBatchOcrItems, createBatchOcrProgress, finishBatchOcrItem, startBatchOcrItem } from "../client/src/lib/batchOcrProgress";
+import { batchOcrPercent, batchOcrSummary, cancelQueuedBatchOcrItems, createBatchOcrProgress, finishBatchOcrItem, reorderBatchOcrQueue, startBatchOcrItem } from "../client/src/lib/batchOcrProgress";
 
 describe("batch OCR progress", () => {
   it("tracks queued, active, complete, and failed document outcomes with clear totals", () => {
@@ -27,5 +27,12 @@ describe("batch OCR progress", () => {
     expect(progress.items[8]).toMatchObject({ state: "cancelled", message: "Cancelled before OCR started." });
     expect(batchOcrPercent(progress)).toBe(100);
     expect(batchOcrSummary(progress)).toBe("1 of 3 documents extracted; 2 cancelled before processing.");
+  });
+
+  it("moves a selected document ahead of another without changing unrelated queue entries", () => {
+    expect(reorderBatchOcrQueue([7, 8, 9], 9, 7)).toEqual([9, 7, 8]);
+    expect(reorderBatchOcrQueue([7, 8, 9], 7, 9)).toEqual([8, 7, 9]);
+    expect(reorderBatchOcrQueue([7, 8, 9], 7, 7)).toEqual([7, 8, 9]);
+    expect(reorderBatchOcrQueue([7, 8, 9], 10, 7)).toEqual([7, 8, 9]);
   });
 });

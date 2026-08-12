@@ -50,6 +50,13 @@
       "when": 1786540662538,
       "tag": "0006_sticky_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1786541604828,
+      "tag": "0007_wandering_jazinda",
+      "breakpoints": true
     }
   ]
 }

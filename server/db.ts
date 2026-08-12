@@ -394,7 +394,7 @@ export async function exportDocumentVerificationHistoryPdf(userId: number, filte
 }
 
 function mapSavedVerificationHistoryFilter(row: typeof savedVerificationHistoryFilters.$inferSelect): SavedVerificationHistoryFilter {
-  return { id: row.id, name: row.name, query: row.query, startAt: row.startAt?.getTime(), endAt: row.endAt?.getTime(), sort: row.sort, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() };
+  return { id: row.id, name: row.name, query: row.query, startAt: row.startAt?.getTime(), endAt: row.endAt?.getTime(), sort: row.sort, isDefault: row.isDefault, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() };
 }
 
 export async function listSavedVerificationHistoryFilters(userId: number) {
@@ -417,6 +417,18 @@ export async function removeSavedVerificationHistoryFilter(userId: number, filte
   const db = await getDb();
   if (!db) databaseUnavailable();
   await db.delete(savedVerificationHistoryFilters).where(and(eq(savedVerificationHistoryFilters.userId, userId), eq(savedVerificationHistoryFilters.id, filterId)));
+}
+
+export async function setDefaultVerificationHistoryFilter(userId: number, filterId: number | null) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  if (filterId !== null) {
+    const owned = await db.select({ id: savedVerificationHistoryFilters.id }).from(savedVerificationHistoryFilters).where(and(eq(savedVerificationHistoryFilters.userId, userId), eq(savedVerificationHistoryFilters.id, filterId))).limit(1);
+    if (!owned[0]) throw new Error("Saved history filter not found");
+  }
+  await db.update(savedVerificationHistoryFilters).set({ isDefault: false, updatedAt: new Date() }).where(eq(savedVerificationHistoryFilters.userId, userId));
+  if (filterId !== null) await db.update(savedVerificationHistoryFilters).set({ isDefault: true, updatedAt: new Date() }).where(and(eq(savedVerificationHistoryFilters.userId, userId), eq(savedVerificationHistoryFilters.id, filterId)));
+  return listSavedVerificationHistoryFilters(userId);
 }
 
 export async function runBatchDocumentOcr(userId: number, documentIds: number[]) {

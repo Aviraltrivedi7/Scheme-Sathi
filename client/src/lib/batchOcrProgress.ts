@@ -20,6 +20,13 @@ export function cancelQueuedBatchOcrItems(progress: BatchOcrProgress): BatchOcrP
   return { ...progress, completed: progress.completed + queuedIds.length, cancelled: progress.cancelled + queuedIds.length, items: { ...progress.items, ...Object.fromEntries(queuedIds.map((documentId) => [documentId, { state: "cancelled", message: "Cancelled before OCR started." }])) } };
 }
 
+export function reorderBatchOcrQueue(documentIds: number[], movingId: number, targetId: number) {
+  if (movingId === targetId || !documentIds.includes(movingId) || !documentIds.includes(targetId)) return documentIds;
+  const withoutMoving = documentIds.filter((documentId) => documentId !== movingId);
+  const targetIndex = withoutMoving.indexOf(targetId);
+  return [...withoutMoving.slice(0, targetIndex), movingId, ...withoutMoving.slice(targetIndex)];
+}
+
 export function batchOcrPercent(progress: BatchOcrProgress) { return progress.total ? Math.round((progress.completed / progress.total) * 100) : 0; }
 
 export function batchOcrSummary(progress: BatchOcrProgress) {

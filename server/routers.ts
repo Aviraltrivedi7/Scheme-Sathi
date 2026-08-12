@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { approveApplicationDocumentOcr, approveBatchDocumentOcr, assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, exportDocumentVerificationHistoryPdf, getApplicationDocumentPreview, getDocumentReminderSetting, getOcrPolicy, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listDocumentVerificationHistory, listSavedSchemeIds, listSavedVerificationHistoryFilters, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, removeSavedVerificationHistoryFilter, runApplicationDocumentOcr, runBatchDocumentOcr, saveDocumentReminderTask, saveUserSchemeProfile, saveVerificationHistoryFilter, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateOcrPolicy, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
+import { approveApplicationDocumentOcr, approveBatchDocumentOcr, assignReminderHeartbeat, cancelApplicationReminder, createApplicationReminder, exportDocumentVerificationHistoryPdf, getApplicationDocumentPreview, getDocumentReminderSetting, getOcrPolicy, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listDocumentVerificationHistory, listSavedSchemeIds, listSavedVerificationHistoryFilters, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, removeApplicationDocument, removeSavedVerificationHistoryFilter, runApplicationDocumentOcr, runBatchDocumentOcr, saveDocumentReminderTask, saveUserSchemeProfile, saveVerificationHistoryFilter, setDefaultVerificationHistoryFilter, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateOcrPolicy, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
 import { buildReminderCron } from "./applicationReminder";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { createHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
@@ -101,6 +101,7 @@ export const appRouter = router({
       list: protectedProcedure.query(async ({ ctx }) => ({ filters: await listSavedVerificationHistoryFilters(ctx.user.id) })),
       save: protectedProcedure.input(savedTimelineFilterInput).mutation(async ({ ctx, input }) => ({ filter: await saveVerificationHistoryFilter(ctx.user.id, input) })),
       remove: protectedProcedure.input(z.object({ filterId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await removeSavedVerificationHistoryFilter(ctx.user.id, input.filterId); return { removed: true }; }),
+      setDefault: protectedProcedure.input(z.object({ filterId: z.number().int().positive().nullable() })).mutation(async ({ ctx, input }) => ({ filters: await setDefaultVerificationHistoryFilter(ctx.user.id, input.filterId) })),
     }),
     notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listDocumentExpiryNotifications(ctx.user.id) })),
     markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markDocumentExpiryNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
