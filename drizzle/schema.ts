@@ -142,20 +142,37 @@ export const documentReviewAssignments = mysqlTable("document_review_assignments
   reviewerUserId: int("reviewerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
   status: mysqlEnum("status", ["assigned", "inReview", "completed", "revoked"]).default("assigned").notNull(),
   assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+  dueAt: timestamp("dueAt"),
+  reminderAt: timestamp("reminderAt"),
+  reminderStatus: mysqlEnum("reminderStatus", ["none", "scheduled", "delivered", "cancelled", "failed"]).default("none").notNull(),
+  reminderScheduleCronTaskUid: varchar("reminderScheduleCronTaskUid", { length: 65 }).unique(),
+  reminderDeliveredAt: timestamp("reminderDeliveredAt"),
   completedAt: timestamp("completedAt"),
   revokedAt: timestamp("revokedAt"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("document_review_assignment_unique").on(table.applicationDocumentId, table.reviewerUserId), index("document_review_assignment_owner_status_idx").on(table.ownerUserId, table.status), index("document_review_assignment_reviewer_status_idx").on(table.reviewerUserId, table.status)]);
+
+/** Recipient-owned controls for reviewer assignment and due-date reminder alerts. */
+export const documentReviewerAlertPreferences = mysqlTable("document_reviewer_alert_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  assignmentAlertsEnabled: boolean("assignmentAlertsEnabled").default(true).notNull(),
+  dueDateRemindersEnabled: boolean("dueDateRemindersEnabled").default(true).notNull(),
+  defaultReminderLeadHours: int("defaultReminderLeadHours").default(24).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [uniqueIndex("review_alert_preferences_user_unique").on(table.userId)]);
 
 /** In-app alert created or refreshed whenever an owner assigns a reviewer to a document. */
 export const documentReviewAssignmentNotifications = mysqlTable("document_review_assignment_notifications", {
   id: int("id").autoincrement().primaryKey(),
   assignmentId: int("assignmentId").notNull().references(() => documentReviewAssignments.id, { onDelete: "cascade" }),
   recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: mysqlEnum("kind", ["assignment", "dueDateReminder"]).default("assignment").notNull(),
   status: mysqlEnum("status", ["unread", "read"]).default("unread").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   readAt: timestamp("readAt"),
-}, (table) => [uniqueIndex("review_assignment_notice_assignment_unique").on(table.assignmentId), index("review_assignment_notice_recipient_status_idx").on(table.recipientUserId, table.status)]);
+}, (table) => [uniqueIndex("review_assignment_notice_assignment_kind_unique").on(table.assignmentId, table.kind), index("review_assignment_notice_recipient_status_idx").on(table.recipientUserId, table.status)]);
 
 /** Immutable accountability record for reviewer assignment and review-status changes; never stores PDF note text. */
 export const documentReviewAuditEvents = mysqlTable("document_review_audit_events", {
@@ -163,7 +180,7 @@ export const documentReviewAuditEvents = mysqlTable("document_review_audit_event
   applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
   assignmentId: int("assignmentId").references(() => documentReviewAssignments.id, { onDelete: "set null" }),
   actorUserId: int("actorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  kind: mysqlEnum("kind", ["assigned", "started", "completed", "revoked", "noteCreated", "noteUpdated", "noteDeleted"]).notNull(),
+  kind: mysqlEnum("kind", ["assigned", "started", "completed", "revoked", "noteCreated", "noteUpdated", "noteDeleted", "dueReminderSent"]).notNull(),
   detail: varchar("detail", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => [index("document_review_audit_document_created_idx").on(table.applicationDocumentId, table.createdAt), index("document_review_audit_assignment_idx").on(table.assignmentId)]);

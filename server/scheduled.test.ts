@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getDocumentSetting: vi.fn(),
   scanDocuments: vi.fn(),
   markDocumentScan: vi.fn(),
+  deliverReviewDueReminder: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
@@ -16,11 +17,12 @@ vi.mock("./db", () => ({
   getDocumentReminderSettingByTaskUid: mocks.getDocumentSetting,
   scanDocumentExpiryNotifications: mocks.scanDocuments,
   markDocumentReminderScanRun: mocks.markDocumentScan,
+  deliverDocumentReviewDueReminder: mocks.deliverReviewDueReminder,
 }));
 vi.mock("./_core/heartbeat", () => ({ updateHeartbeatJob: mocks.disableHeartbeat }));
 vi.mock("./_core/sdk", () => ({ sdk: { authenticateRequest: mocks.authenticateRequest } }));
 
-import { applicationReminderHandler, documentExpiryReminderHandler } from "./scheduled";
+import { applicationReminderHandler, documentExpiryReminderHandler, documentReviewDueReminderHandler } from "./scheduled";
 
 function createResponse() {
   const response = {
@@ -81,5 +83,18 @@ describe("scheduled document expiry callback", () => {
 
     expect(response.status).toHaveBeenCalledWith(403);
     expect(mocks.scanDocuments).not.toHaveBeenCalled();
+  });
+});
+
+describe("scheduled reviewer due-date callback", () => {
+  it("uses the authenticated task UID to deliver one reminder and disables the one-time job", async () => {
+    mocks.authenticateRequest.mockResolvedValue({ isCron: true, taskUid: "review_due_123" });
+    mocks.deliverReviewDueReminder.mockResolvedValue({ delivered: true, skipped: null, assignmentId: 14 });
+    mocks.disableHeartbeat.mockResolvedValue({});
+    const response = createResponse();
+    await documentReviewDueReminderHandler({} as any, response as any);
+    expect(mocks.deliverReviewDueReminder).toHaveBeenCalledWith("review_due_123");
+    expect(mocks.disableHeartbeat).toHaveBeenCalledWith("review_due_123", { enable: false }, "");
+    expect(response.json).toHaveBeenCalledWith({ ok: true, delivered: true, skipped: null, assignmentId: 14 });
   });
 });

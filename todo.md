@@ -233,3 +233,12 @@
 - [x] Add reviewer alert badge/inbox controls and audit date/status search controls in the review workspace.
 - [x] Test notification recipient ownership, read transitions, audit date/status filters, and responsive feedback states.
 - [x] Document reviewer alerts, audit-filter privacy, and development-only verification behavior.
+
+## Reviewer alert preferences and assignment due-date reminders
+
+- [x] Audit reviewer notification data, assignment lifecycle, existing heartbeat reminder callback, and current preference patterns.
+- [x] Define recipient-owned reviewer alert preferences, assignment due-date visibility, and reminder timing/cancellation semantics.
+- [x] Add protected persistence and typed APIs for reviewer preferences, assignment due dates, and automated reminder delivery.
+- [x] Add reviewer preference controls and owner due-date/reminder controls to the collaboration workspace.
+- [x] Test preference privacy, due-date validation, reminder delivery idempotency, cancellation, and responsive feedback.
+- [x] Document reminder timing, non-publishing behavior, user controls, and development-only verification.

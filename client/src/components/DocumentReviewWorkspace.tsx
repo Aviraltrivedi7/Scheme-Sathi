@@ -7,10 +7,10 @@ import "./DocumentReviewWorkspace.css";
 import "./DocumentReviewAlerts.css";
 
 const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-const reviewAuditStatuses = ["assigned", "started", "completed", "revoked", "noteCreated", "noteUpdated", "noteDeleted"] as const;
+const reviewAuditStatuses = ["assigned", "started", "completed", "revoked", "noteCreated", "noteUpdated", "noteDeleted", "dueReminderSent"] as const;
 type ReviewAuditStatus = (typeof reviewAuditStatuses)[number];
 type ReviewDocument = { id: number; documentName: string; fileName: string; mimeType: string; schemeName: string };
-const auditStatusLabels: Record<ReviewAuditStatus, string> = { assigned: "Assigned", started: "Started", completed: "Completed", revoked: "Revoked", noteCreated: "Note added", noteUpdated: "Note edited", noteDeleted: "Note deleted" };
+const auditStatusLabels: Record<ReviewAuditStatus, string> = { assigned: "Assigned", started: "Started", completed: "Completed", revoked: "Revoked", noteCreated: "Note added", noteUpdated: "Note edited", noteDeleted: "Note deleted", dueReminderSent: "Due reminder sent" };
 
 function PrivatePdfNoteModal({ document, onClose }: { document: ReviewDocument; onClose: () => void }) {
   const utils = trpc.useUtils(); const [pageNumber, setPageNumber] = useState(1); const [draft, setDraft] = useState(""); const [editingId, setEditingId] = useState<number | null>(null);

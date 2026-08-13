@@ -1,6 +1,6 @@
 import { and, desc, eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentPdfAnnotations, documentReminderSettings, documentReviewAssignmentNotifications, documentReviewAssignments, documentReviewAuditEvents, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentPdfAnnotations, documentReminderSettings, documentReviewerAlertPreferences, documentReviewAssignmentNotifications, documentReviewAssignments, documentReviewAuditEvents, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -403,10 +403,29 @@ export async function setApplicationDocumentReviewState(userId: number, document
   if (reviewState === "flagged") await recordDocumentActivity(documentId, "flagged", "User flagged this document for inspection.");
 }
 
-async function recordDocumentReviewAudit(documentId: number, actorUserId: number, kind: "assigned" | "started" | "completed" | "revoked" | "noteCreated" | "noteUpdated" | "noteDeleted", detail: string, assignmentId: number | null = null) {
+async function recordDocumentReviewAudit(documentId: number, actorUserId: number, kind: "assigned" | "started" | "completed" | "revoked" | "noteCreated" | "noteUpdated" | "noteDeleted" | "dueReminderSent", detail: string, assignmentId: number | null = null) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   await db.insert(documentReviewAuditEvents).values({ applicationDocumentId: documentId, assignmentId, actorUserId, kind, detail: detail.slice(0, 500) });
+}
+
+const defaultReviewerAlertPreferences = { assignmentAlertsEnabled: true, dueDateRemindersEnabled: true, defaultReminderLeadHours: 24 };
+
+export async function getDocumentReviewerAlertPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewerAlertPreferences).where(eq(documentReviewerAlertPreferences.userId, userId)).limit(1);
+  const row = rows[0];
+  return { ...defaultReviewerAlertPreferences, ...(row ? { assignmentAlertsEnabled: row.assignmentAlertsEnabled, dueDateRemindersEnabled: row.dueDateRemindersEnabled, defaultReminderLeadHours: row.defaultReminderLeadHours } : {}) };
+}
+
+export async function saveDocumentReviewerAlertPreferences(userId: number, input: { assignmentAlertsEnabled: boolean; dueDateRemindersEnabled: boolean; defaultReminderLeadHours: number }) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const existing = await db.select({ id: documentReviewerAlertPreferences.id }).from(documentReviewerAlertPreferences).where(eq(documentReviewerAlertPreferences.userId, userId)).limit(1);
+  if (existing[0]) await db.update(documentReviewerAlertPreferences).set({ ...input, updatedAt: new Date() }).where(eq(documentReviewerAlertPreferences.id, existing[0].id));
+  else await db.insert(documentReviewerAlertPreferences).values({ userId, ...input });
+  return getDocumentReviewerAlertPreferences(userId);
 }
 
 export async function listDocumentReviewAssignments(ownerUserId: number, documentId: number) {
@@ -414,7 +433,7 @@ export async function listDocumentReviewAssignments(ownerUserId: number, documen
   if (!db) databaseUnavailable();
   if (!await getOwnedApplicationDocument(ownerUserId, documentId)) throw new Error("Uploaded document not found");
   const rows = await db.select({ assignment: documentReviewAssignments, reviewerName: users.name, reviewerEmail: users.email }).from(documentReviewAssignments).innerJoin(users, eq(documentReviewAssignments.reviewerUserId, users.id)).where(and(eq(documentReviewAssignments.applicationDocumentId, documentId), eq(documentReviewAssignments.ownerUserId, ownerUserId))).orderBy(desc(documentReviewAssignments.updatedAt));
-  return rows.map((row) => ({ id: row.assignment.id, reviewerUserId: row.assignment.reviewerUserId, reviewerName: row.reviewerName ?? row.reviewerEmail ?? "Reviewer", reviewerEmail: row.reviewerEmail ?? null, status: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), completedAt: row.assignment.completedAt?.getTime() ?? null, revokedAt: row.assignment.revokedAt?.getTime() ?? null, updatedAt: row.assignment.updatedAt.getTime() }));
+  return rows.map((row) => ({ id: row.assignment.id, reviewerUserId: row.assignment.reviewerUserId, reviewerName: row.reviewerName ?? row.reviewerEmail ?? "Reviewer", reviewerEmail: row.reviewerEmail ?? null, status: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), dueAt: row.assignment.dueAt?.getTime() ?? null, reminderAt: row.assignment.reminderAt?.getTime() ?? null, reminderStatus: row.assignment.reminderStatus, completedAt: row.assignment.completedAt?.getTime() ?? null, revokedAt: row.assignment.revokedAt?.getTime() ?? null, updatedAt: row.assignment.updatedAt.getTime() }));
 }
 
 export async function assignDocumentReviewer(ownerUserId: number, documentId: number, reviewerEmail: string) {
@@ -429,7 +448,8 @@ export async function assignDocumentReviewer(ownerUserId: number, documentId: nu
   let assignmentId: number;
   if (existing[0]) { assignmentId = existing[0].id; await db.update(documentReviewAssignments).set({ ownerUserId, status: "assigned", assignedAt: new Date(), completedAt: null, revokedAt: null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId)); }
   else { const created = await db.insert(documentReviewAssignments).values({ applicationDocumentId: documentId, ownerUserId, reviewerUserId: reviewer.id, status: "assigned" }); assignmentId = Number(created[0].insertId); }
-  await db.insert(documentReviewAssignmentNotifications).values({ assignmentId, recipientUserId: reviewer.id, status: "unread" }).onDuplicateKeyUpdate({ set: { recipientUserId: reviewer.id, status: "unread", createdAt: new Date(), readAt: null } });
+  const preferences = await getDocumentReviewerAlertPreferences(reviewer.id);
+  if (preferences.assignmentAlertsEnabled) await db.insert(documentReviewAssignmentNotifications).values({ assignmentId, recipientUserId: reviewer.id, kind: "assignment", status: "unread" }).onDuplicateKeyUpdate({ set: { recipientUserId: reviewer.id, status: "unread", createdAt: new Date(), readAt: null } });
   await recordDocumentReviewAudit(documentId, ownerUserId, "assigned", `Assigned ${reviewer.name ?? reviewer.email ?? "a reviewer"}.`, assignmentId);
   return listDocumentReviewAssignments(ownerUserId, documentId);
 }
@@ -440,8 +460,61 @@ export async function revokeDocumentReviewer(ownerUserId: number, assignmentId: 
   const rows = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.id, assignmentId), eq(documentReviewAssignments.ownerUserId, ownerUserId))).limit(1);
   const assignment = rows[0];
   if (!assignment) throw new Error("Review assignment not found");
-  await db.update(documentReviewAssignments).set({ status: "revoked", revokedAt: new Date(), updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId));
+  await db.update(documentReviewAssignments).set({ status: "revoked", revokedAt: new Date(), reminderStatus: assignment.reminderScheduleCronTaskUid ? "cancelled" : assignment.reminderStatus, reminderScheduleCronTaskUid: null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId));
   await recordDocumentReviewAudit(assignment.applicationDocumentId, ownerUserId, "revoked", "Owner revoked reviewer access.", assignmentId);
+  return { previousTaskUid: assignment.reminderScheduleCronTaskUid };
+}
+
+export async function setDocumentReviewAssignmentDueDate(ownerUserId: number, assignmentId: number, dueAt: number | null, reminderAt: number | null) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.id, assignmentId), eq(documentReviewAssignments.ownerUserId, ownerUserId))).limit(1);
+  const assignment = rows[0];
+  if (!assignment) throw new Error("Review assignment not found");
+  if (assignment.status === "revoked" || assignment.status === "completed") throw new Error("Due dates can be changed only for an active review assignment");
+  const previousTaskUid = assignment.reminderScheduleCronTaskUid;
+  await db.update(documentReviewAssignments).set({ dueAt: dueAt ? new Date(dueAt) : null, reminderAt: reminderAt ? new Date(reminderAt) : null, reminderStatus: previousTaskUid ? "cancelled" : "none", reminderScheduleCronTaskUid: null, reminderDeliveredAt: null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId));
+  return { assignmentId, previousTaskUid };
+}
+
+export async function assignDocumentReviewDueReminderTask(ownerUserId: number, assignmentId: number, taskUid: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.id, assignmentId), eq(documentReviewAssignments.ownerUserId, ownerUserId))).limit(1);
+  const assignment = rows[0];
+  if (!assignment || !assignment.reminderAt || assignment.status === "revoked" || assignment.status === "completed") throw new Error("Active review assignment with a reminder time is required");
+  await db.update(documentReviewAssignments).set({ reminderScheduleCronTaskUid: taskUid, reminderStatus: "scheduled", updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId));
+}
+
+export async function cancelDocumentReviewDueReminder(ownerUserId: number, assignmentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.id, assignmentId), eq(documentReviewAssignments.ownerUserId, ownerUserId))).limit(1);
+  const assignment = rows[0];
+  if (!assignment) throw new Error("Review assignment not found");
+  await db.update(documentReviewAssignments).set({ reminderStatus: "cancelled", reminderScheduleCronTaskUid: null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId));
+  return { previousTaskUid: assignment.reminderScheduleCronTaskUid };
+}
+
+export async function getDocumentReviewDueReminderByTaskUid(taskUid: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewAssignments).where(eq(documentReviewAssignments.reminderScheduleCronTaskUid, taskUid)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function deliverDocumentReviewDueReminder(taskUid: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const assignment = await getDocumentReviewDueReminderByTaskUid(taskUid);
+  if (!assignment || assignment.reminderStatus !== "scheduled") return { delivered: false, skipped: "orphan-or-complete" as const, assignmentId: assignment?.id ?? null };
+  if (assignment.status === "revoked" || assignment.status === "completed") { await db.update(documentReviewAssignments).set({ reminderStatus: "cancelled", updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignment.id)); return { delivered: false, skipped: "inactive-review" as const, assignmentId: assignment.id }; }
+  const preferences = await getDocumentReviewerAlertPreferences(assignment.reviewerUserId);
+  if (!preferences.dueDateRemindersEnabled) { await db.update(documentReviewAssignments).set({ reminderStatus: "cancelled", updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignment.id)); return { delivered: false, skipped: "reviewer-preference" as const, assignmentId: assignment.id }; }
+  await db.insert(documentReviewAssignmentNotifications).values({ assignmentId: assignment.id, recipientUserId: assignment.reviewerUserId, kind: "dueDateReminder", status: "unread" }).onDuplicateKeyUpdate({ set: { status: "unread", createdAt: new Date(), readAt: null } });
+  await db.update(documentReviewAssignments).set({ reminderStatus: "delivered", reminderDeliveredAt: new Date(), updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignment.id));
+  await recordDocumentReviewAudit(assignment.applicationDocumentId, assignment.ownerUserId, "dueReminderSent", "Automated due-date reminder was delivered to the assigned reviewer.", assignment.id);
+  return { delivered: true, skipped: null, assignmentId: assignment.id };
 }
 
 export async function listMyDocumentReviewAssignments(reviewerUserId: number) {
@@ -449,7 +522,7 @@ export async function listMyDocumentReviewAssignments(reviewerUserId: number) {
   if (!db) databaseUnavailable();
   const rows = await db.select({ assignment: documentReviewAssignments, document: applicationDocuments, application: trackedApplications, ownerName: users.name, ownerEmail: users.email }).from(documentReviewAssignments).innerJoin(applicationDocuments, eq(documentReviewAssignments.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).innerJoin(users, eq(documentReviewAssignments.ownerUserId, users.id)).where(eq(documentReviewAssignments.reviewerUserId, reviewerUserId)).orderBy(desc(documentReviewAssignments.updatedAt));
   const schemeCache = new Map<string, string>();
-  return Promise.all(rows.map(async (row) => { let schemeName = schemeCache.get(row.application.schemeId); if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); } return { id: row.assignment.id, documentId: row.document.id, documentName: row.document.documentName, fileName: row.document.fileName, mimeType: row.document.mimeType, schemeName, ownerName: row.ownerName ?? row.ownerEmail ?? "Document owner", status: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), completedAt: row.assignment.completedAt?.getTime() ?? null }; }));
+  return Promise.all(rows.map(async (row) => { let schemeName = schemeCache.get(row.application.schemeId); if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); } return { id: row.assignment.id, documentId: row.document.id, documentName: row.document.documentName, fileName: row.document.fileName, mimeType: row.document.mimeType, schemeName, ownerName: row.ownerName ?? row.ownerEmail ?? "Document owner", status: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), dueAt: row.assignment.dueAt?.getTime() ?? null, reminderAt: row.assignment.reminderAt?.getTime() ?? null, reminderStatus: row.assignment.reminderStatus, completedAt: row.assignment.completedAt?.getTime() ?? null }; }));
 }
 
 export async function updateMyDocumentReviewAssignment(reviewerUserId: number, assignmentId: number, status: "inReview" | "completed") {
@@ -462,7 +535,7 @@ export async function updateMyDocumentReviewAssignment(reviewerUserId: number, a
   await recordDocumentReviewAudit(assignment.applicationDocumentId, reviewerUserId, status === "completed" ? "completed" : "started", status === "completed" ? "Reviewer marked this review complete." : "Reviewer started reviewing this document.", assignmentId);
 }
 
-export async function listDocumentReviewAudit(userId: number, documentId: number, filters?: { startAt?: number; endAt?: number; kinds?: ("assigned" | "started" | "completed" | "revoked" | "noteCreated" | "noteUpdated" | "noteDeleted")[] }) {
+export async function listDocumentReviewAudit(userId: number, documentId: number, filters?: { startAt?: number; endAt?: number; kinds?: ("assigned" | "started" | "completed" | "revoked" | "noteCreated" | "noteUpdated" | "noteDeleted" | "dueReminderSent")[] }) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   if (!await getAccessibleApplicationDocument(userId, documentId)) throw new Error("Review audit is not available for this document");
@@ -475,7 +548,7 @@ export async function listDocumentReviewAssignmentNotifications(reviewerUserId: 
   if (!db) databaseUnavailable();
   const rows = await db.select({ notification: documentReviewAssignmentNotifications, assignment: documentReviewAssignments, document: applicationDocuments, application: trackedApplications, ownerName: users.name, ownerEmail: users.email }).from(documentReviewAssignmentNotifications).innerJoin(documentReviewAssignments, eq(documentReviewAssignmentNotifications.assignmentId, documentReviewAssignments.id)).innerJoin(applicationDocuments, eq(documentReviewAssignments.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).innerJoin(users, eq(documentReviewAssignments.ownerUserId, users.id)).where(and(eq(documentReviewAssignmentNotifications.recipientUserId, reviewerUserId), eq(documentReviewAssignmentNotifications.status, "unread"), ne(documentReviewAssignments.status, "revoked"))).orderBy(desc(documentReviewAssignmentNotifications.createdAt));
   const schemeCache = new Map<string, string>();
-  return Promise.all(rows.map(async (row) => { let schemeName = schemeCache.get(row.application.schemeId); if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); } return { id: row.notification.id, assignmentId: row.assignment.id, documentId: row.document.id, documentName: row.document.documentName, fileName: row.document.fileName, mimeType: row.document.mimeType, schemeName, ownerName: row.ownerName ?? row.ownerEmail ?? "Document owner", assignmentStatus: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), createdAt: row.notification.createdAt.getTime() }; }));
+  return Promise.all(rows.map(async (row) => { let schemeName = schemeCache.get(row.application.schemeId); if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); } return { id: row.notification.id, assignmentId: row.assignment.id, documentId: row.document.id, documentName: row.document.documentName, fileName: row.document.fileName, mimeType: row.document.mimeType, schemeName, ownerName: row.ownerName ?? row.ownerEmail ?? "Document owner", kind: row.notification.kind, assignmentStatus: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), dueAt: row.assignment.dueAt?.getTime() ?? null, createdAt: row.notification.createdAt.getTime() }; }));
 }
 
 export async function markDocumentReviewAssignmentNotificationRead(reviewerUserId: number, notificationId: number) {

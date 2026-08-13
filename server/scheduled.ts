@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { getApplicationReminderByTaskUid, getDocumentReminderSettingByTaskUid, markApplicationReminderDelivered, markDocumentReminderScanRun, scanDocumentExpiryNotifications } from "./db";
+import { deliverDocumentReviewDueReminder, getApplicationReminderByTaskUid, getDocumentReminderSettingByTaskUid, markApplicationReminderDelivered, markDocumentReminderScanRun, scanDocumentExpiryNotifications } from "./db";
 import { updateHeartbeatJob } from "./_core/heartbeat";
 import { sdk } from "./_core/sdk";
 
@@ -35,5 +35,19 @@ export async function documentExpiryReminderHandler(req: Request, res: Response)
   } catch (error) {
     const details = error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) };
     return res.status(500).json({ error: "document-expiry-scan-failed", details, timestamp: new Date().toISOString() });
+  }
+}
+
+/** One-time reviewer due-date alert. Task UID, rather than request body data, identifies the durable assignment. */
+export async function documentReviewDueReminderHandler(req: Request, res: Response) {
+  try {
+    const cronUser = await sdk.authenticateRequest(req);
+    if (!cronUser.isCron || !cronUser.taskUid) return res.status(403).json({ error: "cron-only" });
+    const result = await deliverDocumentReviewDueReminder(cronUser.taskUid);
+    await updateHeartbeatJob(cronUser.taskUid, { enable: false }, "").catch((error) => console.warn("[Review due reminder] Could not disable completed job", error));
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    const details = error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) };
+    return res.status(500).json({ error: "document-review-due-reminder-failed", details, timestamp: new Date().toISOString() });
   }
 }

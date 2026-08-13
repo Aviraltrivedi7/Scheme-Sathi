@@ -6,6 +6,8 @@ describe("review collaboration and PDF note UI contracts", () => {
   it("contains an unread sidebar invitation badge plus private page-note and audit controls", () => {
     const layout = readFileSync(resolve(process.cwd(), "client/src/components/DashboardLayout.tsx"), "utf8");
     const workspace = readFileSync(resolve(process.cwd(), "client/src/components/DocumentReviewWorkspace.tsx"), "utf8");
+    const preferences = readFileSync(resolve(process.cwd(), "client/src/components/ReviewerAlertPreferences.tsx"), "utf8");
+    const dueDates = readFileSync(resolve(process.cwd(), "client/src/components/ReviewerDueDateManager.tsx"), "utf8");
     expect(layout).toContain("pendingInvitationCount");
     expect(layout).toContain("Family invitations");
     expect(layout).toContain("family-invitations");
@@ -18,5 +20,9 @@ describe("review collaboration and PDF note UI contracts", () => {
     expect(workspace).toContain("Event status");
     expect(workspace).toContain("Clear filters");
     expect(layout).toContain("Review alerts");
+    expect(preferences).toContain("New assignment alerts");
+    expect(preferences).toContain("Due-date reminders");
+    expect(dueDates).toContain("Set a clear review deadline");
+    expect(dueDates).toContain("Automatic delivery starts after the project is published");
   });
 });

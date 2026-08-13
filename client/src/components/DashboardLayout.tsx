@@ -27,6 +27,8 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { DocumentReviewWorkspace } from "./DocumentReviewWorkspace";
+import { ReviewerAlertPreferences } from "./ReviewerAlertPreferences";
+import { ReviewerDueDateManager } from "./ReviewerDueDateManager";
 import { Button } from "./ui/button";
 
 const menuItems = [
@@ -276,7 +278,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}{location === "/dashboard" && <div id="review-alerts"><DocumentReviewWorkspace /></div>}</main>
+        <main className="flex-1 p-4">{children}{location === "/dashboard" && <div id="review-alerts"><DocumentReviewWorkspace /><ReviewerAlertPreferences /><ReviewerDueDateManager /></div>}</main>
       </SidebarInset>
     </>
   );
