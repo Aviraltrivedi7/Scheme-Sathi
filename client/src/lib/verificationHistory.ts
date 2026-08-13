@@ -14,6 +14,8 @@ export const verificationHistoryLabels: Record<string, string> = {
   ocrCompleted: "OCR details extracted",
   ocrFailed: "OCR needs attention",
   userVerified: "User verified details",
+  reviewed: "Marked reviewed",
+  flagged: "Flagged for inspection",
 };
 
 export function filterVerificationHistoryByQuery<T extends VerificationHistorySearchEvent>(events: T[], query: string) {

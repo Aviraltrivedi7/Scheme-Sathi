@@ -12,6 +12,7 @@ import { needsManualOcrReview, type OcrConfidence } from "@shared/ocrPolicy";
 import { shouldResetOcrConfidenceHistory, summariseOcrConfidenceTrend } from "@shared/ocrConfidenceTrend";
 import { buildDocumentActivityInsert, buildOcrApprovalUpdate, toDocumentTimeline, type DocumentActivityKind } from "./documentActivity";
 import { createVerificationHistoryPdf, filterVerificationHistory, type VerificationHistoryEvent } from "./verificationHistoryPdf";
+import { createVerificationHistoryCsv } from "./verificationHistoryCsv";
 import type { FamilyFilterInvitationNotification, ReceivedVerificationHistoryFilterInvite, SavedVerificationHistoryFilter, SharedVerificationHistoryFilter, VerificationHistoryFilterPresetInput, VerificationHistoryFilterShareRecipient } from "@shared/verificationHistoryFilters";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -223,7 +224,7 @@ export async function listTrackedApplications(userId: number) {
         const confidenceTrend = summariseOcrConfidenceTrend(ocrConfidenceHistory);
         const activity = confidenceTrend ? [{ id: -document.id, kind: "ocrConfidenceTrend", detail: confidenceTrend.label, createdAt: confidenceTrend.createdAt, confidenceHistory: ocrConfidenceHistory, needsManualReview }, ...toDocumentTimeline(events)] : toDocumentTimeline(events);
         const storageUrl = await storageGetSignedUrl(document.storageKey);
-        return { id: document.id, documentName: document.documentName, storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity, ocrConfidenceHistory };
+        return { id: document.id, documentName: document.documentName, storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, reviewState: document.reviewState, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity, ocrConfidenceHistory };
       })),
     };
   }));
@@ -381,7 +382,17 @@ export async function approveApplicationDocumentOcr(userId: number, documentId: 
   await recordDocumentActivity(documentId, "userVerified", "User manually verified extracted details.");
 }
 
-export async function listDocumentVerificationHistory(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest" }) {
+export async function setApplicationDocumentReviewState(userId: number, documentId: number, reviewState: "reviewed" | "flagged" | "unreviewed") {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const owned = await getOwnedApplicationDocument(userId, documentId);
+  if (!owned) throw new Error("Uploaded document not found");
+  await db.update(applicationDocuments).set({ reviewState, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+  if (reviewState === "reviewed") await recordDocumentActivity(documentId, "reviewed", "User marked this document as reviewed.");
+  if (reviewState === "flagged") await recordDocumentActivity(documentId, "flagged", "User flagged this document for inspection.");
+}
+
+export async function listDocumentVerificationHistory(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest"; query?: string }) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   const rows = await db.select({ event: documentActivityEvents, document: applicationDocuments, application: trackedApplications }).from(documentActivityEvents).innerJoin(applicationDocuments, eq(documentActivityEvents.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(eq(trackedApplications.userId, userId));
@@ -396,9 +407,18 @@ export async function listDocumentVerificationHistory(userId: number, filters?: 
   return filterVerificationHistory(events, filters);
 }
 
-export async function exportDocumentVerificationHistoryPdf(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest" }) {
+export async function exportDocumentVerificationHistoryPdf(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest"; query?: string }) {
   const events = (await listDocumentVerificationHistory(userId, filters)).slice(0, 200);
   return { fileName: "scheme-sathi-verification-history.pdf", base64Data: Buffer.from(await createVerificationHistoryPdf(events)).toString("base64"), eventCount: events.length };
+}
+
+export async function exportDocumentVerificationHistoryCsv(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest"; query?: string }) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const events = (await listDocumentVerificationHistory(userId, filters)).slice(0, 1000);
+  const details = new Map<number, { ocrStatus: string; ocrExtraction: { confidence: string; documentType: string; detectedName: string | null; concerns: string[] } | null; reviewState: string }>();
+  for (const documentId of Array.from(new Set(events.flatMap((event) => event.documentId ? [event.documentId] : [])))) { const owned = await getOwnedApplicationDocument(userId, documentId); if (owned) details.set(documentId, { ocrStatus: owned.document.ocrStatus, ocrExtraction: owned.document.ocrExtraction, reviewState: owned.document.reviewState }); }
+  return { fileName: "scheme-sathi-verification-history.csv", csv: createVerificationHistoryCsv(events, details), eventCount: events.length };
 }
 
 function mapSavedVerificationHistoryFilter(row: typeof savedVerificationHistoryFilters.$inferSelect): SavedVerificationHistoryFilter {

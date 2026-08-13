@@ -1,4 +1,4 @@
-export type DocumentActivityKind = "uploaded" | "reuploaded" | "expiryUpdated" | "ocrStarted" | "ocrCompleted" | "ocrFailed" | "userVerified";
+export type DocumentActivityKind = "uploaded" | "reuploaded" | "expiryUpdated" | "ocrStarted" | "ocrCompleted" | "ocrFailed" | "userVerified" | "reviewed" | "flagged";
 
 export function buildDocumentActivityInsert(applicationDocumentId: number, kind: DocumentActivityKind, detail?: string) {
   return { applicationDocumentId, kind, detail: detail?.slice(0, 500) ?? null };

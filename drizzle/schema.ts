@@ -120,6 +120,7 @@ export const applicationDocuments = mysqlTable("application_documents", {
   ocrError: varchar("ocrError", { length: 500 }),
   ocrVerifiedAt: timestamp("ocrVerifiedAt"),
   userVerifiedAt: timestamp("userVerifiedAt"),
+  reviewState: mysqlEnum("reviewState", ["unreviewed", "reviewed", "flagged"]).default("unreviewed").notNull(),
   uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("application_documents_item_unique").on(table.trackedApplicationId, table.documentName), index("application_documents_application_idx").on(table.trackedApplicationId)]);
@@ -128,7 +129,7 @@ export const applicationDocuments = mysqlTable("application_documents", {
 export const documentActivityEvents = mysqlTable("document_activity_events", {
   id: int("id").autoincrement().primaryKey(),
   applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
-  kind: mysqlEnum("kind", ["uploaded", "reuploaded", "expiryUpdated", "ocrStarted", "ocrCompleted", "ocrFailed", "userVerified"]).notNull(),
+  kind: mysqlEnum("kind", ["uploaded", "reuploaded", "expiryUpdated", "ocrStarted", "ocrCompleted", "ocrFailed", "userVerified", "reviewed", "flagged"]).notNull(),
   detail: varchar("detail", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => [index("document_activity_document_idx").on(table.applicationDocumentId), index("document_activity_created_idx").on(table.createdAt)]);

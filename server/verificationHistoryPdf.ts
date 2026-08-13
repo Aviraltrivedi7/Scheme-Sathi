@@ -2,10 +2,11 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export type VerificationHistoryEvent = { documentId?: number; documentName: string; fileName: string; mimeType?: string; schemeName: string; kind: string; detail: string | null; createdAt: number };
 
-const labels: Record<string, string> = { uploaded: "Document uploaded", reuploaded: "Fresh copy uploaded", expiryUpdated: "Expiry date updated", ocrStarted: "OCR started", ocrCompleted: "OCR details extracted", ocrFailed: "OCR needs attention", userVerified: "User verified details" };
+export const verificationHistoryLabels: Record<string, string> = { uploaded: "Document uploaded", reuploaded: "Fresh copy uploaded", expiryUpdated: "Expiry date updated", ocrStarted: "OCR started", ocrCompleted: "OCR details extracted", ocrFailed: "OCR needs attention", userVerified: "User verified details", reviewed: "Marked reviewed", flagged: "Flagged for inspection" };
 
-export function filterVerificationHistory(events: VerificationHistoryEvent[], filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest" }) {
-  return events.filter((event) => (!filters?.startAt || event.createdAt >= filters.startAt) && (!filters?.endAt || event.createdAt <= filters.endAt)).sort((a, b) => filters?.sort === "oldest" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
+export function filterVerificationHistory(events: VerificationHistoryEvent[], filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest"; query?: string }) {
+  const query = filters?.query?.trim().toLocaleLowerCase();
+  return events.filter((event) => (!filters?.startAt || event.createdAt >= filters.startAt) && (!filters?.endAt || event.createdAt <= filters.endAt) && (!query || [event.documentName, event.fileName, event.schemeName, verificationHistoryLabels[event.kind] ?? event.kind, event.detail ?? ""].join(" ").toLocaleLowerCase().includes(query))).sort((a, b) => filters?.sort === "oldest" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
 }
 
 export async function createVerificationHistoryPdf(events: VerificationHistoryEvent[]) {
@@ -20,7 +21,7 @@ export async function createVerificationHistoryPdf(events: VerificationHistoryEv
   y -= 8;
   if (!events.length) draw("No verification activity matches the selected date range.", 10);
   for (const event of events) {
-    draw(`${new Date(event.createdAt).toLocaleString("en-IN")}  ·  ${labels[event.kind] ?? event.kind}`, 10, true);
+    draw(`${new Date(event.createdAt).toLocaleString("en-IN")}  ·  ${verificationHistoryLabels[event.kind] ?? event.kind}`, 10, true);
     draw(`${event.schemeName} — ${event.documentName} (${event.fileName})`, 9);
     if (event.detail) draw(event.detail, 8, false, rgb(0.35, 0.39, 0.45));
     y -= 5;

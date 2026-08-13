@@ -78,6 +78,13 @@
       "when": 1786609272225,
       "tag": "0010_lean_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1786613048260,
+      "tag": "0011_sloppy_karma",
+      "breakpoints": true
     }
   ]
 }

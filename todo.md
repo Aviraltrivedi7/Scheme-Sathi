@@ -203,3 +203,13 @@
 - [x] Add regression tests for corrected backend response-contract integration.
 - [x] Run complete test, type check, production build, and visual integration review.
 - [x] Document the completed backend contract map and operational integration behavior.
+
+## Document quick actions, CSV export, and secure preview states
+
+- [x] Review document action APIs, verification-history filters, OCR payloads, and preview modal rendering states.
+- [x] Define owner-scoped review/inspection actions, CSV columns/escaping, and accessible preview skeleton/error behavior.
+- [x] Add protected document inspection state and filtered history/OCR CSV export procedures.
+- [x] Add document quick-action dropdowns with safe loading feedback.
+- [x] Add accessible skeleton and illustrated recovery state to the secure document preview modal.
+- [x] Test action authorization, CSV formatting/filter scope, and preview loading/error states.
+- [x] Document quick-action semantics, CSV privacy, and preview state behavior.

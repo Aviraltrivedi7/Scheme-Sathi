@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
-  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(), setDefaultVerificationHistoryFilter: vi.fn(), listVerificationHistoryFilterShares: vi.fn(), listReceivedVerificationHistoryFilters: vi.fn(), listReceivedVerificationHistoryFilterInvites: vi.fn(), listFamilyFilterInvitationNotifications: vi.fn(), markFamilyFilterInvitationNotificationRead: vi.fn(), shareVerificationHistoryFilter: vi.fn(), revokeVerificationHistoryFilterShare: vi.fn(), respondToVerificationHistoryFilterInvite: vi.fn(),
+  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), setApplicationDocumentReviewState: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), exportDocumentVerificationHistoryCsv: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(), setDefaultVerificationHistoryFilter: vi.fn(), listVerificationHistoryFilterShares: vi.fn(), listReceivedVerificationHistoryFilters: vi.fn(), listReceivedVerificationHistoryFilterInvites: vi.fn(), listFamilyFilterInvitationNotifications: vi.fn(), markFamilyFilterInvitationNotificationRead: vi.fn(), shareVerificationHistoryFilter: vi.fn(), revokeVerificationHistoryFilterShare: vi.fn(), respondToVerificationHistoryFilterInvite: vi.fn(),
   getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
   listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
@@ -74,6 +74,22 @@ describe("document and admin routers", () => {
     expect(history.events).toHaveLength(1);
     expect(history.events[0]).toMatchObject({ documentId: 3, mimeType: "application/pdf" });
     expect(pdf.fileName).toBe("history.pdf");
+  });
+
+  it("saves review state and creates CSV only through the authenticated document owner with the active filters", async () => {
+    mocks.setApplicationDocumentReviewState.mockResolvedValue(undefined);
+    mocks.exportDocumentVerificationHistoryCsv.mockResolvedValue({ fileName: "history.csv", csv: '"Timestamp"\r\n"2026-01-01"', eventCount: 1 });
+    const caller = appRouter.createCaller(context("user"));
+    const filters = { startAt: 1790000000000, sort: "newest" as const, query: "income" };
+    const reviewed = await caller.documents.setReviewState({ documentId: 3, reviewState: "reviewed" });
+    const flagged = await caller.documents.setReviewState({ documentId: 3, reviewState: "flagged" });
+    const csv = await caller.documents.exportHistoryCsv(filters);
+    expect(mocks.setApplicationDocumentReviewState).toHaveBeenNthCalledWith(1, 5, 3, "reviewed");
+    expect(mocks.setApplicationDocumentReviewState).toHaveBeenNthCalledWith(2, 5, 3, "flagged");
+    expect(mocks.exportDocumentVerificationHistoryCsv).toHaveBeenCalledWith(5, filters);
+    expect(reviewed).toEqual({ updated: true });
+    expect(flagged).toEqual({ updated: true });
+    expect(csv).toMatchObject({ fileName: "history.csv", eventCount: 1 });
   });
 
   it("returns per-document outcomes for batch OCR and batch approval without treating a partial failure as total failure", async () => {
