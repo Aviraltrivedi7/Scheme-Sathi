@@ -14,5 +14,9 @@ describe("review collaboration and PDF note UI contracts", () => {
     expect(workspace).toContain("Save private note");
     expect(workspace).toContain("Review audit trail");
     expect(workspace).toContain("Assign secure review");
+    expect(workspace).toContain("REVIEW ALERTS");
+    expect(workspace).toContain("Event status");
+    expect(workspace).toContain("Clear filters");
+    expect(layout).toContain("Review alerts");
   });
 });

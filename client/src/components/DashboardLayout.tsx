@@ -22,7 +22,7 @@ import {
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
-import { Compass, FileText, LayoutDashboard, LogOut, Mail, PanelLeft, Settings2, Sparkles } from "lucide-react";
+import { Bell, Compass, FileText, LayoutDashboard, LogOut, Mail, PanelLeft, Settings2, Sparkles } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -118,6 +118,9 @@ function DashboardLayoutContent({
   const familyInvitations = trpc.documents.historyFilters.notifications.useQuery(undefined, { retry: false, refetchInterval: 60_000 });
   const pendingInvitationCount = familyInvitations.data?.notifications.length ?? 0;
   const openFamilyInvitations = () => { if (location !== "/dashboard") setLocation("/dashboard"); window.setTimeout(() => document.getElementById("family-invitations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); };
+  const reviewerAlerts = trpc.documents.reviewers.notifications.useQuery(undefined, { retry: false, refetchInterval: 15_000, refetchOnWindowFocus: true });
+  const pendingReviewerAlertCount = reviewerAlerts.data?.notifications.length ?? 0;
+  const openReviewAlerts = () => { if (location !== "/dashboard") setLocation("/dashboard"); window.setTimeout(() => document.getElementById("review-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); };
 
   useEffect(() => {
     if (isCollapsed) {
@@ -207,6 +210,13 @@ function DashboardLayoutContent({
                   {pendingInvitationCount > 0 && <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary group-data-[collapsible=icon]:hidden">{pendingInvitationCount}</span>}
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={openReviewAlerts} tooltip={pendingReviewerAlertCount ? `${pendingReviewerAlertCount} new reviewer assignment${pendingReviewerAlertCount === 1 ? "" : "s"}` : "Review alerts"} className="h-10 transition-all font-normal">
+                  <span className="relative"><Bell className="h-4 w-4" />{pendingReviewerAlertCount > 0 && <i className="absolute -right-2 -top-2 min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] leading-4 text-center not-italic font-bold">{pendingReviewerAlertCount > 9 ? "9+" : pendingReviewerAlertCount}</i>}</span>
+                  <span>Review alerts</span>
+                  {pendingReviewerAlertCount > 0 && <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary group-data-[collapsible=icon]:hidden">{pendingReviewerAlertCount}</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
 
@@ -266,7 +276,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}{location === "/dashboard" && <DocumentReviewWorkspace />}</main>
+        <main className="flex-1 p-4">{children}{location === "/dashboard" && <div id="review-alerts"><DocumentReviewWorkspace /></div>}</main>
       </SidebarInset>
     </>
   );

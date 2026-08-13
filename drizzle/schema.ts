@@ -147,6 +147,16 @@ export const documentReviewAssignments = mysqlTable("document_review_assignments
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("document_review_assignment_unique").on(table.applicationDocumentId, table.reviewerUserId), index("document_review_assignment_owner_status_idx").on(table.ownerUserId, table.status), index("document_review_assignment_reviewer_status_idx").on(table.reviewerUserId, table.status)]);
 
+/** In-app alert created or refreshed whenever an owner assigns a reviewer to a document. */
+export const documentReviewAssignmentNotifications = mysqlTable("document_review_assignment_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  assignmentId: int("assignmentId").notNull().references(() => documentReviewAssignments.id, { onDelete: "cascade" }),
+  recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: mysqlEnum("status", ["unread", "read"]).default("unread").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  readAt: timestamp("readAt"),
+}, (table) => [uniqueIndex("review_assignment_notice_assignment_unique").on(table.assignmentId), index("review_assignment_notice_recipient_status_idx").on(table.recipientUserId, table.status)]);
+
 /** Immutable accountability record for reviewer assignment and review-status changes; never stores PDF note text. */
 export const documentReviewAuditEvents = mysqlTable("document_review_audit_events", {
   id: int("id").autoincrement().primaryKey(),

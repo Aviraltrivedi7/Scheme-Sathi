@@ -224,3 +224,12 @@
 - [x] Add private per-page annotation note controls to the secure PDF preview modal.
 - [x] Test authorization, assignment/audit ordering, invitation badge count, annotation page scope, and responsive UI states.
 - [x] Document reviewer accountability, invitation badge behavior, annotation privacy, and development-only verification.
+
+## Reviewer alerts and audit-trail filters
+
+- [x] Audit reviewer assignment lifecycle, current review audit payload, and existing in-app notification conventions.
+- [x] Define recipient-only assignment notification read-state and date/status audit-filter semantics.
+- [x] Add protected persistence and typed procedures for reviewer assignment alerts and filtered review audit history.
+- [x] Add reviewer alert badge/inbox controls and audit date/status search controls in the review workspace.
+- [x] Test notification recipient ownership, read transitions, audit date/status filters, and responsive feedback states.
+- [x] Document reviewer alerts, audit-filter privacy, and development-only verification behavior.

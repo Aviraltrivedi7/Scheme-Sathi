@@ -1,6 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentPdfAnnotations, documentReminderSettings, documentReviewAssignments, documentReviewAuditEvents, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentPdfAnnotations, documentReminderSettings, documentReviewAssignmentNotifications, documentReviewAssignments, documentReviewAuditEvents, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -429,6 +429,7 @@ export async function assignDocumentReviewer(ownerUserId: number, documentId: nu
   let assignmentId: number;
   if (existing[0]) { assignmentId = existing[0].id; await db.update(documentReviewAssignments).set({ ownerUserId, status: "assigned", assignedAt: new Date(), completedAt: null, revokedAt: null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId)); }
   else { const created = await db.insert(documentReviewAssignments).values({ applicationDocumentId: documentId, ownerUserId, reviewerUserId: reviewer.id, status: "assigned" }); assignmentId = Number(created[0].insertId); }
+  await db.insert(documentReviewAssignmentNotifications).values({ assignmentId, recipientUserId: reviewer.id, status: "unread" }).onDuplicateKeyUpdate({ set: { recipientUserId: reviewer.id, status: "unread", createdAt: new Date(), readAt: null } });
   await recordDocumentReviewAudit(documentId, ownerUserId, "assigned", `Assigned ${reviewer.name ?? reviewer.email ?? "a reviewer"}.`, assignmentId);
   return listDocumentReviewAssignments(ownerUserId, documentId);
 }
@@ -461,12 +462,28 @@ export async function updateMyDocumentReviewAssignment(reviewerUserId: number, a
   await recordDocumentReviewAudit(assignment.applicationDocumentId, reviewerUserId, status === "completed" ? "completed" : "started", status === "completed" ? "Reviewer marked this review complete." : "Reviewer started reviewing this document.", assignmentId);
 }
 
-export async function listDocumentReviewAudit(userId: number, documentId: number) {
+export async function listDocumentReviewAudit(userId: number, documentId: number, filters?: { startAt?: number; endAt?: number; kinds?: ("assigned" | "started" | "completed" | "revoked" | "noteCreated" | "noteUpdated" | "noteDeleted")[] }) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   if (!await getAccessibleApplicationDocument(userId, documentId)) throw new Error("Review audit is not available for this document");
   const rows = await db.select({ audit: documentReviewAuditEvents, actorName: users.name, actorEmail: users.email }).from(documentReviewAuditEvents).innerJoin(users, eq(documentReviewAuditEvents.actorUserId, users.id)).where(eq(documentReviewAuditEvents.applicationDocumentId, documentId)).orderBy(desc(documentReviewAuditEvents.createdAt));
-  return rows.map((row) => ({ id: row.audit.id, assignmentId: row.audit.assignmentId, kind: row.audit.kind, detail: row.audit.detail ?? null, actorName: row.actorName ?? row.actorEmail ?? "Account holder", createdAt: row.audit.createdAt.getTime() }));
+  return rows.filter((row) => (!filters?.startAt || row.audit.createdAt.getTime() >= filters.startAt) && (!filters?.endAt || row.audit.createdAt.getTime() <= filters.endAt) && (!filters?.kinds?.length || filters.kinds.includes(row.audit.kind))).map((row) => ({ id: row.audit.id, assignmentId: row.audit.assignmentId, kind: row.audit.kind, detail: row.audit.detail ?? null, actorName: row.actorName ?? row.actorEmail ?? "Account holder", createdAt: row.audit.createdAt.getTime() }));
+}
+
+export async function listDocumentReviewAssignmentNotifications(reviewerUserId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ notification: documentReviewAssignmentNotifications, assignment: documentReviewAssignments, document: applicationDocuments, application: trackedApplications, ownerName: users.name, ownerEmail: users.email }).from(documentReviewAssignmentNotifications).innerJoin(documentReviewAssignments, eq(documentReviewAssignmentNotifications.assignmentId, documentReviewAssignments.id)).innerJoin(applicationDocuments, eq(documentReviewAssignments.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).innerJoin(users, eq(documentReviewAssignments.ownerUserId, users.id)).where(and(eq(documentReviewAssignmentNotifications.recipientUserId, reviewerUserId), eq(documentReviewAssignmentNotifications.status, "unread"), ne(documentReviewAssignments.status, "revoked"))).orderBy(desc(documentReviewAssignmentNotifications.createdAt));
+  const schemeCache = new Map<string, string>();
+  return Promise.all(rows.map(async (row) => { let schemeName = schemeCache.get(row.application.schemeId); if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); } return { id: row.notification.id, assignmentId: row.assignment.id, documentId: row.document.id, documentName: row.document.documentName, fileName: row.document.fileName, mimeType: row.document.mimeType, schemeName, ownerName: row.ownerName ?? row.ownerEmail ?? "Document owner", assignmentStatus: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), createdAt: row.notification.createdAt.getTime() }; }));
+}
+
+export async function markDocumentReviewAssignmentNotificationRead(reviewerUserId: number, notificationId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ id: documentReviewAssignmentNotifications.id }).from(documentReviewAssignmentNotifications).where(and(eq(documentReviewAssignmentNotifications.id, notificationId), eq(documentReviewAssignmentNotifications.recipientUserId, reviewerUserId))).limit(1);
+  if (!rows[0]) throw new Error("Reviewer notification not found");
+  await db.update(documentReviewAssignmentNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentReviewAssignmentNotifications.id, notificationId));
 }
 
 export async function listDocumentPdfAnnotations(userId: number, documentId: number) {
