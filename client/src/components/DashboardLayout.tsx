@@ -21,10 +21,12 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { Compass, FileText, LayoutDashboard, LogOut, PanelLeft, Settings2, Sparkles } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { Compass, FileText, LayoutDashboard, LogOut, Mail, PanelLeft, Settings2, Sparkles } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
+import { DocumentReviewWorkspace } from "./DocumentReviewWorkspace";
 import { Button } from "./ui/button";
 
 const menuItems = [
@@ -113,6 +115,9 @@ function DashboardLayoutContent({
   const visibleMenuItems = user?.role === "admin" ? [...menuItems, { icon: Settings2, label: "Manage schemes", path: "/admin/schemes" }] : menuItems;
   const activeMenuItem = visibleMenuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+  const familyInvitations = trpc.documents.historyFilters.notifications.useQuery(undefined, { retry: false, refetchInterval: 60_000 });
+  const pendingInvitationCount = familyInvitations.data?.notifications.length ?? 0;
+  const openFamilyInvitations = () => { if (location !== "/dashboard") setLocation("/dashboard"); window.setTimeout(() => document.getElementById("family-invitations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); };
 
   useEffect(() => {
     if (isCollapsed) {
@@ -195,6 +200,13 @@ function DashboardLayoutContent({
                   </SidebarMenuItem>
                 );
               })}
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={openFamilyInvitations} tooltip={pendingInvitationCount ? `${pendingInvitationCount} pending family invitation${pendingInvitationCount === 1 ? "" : "s"}` : "Family invitations"} className="h-10 transition-all font-normal">
+                  <span className="relative"><Mail className="h-4 w-4" />{pendingInvitationCount > 0 && <i className="absolute -right-2 -top-2 min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] leading-4 text-center not-italic font-bold">{pendingInvitationCount > 9 ? "9+" : pendingInvitationCount}</i>}</span>
+                  <span>Family invitations</span>
+                  {pendingInvitationCount > 0 && <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary group-data-[collapsible=icon]:hidden">{pendingInvitationCount}</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
 
@@ -254,7 +266,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4">{children}{location === "/dashboard" && <DocumentReviewWorkspace />}</main>
       </SidebarInset>
     </>
   );

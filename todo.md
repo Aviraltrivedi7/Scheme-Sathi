@@ -213,3 +213,14 @@
 - [x] Add accessible skeleton and illustrated recovery state to the secure document preview modal.
 - [x] Test action authorization, CSV formatting/filter scope, and preview loading/error states.
 - [x] Document quick-action semantics, CSV privacy, and preview state behavior.
+
+## Family invite badge, reviewer audit trail, and PDF annotations
+
+- [x] Audit existing invitation notifications, document ownership, timeline events, and signed PDF preview renderer.
+- [x] Define assignment permissions, reviewer identity visibility, immutable audit event semantics, and private PDF-note retention rules.
+- [x] Add protected persistence and typed APIs for reviewer assignments, review audit history, and page-scoped document notes.
+- [x] Add a sidebar badge for unread pending family invitations and an accessible invitation destination.
+- [x] Add reviewer assignment, status, and audit-trail controls to document review workflows.
+- [x] Add private per-page annotation note controls to the secure PDF preview modal.
+- [x] Test authorization, assignment/audit ordering, invitation badge count, annotation page scope, and responsive UI states.
+- [x] Document reviewer accountability, invitation badge behavior, annotation privacy, and development-only verification.

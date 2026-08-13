@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentReminderSettings, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentPdfAnnotations, documentReminderSettings, documentReviewAssignments, documentReviewAuditEvents, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -330,6 +330,17 @@ async function getOwnedApplicationDocument(userId: number, documentId: number) {
   return rows[0] ?? null;
 }
 
+async function getAccessibleApplicationDocument(userId: number, documentId: number) {
+  const owned = await getOwnedApplicationDocument(userId, documentId);
+  if (owned) return { ...owned, access: "owner" as const, assignmentId: null };
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ document: applicationDocuments, application: trackedApplications, assignment: documentReviewAssignments }).from(documentReviewAssignments).innerJoin(applicationDocuments, eq(documentReviewAssignments.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).where(and(eq(documentReviewAssignments.applicationDocumentId, documentId), eq(documentReviewAssignments.reviewerUserId, userId))).limit(1);
+  const row = rows[0];
+  if (!row || row.assignment.status === "revoked") return null;
+  return { document: row.document, application: row.application, access: "reviewer" as const, assignmentId: row.assignment.id };
+}
+
 async function recordDocumentActivity(documentId: number, kind: DocumentActivityKind, detail?: string) {
   const db = await getDb();
   if (!db) databaseUnavailable();
@@ -337,9 +348,9 @@ async function recordDocumentActivity(documentId: number, kind: DocumentActivity
 }
 
 export async function getApplicationDocumentPreview(userId: number, documentId: number) {
-  const owned = await getOwnedApplicationDocument(userId, documentId);
-  if (!owned) throw new Error("Uploaded document not found");
-  return { documentId, fileName: owned.document.fileName, mimeType: owned.document.mimeType, url: await storageGetSignedUrl(owned.document.storageKey) };
+  const accessible = await getAccessibleApplicationDocument(userId, documentId);
+  if (!accessible) throw new Error("Uploaded document not found");
+  return { documentId, fileName: accessible.document.fileName, mimeType: accessible.document.mimeType, url: await storageGetSignedUrl(accessible.document.storageKey) };
 }
 
 export async function runApplicationDocumentOcr(userId: number, documentId: number) {
@@ -390,6 +401,103 @@ export async function setApplicationDocumentReviewState(userId: number, document
   await db.update(applicationDocuments).set({ reviewState, updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
   if (reviewState === "reviewed") await recordDocumentActivity(documentId, "reviewed", "User marked this document as reviewed.");
   if (reviewState === "flagged") await recordDocumentActivity(documentId, "flagged", "User flagged this document for inspection.");
+}
+
+async function recordDocumentReviewAudit(documentId: number, actorUserId: number, kind: "assigned" | "started" | "completed" | "revoked" | "noteCreated" | "noteUpdated" | "noteDeleted", detail: string, assignmentId: number | null = null) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.insert(documentReviewAuditEvents).values({ applicationDocumentId: documentId, assignmentId, actorUserId, kind, detail: detail.slice(0, 500) });
+}
+
+export async function listDocumentReviewAssignments(ownerUserId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  if (!await getOwnedApplicationDocument(ownerUserId, documentId)) throw new Error("Uploaded document not found");
+  const rows = await db.select({ assignment: documentReviewAssignments, reviewerName: users.name, reviewerEmail: users.email }).from(documentReviewAssignments).innerJoin(users, eq(documentReviewAssignments.reviewerUserId, users.id)).where(and(eq(documentReviewAssignments.applicationDocumentId, documentId), eq(documentReviewAssignments.ownerUserId, ownerUserId))).orderBy(desc(documentReviewAssignments.updatedAt));
+  return rows.map((row) => ({ id: row.assignment.id, reviewerUserId: row.assignment.reviewerUserId, reviewerName: row.reviewerName ?? row.reviewerEmail ?? "Reviewer", reviewerEmail: row.reviewerEmail ?? null, status: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), completedAt: row.assignment.completedAt?.getTime() ?? null, revokedAt: row.assignment.revokedAt?.getTime() ?? null, updatedAt: row.assignment.updatedAt.getTime() }));
+}
+
+export async function assignDocumentReviewer(ownerUserId: number, documentId: number, reviewerEmail: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  if (!await getOwnedApplicationDocument(ownerUserId, documentId)) throw new Error("Uploaded document not found");
+  const reviewers = await db.select().from(users).where(eq(users.email, reviewerEmail.trim().toLowerCase())).limit(1);
+  const reviewer = reviewers[0];
+  if (!reviewer) throw new Error("Ask the reviewer to sign in once before assigning this document.");
+  if (reviewer.id === ownerUserId) throw new Error("You already own this document and do not need to assign yourself.");
+  const existing = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.applicationDocumentId, documentId), eq(documentReviewAssignments.reviewerUserId, reviewer.id))).limit(1);
+  let assignmentId: number;
+  if (existing[0]) { assignmentId = existing[0].id; await db.update(documentReviewAssignments).set({ ownerUserId, status: "assigned", assignedAt: new Date(), completedAt: null, revokedAt: null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId)); }
+  else { const created = await db.insert(documentReviewAssignments).values({ applicationDocumentId: documentId, ownerUserId, reviewerUserId: reviewer.id, status: "assigned" }); assignmentId = Number(created[0].insertId); }
+  await recordDocumentReviewAudit(documentId, ownerUserId, "assigned", `Assigned ${reviewer.name ?? reviewer.email ?? "a reviewer"}.`, assignmentId);
+  return listDocumentReviewAssignments(ownerUserId, documentId);
+}
+
+export async function revokeDocumentReviewer(ownerUserId: number, assignmentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.id, assignmentId), eq(documentReviewAssignments.ownerUserId, ownerUserId))).limit(1);
+  const assignment = rows[0];
+  if (!assignment) throw new Error("Review assignment not found");
+  await db.update(documentReviewAssignments).set({ status: "revoked", revokedAt: new Date(), updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId));
+  await recordDocumentReviewAudit(assignment.applicationDocumentId, ownerUserId, "revoked", "Owner revoked reviewer access.", assignmentId);
+}
+
+export async function listMyDocumentReviewAssignments(reviewerUserId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ assignment: documentReviewAssignments, document: applicationDocuments, application: trackedApplications, ownerName: users.name, ownerEmail: users.email }).from(documentReviewAssignments).innerJoin(applicationDocuments, eq(documentReviewAssignments.applicationDocumentId, applicationDocuments.id)).innerJoin(trackedApplications, eq(applicationDocuments.trackedApplicationId, trackedApplications.id)).innerJoin(users, eq(documentReviewAssignments.ownerUserId, users.id)).where(eq(documentReviewAssignments.reviewerUserId, reviewerUserId)).orderBy(desc(documentReviewAssignments.updatedAt));
+  const schemeCache = new Map<string, string>();
+  return Promise.all(rows.map(async (row) => { let schemeName = schemeCache.get(row.application.schemeId); if (!schemeName) { schemeName = (await getSchemeById(row.application.schemeId))?.name ?? row.application.schemeId; schemeCache.set(row.application.schemeId, schemeName); } return { id: row.assignment.id, documentId: row.document.id, documentName: row.document.documentName, fileName: row.document.fileName, mimeType: row.document.mimeType, schemeName, ownerName: row.ownerName ?? row.ownerEmail ?? "Document owner", status: row.assignment.status, assignedAt: row.assignment.assignedAt.getTime(), completedAt: row.assignment.completedAt?.getTime() ?? null }; }));
+}
+
+export async function updateMyDocumentReviewAssignment(reviewerUserId: number, assignmentId: number, status: "inReview" | "completed") {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.id, assignmentId), eq(documentReviewAssignments.reviewerUserId, reviewerUserId))).limit(1);
+  const assignment = rows[0];
+  if (!assignment || assignment.status === "revoked") throw new Error("Review assignment not found");
+  await db.update(documentReviewAssignments).set({ status, completedAt: status === "completed" ? new Date() : null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId));
+  await recordDocumentReviewAudit(assignment.applicationDocumentId, reviewerUserId, status === "completed" ? "completed" : "started", status === "completed" ? "Reviewer marked this review complete." : "Reviewer started reviewing this document.", assignmentId);
+}
+
+export async function listDocumentReviewAudit(userId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  if (!await getAccessibleApplicationDocument(userId, documentId)) throw new Error("Review audit is not available for this document");
+  const rows = await db.select({ audit: documentReviewAuditEvents, actorName: users.name, actorEmail: users.email }).from(documentReviewAuditEvents).innerJoin(users, eq(documentReviewAuditEvents.actorUserId, users.id)).where(eq(documentReviewAuditEvents.applicationDocumentId, documentId)).orderBy(desc(documentReviewAuditEvents.createdAt));
+  return rows.map((row) => ({ id: row.audit.id, assignmentId: row.audit.assignmentId, kind: row.audit.kind, detail: row.audit.detail ?? null, actorName: row.actorName ?? row.actorEmail ?? "Account holder", createdAt: row.audit.createdAt.getTime() }));
+}
+
+export async function listDocumentPdfAnnotations(userId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  if (!await getAccessibleApplicationDocument(userId, documentId)) throw new Error("Private notes are not available for this document");
+  const rows = await db.select().from(documentPdfAnnotations).where(and(eq(documentPdfAnnotations.applicationDocumentId, documentId), eq(documentPdfAnnotations.authorUserId, userId))).orderBy(desc(documentPdfAnnotations.updatedAt));
+  return rows.map((row) => ({ id: row.id, pageNumber: row.pageNumber, note: row.note, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() }));
+}
+
+export async function saveDocumentPdfAnnotation(userId: number, input: { documentId: number; pageNumber: number; note: string; annotationId?: number }) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const access = await getAccessibleApplicationDocument(userId, input.documentId);
+  if (!access) throw new Error("Private notes are not available for this document");
+  const note = input.note.trim();
+  if (!note) throw new Error("Write a note before saving.");
+  if (input.annotationId) { const existing = await db.select().from(documentPdfAnnotations).where(and(eq(documentPdfAnnotations.id, input.annotationId), eq(documentPdfAnnotations.applicationDocumentId, input.documentId), eq(documentPdfAnnotations.authorUserId, userId))).limit(1); if (!existing[0]) throw new Error("Private note not found"); await db.update(documentPdfAnnotations).set({ pageNumber: input.pageNumber, note, updatedAt: new Date() }).where(eq(documentPdfAnnotations.id, input.annotationId)); await recordDocumentReviewAudit(input.documentId, userId, "noteUpdated", `Updated a private note on page ${input.pageNumber}.`, access.assignmentId); return input.annotationId; }
+  const created = await db.insert(documentPdfAnnotations).values({ applicationDocumentId: input.documentId, authorUserId: userId, pageNumber: input.pageNumber, note }); const annotationId = Number(created[0].insertId); await recordDocumentReviewAudit(input.documentId, userId, "noteCreated", `Added a private note on page ${input.pageNumber}.`, access.assignmentId); return annotationId;
+}
+
+export async function deleteDocumentPdfAnnotation(userId: number, annotationId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentPdfAnnotations).where(and(eq(documentPdfAnnotations.id, annotationId), eq(documentPdfAnnotations.authorUserId, userId))).limit(1);
+  const annotation = rows[0];
+  if (!annotation) throw new Error("Private note not found");
+  const access = await getAccessibleApplicationDocument(userId, annotation.applicationDocumentId);
+  if (!access) throw new Error("Private notes are not available for this document");
+  await db.delete(documentPdfAnnotations).where(eq(documentPdfAnnotations.id, annotationId));
+  await recordDocumentReviewAudit(annotation.applicationDocumentId, userId, "noteDeleted", `Deleted a private note from page ${annotation.pageNumber}.`, access.assignmentId);
 }
 
 export async function listDocumentVerificationHistory(userId: number, filters?: { startAt?: number; endAt?: number; sort?: "newest" | "oldest"; query?: string }) {

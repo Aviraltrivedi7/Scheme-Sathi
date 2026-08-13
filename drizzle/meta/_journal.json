@@ -85,6 +85,13 @@
       "when": 1786613048260,
       "tag": "0011_sloppy_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1786616232448,
+      "tag": "0012_luxuriant_pride",
+      "breakpoints": true
     }
   ]
 }

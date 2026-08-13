@@ -134,6 +134,41 @@ export const documentActivityEvents = mysqlTable("document_activity_events", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => [index("document_activity_document_idx").on(table.applicationDocumentId), index("document_activity_created_idx").on(table.createdAt)]);
 
+/** An owner can assign an existing account to review an individual private document. */
+export const documentReviewAssignments = mysqlTable("document_review_assignments", {
+  id: int("id").autoincrement().primaryKey(),
+  applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
+  ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reviewerUserId: int("reviewerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: mysqlEnum("status", ["assigned", "inReview", "completed", "revoked"]).default("assigned").notNull(),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+  revokedAt: timestamp("revokedAt"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [uniqueIndex("document_review_assignment_unique").on(table.applicationDocumentId, table.reviewerUserId), index("document_review_assignment_owner_status_idx").on(table.ownerUserId, table.status), index("document_review_assignment_reviewer_status_idx").on(table.reviewerUserId, table.status)]);
+
+/** Immutable accountability record for reviewer assignment and review-status changes; never stores PDF note text. */
+export const documentReviewAuditEvents = mysqlTable("document_review_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
+  assignmentId: int("assignmentId").references(() => documentReviewAssignments.id, { onDelete: "set null" }),
+  actorUserId: int("actorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  kind: mysqlEnum("kind", ["assigned", "started", "completed", "revoked", "noteCreated", "noteUpdated", "noteDeleted"]).notNull(),
+  detail: varchar("detail", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [index("document_review_audit_document_created_idx").on(table.applicationDocumentId, table.createdAt), index("document_review_audit_assignment_idx").on(table.assignmentId)]);
+
+/** Page-scoped review annotations remain visible only to their author and are removed with the source document. */
+export const documentPdfAnnotations = mysqlTable("document_pdf_annotations", {
+  id: int("id").autoincrement().primaryKey(),
+  applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
+  authorUserId: int("authorUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  pageNumber: int("pageNumber").notNull(),
+  note: text("note").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [index("document_pdf_annotations_author_document_page_idx").on(table.authorUserId, table.applicationDocumentId, table.pageNumber), index("document_pdf_annotations_document_idx").on(table.applicationDocumentId)]);
+
 /** Named private presets for a user's Verification History date, order, and keyword search criteria. */
 export const savedVerificationHistoryFilters = mysqlTable("saved_verification_history_filters", {
   id: int("id").autoincrement().primaryKey(),
