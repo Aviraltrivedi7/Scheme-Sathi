@@ -29,6 +29,9 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { DocumentReviewWorkspace } from "./DocumentReviewWorkspace";
 import { ReviewerAlertPreferences } from "./ReviewerAlertPreferences";
 import { ReviewerDueDateManager } from "./ReviewerDueDateManager";
+import { ReviewerWorkloadDashboard } from "./ReviewerWorkloadDashboard";
+import { OwnerOverdueEscalations } from "./OwnerOverdueEscalations";
+import { ReviewerReminderSnooze } from "./ReviewerReminderSnooze";
 import { Button } from "./ui/button";
 
 const menuItems = [
@@ -278,7 +281,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}{location === "/dashboard" && <div id="review-alerts"><DocumentReviewWorkspace /><ReviewerAlertPreferences /><ReviewerDueDateManager /></div>}</main>
+        <main className="flex-1 p-4">{children}{location === "/dashboard" && <div id="review-alerts"><DocumentReviewWorkspace /><ReviewerWorkloadDashboard /><OwnerOverdueEscalations /><ReviewerReminderSnooze /><ReviewerAlertPreferences /><ReviewerDueDateManager /></div>}</main>
       </SidebarInset>
     </>
   );

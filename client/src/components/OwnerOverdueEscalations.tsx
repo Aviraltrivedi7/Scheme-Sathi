@@ -1,0 +1,13 @@
+import { trpc } from "@/lib/trpc";
+import { AlertTriangle, CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import "./ReviewManagement.css";
+
+const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+export function OwnerOverdueEscalations() {
+  const utils = trpc.useUtils(); const overdue = trpc.documents.reviewers.overdue.useQuery(undefined, { retry: false }); const [notes, setNotes] = useState<Record<number, string>>({});
+  const update = trpc.documents.reviewers.escalation.useMutation({ onSuccess: async () => { await Promise.all([utils.documents.reviewers.overdue.invalidate(), utils.documents.reviewers.workload.invalidate(), utils.documents.reviewers.audit.invalidate()]); toast.success("Overdue review escalation updated."); }, onError: (error) => toast.error(error.message || "The escalation could not be updated.") });
+  return <section className="review-management-card escalation-panel"><header><div><span className="desk-kicker"><ShieldAlert size={14} /> OWNER ESCALATIONS</span><h2>Keep overdue reviews moving.</h2><p>Only document owners can escalate an active review after its due date, or resolve an existing escalation. The reviewer can see the escalation in their workload and audit timeline.</p></div></header>{overdue.isLoading ? <div className="review-management-loading"><Loader2 className="spin" size={15} />Checking overdue reviews…</div> : <div className="escalation-list">{!overdue.data?.reviews.length && <small>No active document reviews are overdue.</small>}{overdue.data?.reviews.map((review) => <article key={review.assignmentId}><div className="escalation-copy"><strong>{review.documentName}</strong><small>{review.schemeName} · {review.reviewerName} · Due {dateFormat.format(new Date(review.dueAt))}</small>{review.escalationNote && <p>Latest owner note: {review.escalationNote}</p>}</div><label>Owner note<textarea maxLength={500} value={notes[review.assignmentId] ?? ""} placeholder="Optional accountability note" onChange={(event) => setNotes((current) => ({ ...current, [review.assignmentId]: event.target.value }))} /></label><button className={review.escalationState === "escalated" ? "review-resolve" : "review-escalate"} disabled={update.isPending} onClick={() => update.mutate({ assignmentId: review.assignmentId, action: review.escalationState === "escalated" ? "resolve" : "escalate", note: notes[review.assignmentId] || undefined })}>{review.escalationState === "escalated" ? <><CheckCircle2 size={14} />Resolve escalation</> : <><AlertTriangle size={14} />Escalate overdue review</>}</button></article>)}</div>}</section>;
+}

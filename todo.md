@@ -242,3 +242,12 @@
 - [x] Add reviewer preference controls and owner due-date/reminder controls to the collaboration workspace.
 - [x] Test preference privacy, due-date validation, reminder delivery idempotency, cancellation, and responsive feedback.
 - [x] Document reminder timing, non-publishing behavior, user controls, and development-only verification.
+
+## Review workload, escalation, and reminder snooze
+
+- [x] Audit reviewer assignments, due-date lifecycle, audit events, and reviewer alert delivery contracts.
+- [x] Define workload metric semantics, owner-only overdue escalation, reviewer-only snooze timing, and audit visibility.
+- [x] Add protected persistence and typed APIs for workload summaries, overdue escalation, and one-time reminder snoozing.
+- [x] Add workload dashboard, overdue escalation controls, and reviewer reminder snooze actions to the collaboration workspace.
+- [x] Test authorization, workload calculations, overdue status, escalation auditing, snooze timing, and responsive feedback.
+- [x] Document review-management privacy, reminder limitations, non-publishing behavior, and development verification.
