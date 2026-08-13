@@ -14,3 +14,12 @@ export type SavedVerificationHistoryFilter = VerificationHistoryFilterPresetInpu
   createdAt: number;
   updatedAt: number;
 };
+
+export type SharedVerificationHistoryFilter = {
+  shareId: number;
+  filter: Omit<SavedVerificationHistoryFilter, "isDefault">;
+  ownerName: string | null;
+  ownerEmail: string | null;
+};
+
+export type VerificationHistoryFilterShareRecipient = { shareId: number; savedFilterId: number; recipientUserId: number; recipientName: string | null; recipientEmail: string | null };

@@ -1,20 +1,24 @@
 import { FileText, ImageOff, Loader2 } from "lucide-react";
 import { thumbnailFeedback } from "@/lib/verificationHistory";
+import { clampPdfPage } from "@/lib/pdfPreview";
 import { useEffect, useState } from "react";
 import "./DocumentThumbnail.css";
 
-type ThumbnailState = { status: "loading" | "ready" | "unavailable"; src?: string };
-type PdfLoadingTask = { promise: Promise<{ getPage(pageNumber: number): Promise<{ getViewport(options: { scale: number }): { width: number; height: number }; render(options: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): { promise: Promise<void> } }>; destroy(): Promise<void> }>; destroy?: () => Promise<void> | void };
+type ThumbnailState = { status: "loading" | "ready" | "unavailable"; src?: string; pageCount?: number; renderedPage?: number };
+type PdfLoadingTask = { promise: Promise<{ numPages: number; getPage(pageNumber: number): Promise<{ getViewport(options: { scale: number }): { width: number; height: number }; render(options: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): { promise: Promise<void> } }>; destroy(): Promise<void> }>; destroy?: () => Promise<void> | void };
 const pdfThumbnailCache = new Map<string, string>();
 
-export function DocumentThumbnail({ url, mimeType, fileName, className = "", scale = 0.34 }: { url: string; mimeType: string; fileName: string; className?: string; scale?: number }) {
+export function DocumentThumbnail({ url, mimeType, fileName, className = "", scale = 0.34, showNavigation = scale >= 0.7 }: { url: string; mimeType: string; fileName: string; className?: string; scale?: number; showNavigation?: boolean }) {
   const [state, setState] = useState<ThumbnailState>(() => mimeType === "application/pdf" ? { status: "loading" } : { status: "ready", src: url });
+  const [pageNumber, setPageNumber] = useState(1);
+
+  useEffect(() => { setPageNumber(1); }, [url]);
 
   useEffect(() => {
     if (mimeType !== "application/pdf") { setState({ status: "ready", src: url }); return; }
-    const cacheKey = `${url}:${scale}`;
+    const cacheKey = `${url}:${scale}:${pageNumber}`;
     const cached = pdfThumbnailCache.get(cacheKey);
-    if (cached) { setState({ status: "ready", src: cached }); return; }
+    if (cached) { setState((current) => ({ status: "ready", src: cached, pageCount: current.pageCount, renderedPage: pageNumber })); return; }
     let active = true;
     let loadingTask: PdfLoadingTask | undefined;
     setState({ status: "loading" });
@@ -25,7 +29,8 @@ export function DocumentThumbnail({ url, mimeType, fileName, className = "", sca
         const task = pdfjs.getDocument({ url, isEvalSupported: false }) as PdfLoadingTask;
         loadingTask = task;
         const pdf = await task.promise;
-        const page = await pdf.getPage(1);
+        const renderedPage = clampPdfPage(pageNumber, pdf.numPages);
+        const page = await pdf.getPage(renderedPage);
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.floor(viewport.width)); canvas.height = Math.max(1, Math.floor(viewport.height));
@@ -34,18 +39,21 @@ export function DocumentThumbnail({ url, mimeType, fileName, className = "", sca
         await page.render({ canvasContext: context, viewport }).promise;
         const src = canvas.toDataURL("image/jpeg", 0.78);
         pdfThumbnailCache.set(cacheKey, src);
-        if (active) setState({ status: "ready", src });
+        if (active) setState({ status: "ready", src, pageCount: pdf.numPages, renderedPage });
         await pdf.destroy();
       } catch {
         if (active) setState({ status: "unavailable" });
       }
     })();
     return () => { active = false; void loadingTask?.destroy?.(); };
-  }, [mimeType, scale, url]);
+  }, [mimeType, pageNumber, scale, url]);
 
   if (state.status === "loading") return <div className={`document-thumbnail loading ${className}`}><Loader2 className="spin" size={16} /><span>{thumbnailFeedback("loading")}</span></div>;
   if (state.status === "unavailable") return <div className={`document-thumbnail unavailable ${className}`}><ImageOff size={17} /><span>{thumbnailFeedback("unavailable")}</span></div>;
-  return <img className={`document-thumbnail image ${className}`} src={state.src} alt={`First-page thumbnail of ${fileName}`} />;
+  const image = <img className="document-thumbnail image" src={state.src} alt={`Page ${state.renderedPage ?? 1} preview of ${fileName}`} />;
+  if (!showNavigation || mimeType !== "application/pdf" || !state.pageCount) return <span className={className}>{image}</span>;
+  const page = state.renderedPage ?? pageNumber;
+  return <div className={`document-thumbnail-paged ${className}`}>{image}<nav aria-label="PDF page navigation"><button type="button" disabled={page <= 1} onClick={() => setPageNumber((current) => clampPdfPage(current - 1, state.pageCount ?? 1))}>Previous</button><span>Page {page} of {state.pageCount}</span><button type="button" disabled={page >= state.pageCount} onClick={() => setPageNumber((current) => clampPdfPage(current + 1, state.pageCount ?? 1))}>Next</button></nav></div>;
 }
 
 export function DocumentThumbnailPlaceholder() { return <div className="document-thumbnail unavailable"><FileText size={17} /><span>Document preview</span></div>; }

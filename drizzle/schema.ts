@@ -147,6 +147,15 @@ export const savedVerificationHistoryFilters = mysqlTable("saved_verification_hi
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("saved_history_filters_user_name_unique").on(table.userId, table.name), index("saved_history_filters_user_updated_idx").on(table.userId, table.updatedAt)]);
 
+/** Owner-controlled sharing of a saved history filter with another signed-in family account. */
+export const savedVerificationHistoryFilterShares = mysqlTable("saved_verification_history_filter_shares", {
+  id: int("id").autoincrement().primaryKey(),
+  savedFilterId: int("savedFilterId").notNull().references(() => savedVerificationHistoryFilters.id, { onDelete: "cascade" }),
+  ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [uniqueIndex("saved_history_filter_share_unique").on(table.savedFilterId, table.recipientUserId), index("saved_history_filter_share_owner_idx").on(table.ownerUserId), index("saved_history_filter_share_recipient_idx").on(table.recipientUserId)]);
+
 /** Singleton policy for deciding when a completed OCR result needs a manual user review. */
 export const ocrPolicySettings = mysqlTable("ocr_policy_settings", {
   id: varchar("id", { length: 64 }).primaryKey(),

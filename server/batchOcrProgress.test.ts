@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { batchOcrPercent, batchOcrSummary, cancelQueuedBatchOcrItems, createBatchOcrProgress, finishBatchOcrItem, reorderBatchOcrQueue, startBatchOcrItem } from "../client/src/lib/batchOcrProgress";
+import { batchOcrPercent, batchOcrSummary, cancelQueuedBatchOcrItems, createBatchOcrProgress, estimateBatchOcrRemainingMs, finishBatchOcrItem, formatBatchOcrEta, reorderBatchOcrQueue, startBatchOcrItem } from "../client/src/lib/batchOcrProgress";
 
 describe("batch OCR progress", () => {
   it("tracks queued, active, complete, and failed document outcomes with clear totals", () => {
@@ -34,5 +34,16 @@ describe("batch OCR progress", () => {
     expect(reorderBatchOcrQueue([7, 8, 9], 7, 9)).toEqual([8, 7, 9]);
     expect(reorderBatchOcrQueue([7, 8, 9], 7, 7)).toEqual([7, 8, 9]);
     expect(reorderBatchOcrQueue([7, 8, 9], 10, 7)).toEqual([7, 8, 9]);
+  });
+
+  it("derives a transparent ETA from observed completed OCR durations", () => {
+    const items = [{ documentId: 7, documentName: "Income certificate" }, { documentId: 8, documentName: "Identity proof" }, { documentId: 9, documentName: "Address proof" }];
+    let progress = createBatchOcrProgress(items);
+    expect(formatBatchOcrEta(estimateBatchOcrRemainingMs(progress, 1_000))).toBe("Estimating after the first document.");
+    progress = startBatchOcrItem(progress, items[0], 1_000);
+    progress = finishBatchOcrItem(progress, 7, true, undefined, 31_000);
+    progress = startBatchOcrItem(progress, items[1], 31_000);
+    expect(estimateBatchOcrRemainingMs(progress, 36_000)).toBe(55_000);
+    expect(formatBatchOcrEta(55_000)).toBe("About less than a minute remaining.");
   });
 });

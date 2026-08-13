@@ -147,3 +147,14 @@
 - [x] Add accessible drag-and-drop OCR queue priority ordering before extraction begins.
 - [x] Test default-filter restoration, ownership, enlarged-preview fallback, priority ordering, and responsive controls.
 - [x] Document default view behavior, modal privacy boundary, and OCR queue priority limitations.
+
+## PDF navigation, OCR queue ETA, and family filter sharing
+
+- [x] Review PDF preview renderer, OCR queue state/timing, and authenticated user identity model.
+- [x] Define safe paged-preview limits, ETA calculation disclosure, and family sharing recipient permissions.
+- [x] Add protected owner-controlled sharing persistence and APIs for saved Verification History filters.
+- [x] Add full PDF page navigation with page bounds, page count, and signed session-only rendering.
+- [x] Add a transparent OCR queue time-remaining estimate based on observed batch extraction durations.
+- [x] Add family filter share/revoke controls and accessible recipient feedback in the History workspace.
+- [x] Test page navigation bounds, ETA calculations, sharing authorization, revocation, and responsive controls.
+- [x] Document PDF preview privacy, ETA assumptions, and family filter-sharing limitations.

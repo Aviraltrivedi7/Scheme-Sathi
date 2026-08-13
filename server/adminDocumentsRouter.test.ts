@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
-  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(), setDefaultVerificationHistoryFilter: vi.fn(),
+  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(), setDefaultVerificationHistoryFilter: vi.fn(), listVerificationHistoryFilterShares: vi.fn(), listReceivedVerificationHistoryFilters: vi.fn(), shareVerificationHistoryFilter: vi.fn(), revokeVerificationHistoryFilterShare: vi.fn(),
   getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
   listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
@@ -115,5 +115,22 @@ describe("document and admin routers", () => {
     expect(mocks.setDefaultVerificationHistoryFilter).toHaveBeenNthCalledWith(2, 5, null);
     expect(set.filters).toEqual(defaulted);
     expect(cleared.filters).toEqual(defaulted);
+  });
+
+  it("shares or revokes only an owner’s saved filter, while exposing received filters only to the current account", async () => {
+    const shared = [{ shareId: 21, savedFilterId: 12, recipientUserId: 8, recipientName: "Family member", recipientEmail: "family@example.com" }];
+    const received = [{ shareId: 24, filter: { id: 12, name: "Scholarship documents", query: "income", startAt: undefined, endAt: undefined, sort: "newest" as const, createdAt: 1790000000000, updatedAt: 1790000000000 }, ownerName: "Family owner", ownerEmail: "owner@example.com" }];
+    mocks.listSavedVerificationHistoryFilters.mockResolvedValue([]); mocks.listVerificationHistoryFilterShares.mockResolvedValue(shared); mocks.listReceivedVerificationHistoryFilters.mockResolvedValue(received); mocks.shareVerificationHistoryFilter.mockResolvedValue(shared); mocks.revokeVerificationHistoryFilterShare.mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(context("user"));
+    const listed = await caller.documents.historyFilters.list();
+    const sharedResult = await caller.documents.historyFilters.share({ filterId: 12, recipientEmail: "family@example.com" });
+    const revoked = await caller.documents.historyFilters.revokeShare({ shareId: 21 });
+    expect(mocks.listVerificationHistoryFilterShares).toHaveBeenCalledWith(5);
+    expect(mocks.listReceivedVerificationHistoryFilters).toHaveBeenCalledWith(5);
+    expect(mocks.shareVerificationHistoryFilter).toHaveBeenCalledWith(5, 12, "family@example.com");
+    expect(mocks.revokeVerificationHistoryFilterShare).toHaveBeenCalledWith(5, 21);
+    expect(listed).toMatchObject({ shares: shared, received });
+    expect(sharedResult.shares).toEqual(shared);
+    expect(revoked).toEqual({ revoked: true });
   });
 });

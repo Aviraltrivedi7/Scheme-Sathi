@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -11,7 +11,7 @@ import { extractDocumentDetails } from "./documentOcr";
 import { needsManualOcrReview, type OcrConfidence } from "@shared/ocrPolicy";
 import { buildDocumentActivityInsert, buildOcrApprovalUpdate, toDocumentTimeline, type DocumentActivityKind } from "./documentActivity";
 import { createVerificationHistoryPdf, filterVerificationHistory, type VerificationHistoryEvent } from "./verificationHistoryPdf";
-import type { SavedVerificationHistoryFilter, VerificationHistoryFilterPresetInput } from "@shared/verificationHistoryFilters";
+import type { SavedVerificationHistoryFilter, SharedVerificationHistoryFilter, VerificationHistoryFilterPresetInput, VerificationHistoryFilterShareRecipient } from "@shared/verificationHistoryFilters";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -429,6 +429,39 @@ export async function setDefaultVerificationHistoryFilter(userId: number, filter
   await db.update(savedVerificationHistoryFilters).set({ isDefault: false, updatedAt: new Date() }).where(eq(savedVerificationHistoryFilters.userId, userId));
   if (filterId !== null) await db.update(savedVerificationHistoryFilters).set({ isDefault: true, updatedAt: new Date() }).where(and(eq(savedVerificationHistoryFilters.userId, userId), eq(savedVerificationHistoryFilters.id, filterId)));
   return listSavedVerificationHistoryFilters(userId);
+}
+
+export async function listVerificationHistoryFilterShares(ownerUserId: number): Promise<VerificationHistoryFilterShareRecipient[]> {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  return db.select({ shareId: savedVerificationHistoryFilterShares.id, savedFilterId: savedVerificationHistoryFilterShares.savedFilterId, recipientUserId: users.id, recipientName: users.name, recipientEmail: users.email }).from(savedVerificationHistoryFilterShares).innerJoin(users, eq(savedVerificationHistoryFilterShares.recipientUserId, users.id)).where(eq(savedVerificationHistoryFilterShares.ownerUserId, ownerUserId));
+}
+
+export async function listReceivedVerificationHistoryFilters(recipientUserId: number): Promise<SharedVerificationHistoryFilter[]> {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ shareId: savedVerificationHistoryFilterShares.id, id: savedVerificationHistoryFilters.id, name: savedVerificationHistoryFilters.name, query: savedVerificationHistoryFilters.query, startAt: savedVerificationHistoryFilters.startAt, endAt: savedVerificationHistoryFilters.endAt, sort: savedVerificationHistoryFilters.sort, createdAt: savedVerificationHistoryFilters.createdAt, updatedAt: savedVerificationHistoryFilters.updatedAt, ownerName: users.name, ownerEmail: users.email }).from(savedVerificationHistoryFilterShares).innerJoin(savedVerificationHistoryFilters, eq(savedVerificationHistoryFilterShares.savedFilterId, savedVerificationHistoryFilters.id)).innerJoin(users, eq(savedVerificationHistoryFilterShares.ownerUserId, users.id)).where(eq(savedVerificationHistoryFilterShares.recipientUserId, recipientUserId)).orderBy(desc(savedVerificationHistoryFilterShares.createdAt));
+  return rows.map((row) => ({ shareId: row.shareId, filter: { id: row.id, name: row.name, query: row.query, startAt: row.startAt?.getTime(), endAt: row.endAt?.getTime(), sort: row.sort, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() }, ownerName: row.ownerName, ownerEmail: row.ownerEmail }));
+}
+
+export async function shareVerificationHistoryFilter(ownerUserId: number, filterId: number, recipientEmail: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const email = recipientEmail.trim().toLowerCase();
+  const ownerFilter = await db.select({ id: savedVerificationHistoryFilters.id }).from(savedVerificationHistoryFilters).where(and(eq(savedVerificationHistoryFilters.userId, ownerUserId), eq(savedVerificationHistoryFilters.id, filterId))).limit(1);
+  if (!ownerFilter[0]) throw new Error("Saved history filter not found");
+  const recipients = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  const recipient = recipients[0];
+  if (!recipient) throw new Error("Ask this family member to sign in once before sharing a filter.");
+  if (recipient.id === ownerUserId) throw new Error("Your own account already has this filter.");
+  await db.insert(savedVerificationHistoryFilterShares).values({ savedFilterId: filterId, ownerUserId, recipientUserId: recipient.id }).onDuplicateKeyUpdate({ set: { createdAt: new Date() } });
+  return listVerificationHistoryFilterShares(ownerUserId);
+}
+
+export async function revokeVerificationHistoryFilterShare(ownerUserId: number, shareId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db.delete(savedVerificationHistoryFilterShares).where(and(eq(savedVerificationHistoryFilterShares.ownerUserId, ownerUserId), eq(savedVerificationHistoryFilterShares.id, shareId)));
 }
 
 export async function runBatchDocumentOcr(userId: number, documentIds: number[]) {
