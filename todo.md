@@ -182,3 +182,14 @@
 - [x] Add accessible invitation alert, confidence chart, and PDF search controls to the dashboard.
 - [x] Test notification lifecycle, chart classifications, PDF search bounds/matches, and responsive states.
 - [x] Document notification privacy, chart interpretation, and PDF search limitations.
+
+## PDF highlights, manual-review priority, and reusable workflow skill
+
+- [x] Review current PDF text-search renderer, confidence snapshots, and manual-review state source.
+- [x] Define canvas-safe PDF highlight overlay behavior, priority score/ranking rules, and skill package boundaries.
+- [x] Add page-level PDF text-match rectangles and visible highlight overlays without persisting document text.
+- [x] Add a manual-review priority queue derived only from server-provided review state and confidence snapshots.
+- [x] Add accessible queue navigation and search-result highlight controls to the dashboard preview workflow.
+- [x] Create and validate a reusable skill documenting the secure collaboration-review implementation workflow.
+- [x] Test PDF match geometry/highlighting, priority ranking, accessibility, and reusable skill validation.
+- [x] Document highlight privacy, priority interpretation, and reusable skill scope.

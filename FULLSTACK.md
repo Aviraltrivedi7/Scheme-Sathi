@@ -136,3 +136,11 @@ Family filter invitations now create a recipient-scoped, email-style **in-app al
 Documents with OCR confidence snapshots show a compact line chart in their activity timeline. The chart plots low, medium, and high confidence over successive extractions, draws the current medium threshold, and gives a distinct manual-review callout when server-derived `needsManualReview` is true. It is interpretive only: users must still compare OCR metadata with their original document, and re-upload starts a clean trend.
 
 The expanded signed PDF preview now supports keyword searching across the first **40 pages** in the browser. It returns match counts per page and lets users jump directly to a matched page. Text extraction occurs only while the signed preview is open; neither extracted text nor the storage key is persisted. The alert lifecycle, chart classification, and PDF match/bounds helpers are unit-tested, while desktop and mobile dashboard layouts have been reviewed.
+
+## PDF Match Highlights, Manual-Review Priority, and Reusable Workflow
+
+PDF keyword search now adds transparent saffron overlays directly over matching PDF text items on the rendered page. Search scans at most 40 pages in browser memory, stores only temporary match geometry in component state, and lets the user jump to a matched page. Highlight geometry is calculated from PDF.js text-item coordinates at the active page scale; it is not persisted or sent back to the server.
+
+The **Manual Review Queue** includes only documents already marked by the server as needing manual review. It ranks those entries by current confidence, model concern count, and a lower confidence trend, then explains the signals behind each position. The queue is a navigation aid—never an eligibility, identity, or approval decision—and its Review action scrolls to the matching document checklist entry.
+
+The reusable **secure-collaboration-review** skill packages the safe workflow: owner-scoped signed previews, bounded browser-local PDF search/highlighting, immutable OCR confidence snapshots, conservative manual-review ordering, and invitation-based filter sharing. It was validated with the skill validator. Highlight geometry, queue ranking, and all application behavior are covered by the expanded automated suite.
