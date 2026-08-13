@@ -144,3 +144,17 @@ PDF keyword search now adds transparent saffron overlays directly over matching 
 The **Manual Review Queue** includes only documents already marked by the server as needing manual review. It ranks those entries by current confidence, model concern count, and a lower confidence trend, then explains the signals behind each position. The queue is a navigation aid—never an eligibility, identity, or approval decision—and its Review action scrolls to the matching document checklist entry.
 
 The reusable **secure-collaboration-review** skill packages the safe workflow: owner-scoped signed previews, bounded browser-local PDF search/highlighting, immutable OCR confidence snapshots, conservative manual-review ordering, and invitation-based filter sharing. It was validated with the skill validator. Highlight geometry, queue ranking, and all application behavior are covered by the expanded automated suite.
+
+## Backend and Frontend Integration Audit
+
+The user-facing application flows were audited against their typed tRPC procedures, database helpers, authentication boundary, and frontend mutation/query consumer. Public discovery and matching remain read-only; all profile, saved scheme, application, reminder, document, OCR, history, family-sharing, notification, and administrative actions use protected or administrator-only procedures as appropriate. Ownership checks are enforced at the database-helper layer for tracked applications, uploaded documents, OCR, reminders, history filters, invitation actions, and notification read-state updates.
+
+| Area | Backend contract | Frontend integration and safety behavior |
+|---|---|---|
+| Application Desk | Owner-scoped `applications.*` procedures and persistence helpers | Typed queries/mutations invalidate the application cache after status, tracking, and reminder changes. |
+| Document workflow | Validated upload, owner-checked preview/OCR/approval/removal procedures | Upload, preview, OCR, expiry, re-upload, and approval controls expose pending/error feedback. |
+| File access | Persisted storage key remains server-side; list and preview flows issue signed GET URLs | The upload mutation returns metadata only; the application list supplies short-lived signed download URLs and previews are separately owner-checked. |
+| History and collaboration | Owner-scoped filters, defaults, invitations, read-state alerts, and accepted shared criteria | History controls refresh typed caches after every mutation, and recipients can only apply shared criteria. |
+| Administration | Administrator-only scheme, automation, and OCR-policy procedures | Admin screen uses role-gated queries and mutation invalidation. |
+
+The audit added a regression contract asserting that raw persisted storage routes are omitted from the upload response. Dashboard mutations for reminder cancellation, document removal, expiry updates, and document notifications now provide safe error feedback while retaining typed cache invalidation. The authenticated dashboard was visually rechecked on desktop and mobile after the contract change; the responsive history and family-filter controls continue to render without runtime errors. The full suite has **54 tests** across 20 test files, TypeScript validation succeeds, and the production build succeeds. The build emits a standard chunk-size advisory for the rich PDF/document tooling, but it does not block the build or application behavior.

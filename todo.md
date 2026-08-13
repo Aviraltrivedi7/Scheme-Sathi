@@ -193,3 +193,13 @@
 - [x] Create and validate a reusable skill documenting the secure collaboration-review implementation workflow.
 - [x] Test PDF match geometry/highlighting, priority ranking, accessibility, and reusable skill validation.
 - [x] Document highlight privacy, priority interpretation, and reusable skill scope.
+
+## Complete backend and frontend integration audit
+
+- [x] Re-read full-stack conventions and audit schema, database helpers, routers, frontend queries/mutations, and auth boundaries.
+- [x] Inventory every user-facing feature against a backend procedure, ownership check, persistence path, and error/loading state.
+- [x] Correct document upload/list response contracts so clients receive signed previews only, while preserving protected validation and ownership checks across existing APIs.
+- [x] Harden remaining frontend mutations with typed cache invalidation and safe error messages for reminder cancellation, document removal, expiry updates, and notifications.
+- [x] Add regression tests for corrected backend response-contract integration.
+- [x] Run complete test, type check, production build, and visual integration review.
+- [x] Document the completed backend contract map and operational integration behavior.

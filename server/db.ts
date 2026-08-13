@@ -222,7 +222,8 @@ export async function listTrackedApplications(userId: number) {
         const ocrConfidenceHistory = confidenceHistory.map((event) => ({ confidence: event.confidence, concernCount: event.concernCount, createdAt: event.createdAt.getTime() }));
         const confidenceTrend = summariseOcrConfidenceTrend(ocrConfidenceHistory);
         const activity = confidenceTrend ? [{ id: -document.id, kind: "ocrConfidenceTrend", detail: confidenceTrend.label, createdAt: confidenceTrend.createdAt, confidenceHistory: ocrConfidenceHistory, needsManualReview }, ...toDocumentTimeline(events)] : toDocumentTimeline(events);
-        return { id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity, ocrConfidenceHistory };
+        const storageUrl = await storageGetSignedUrl(document.storageKey);
+        return { id: document.id, documentName: document.documentName, storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity, ocrConfidenceHistory };
       })),
     };
   }));

@@ -17,10 +17,11 @@ function context(role: "user" | "admin"): TrpcContext {
 
 describe("document and admin routers", () => {
   it("passes document uploads through the authenticated application owner", async () => {
-    mocks.uploadApplicationDocument.mockResolvedValue({ id: 3, documentName: "Income certificate" });
+    mocks.uploadApplicationDocument.mockResolvedValue({ id: 3, documentName: "Income certificate", fileName: "income.pdf", mimeType: "application/pdf", expiresAt: new Date(1790000000000), storageUrl: "/manus-storage/private-key" });
     const result = await appRouter.createCaller(context("user")).documents.upload({ trackedApplicationId: 12, documentName: "Income certificate", fileName: "income.pdf", mimeType: "application/pdf", base64Data: "cGRm", expiresAt: 1790000000000 });
     expect(mocks.uploadApplicationDocument).toHaveBeenCalledWith(5, 12, "Income certificate", "income.pdf", "application/pdf", "cGRm", 1790000000000);
-    expect(result.document).toMatchObject({ id: 3 });
+    expect(result.document).toMatchObject({ id: 3, fileName: "income.pdf", mimeType: "application/pdf", expiresAt: 1790000000000 });
+    expect(result.document).not.toHaveProperty("storageUrl");
   });
 
   it("allows only admins to update official scheme content", async () => {
