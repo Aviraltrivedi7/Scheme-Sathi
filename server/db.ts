@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentReminderSettings, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -12,7 +12,7 @@ import { needsManualOcrReview, type OcrConfidence } from "@shared/ocrPolicy";
 import { shouldResetOcrConfidenceHistory, summariseOcrConfidenceTrend } from "@shared/ocrConfidenceTrend";
 import { buildDocumentActivityInsert, buildOcrApprovalUpdate, toDocumentTimeline, type DocumentActivityKind } from "./documentActivity";
 import { createVerificationHistoryPdf, filterVerificationHistory, type VerificationHistoryEvent } from "./verificationHistoryPdf";
-import type { ReceivedVerificationHistoryFilterInvite, SavedVerificationHistoryFilter, SharedVerificationHistoryFilter, VerificationHistoryFilterPresetInput, VerificationHistoryFilterShareRecipient } from "@shared/verificationHistoryFilters";
+import type { FamilyFilterInvitationNotification, ReceivedVerificationHistoryFilterInvite, SavedVerificationHistoryFilter, SharedVerificationHistoryFilter, VerificationHistoryFilterPresetInput, VerificationHistoryFilterShareRecipient } from "@shared/verificationHistoryFilters";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -221,7 +221,7 @@ export async function listTrackedApplications(userId: number) {
         const needsManualReview = document.ocrStatus === "failed" || (document.ocrStatus === "complete" && document.ocrExtraction ? needsManualOcrReview(document.ocrExtraction.confidence, document.ocrExtraction.concerns, ocrPolicy.minimumConfidence) : false);
         const ocrConfidenceHistory = confidenceHistory.map((event) => ({ confidence: event.confidence, concernCount: event.concernCount, createdAt: event.createdAt.getTime() }));
         const confidenceTrend = summariseOcrConfidenceTrend(ocrConfidenceHistory);
-        const activity = confidenceTrend ? [{ id: -document.id, kind: "ocrConfidenceTrend", detail: confidenceTrend.label, createdAt: confidenceTrend.createdAt }, ...toDocumentTimeline(events)] : toDocumentTimeline(events);
+        const activity = confidenceTrend ? [{ id: -document.id, kind: "ocrConfidenceTrend", detail: confidenceTrend.label, createdAt: confidenceTrend.createdAt, confidenceHistory: ocrConfidenceHistory, needsManualReview }, ...toDocumentTimeline(events)] : toDocumentTimeline(events);
         return { id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity, ocrConfidenceHistory };
       })),
     };
@@ -470,6 +470,8 @@ export async function shareVerificationHistoryFilter(ownerUserId: number, filter
   if (!recipient) throw new Error("Ask this family member to sign in once before sharing a filter.");
   if (recipient.id === ownerUserId) throw new Error("Your own account already has this filter.");
   await db.insert(savedVerificationHistoryFilterShares).values({ savedFilterId: filterId, ownerUserId, recipientUserId: recipient.id, status: "pending" }).onDuplicateKeyUpdate({ set: { status: "pending", createdAt: new Date(), respondedAt: null } });
+  const created = await db.select({ id: savedVerificationHistoryFilterShares.id }).from(savedVerificationHistoryFilterShares).where(and(eq(savedVerificationHistoryFilterShares.savedFilterId, filterId), eq(savedVerificationHistoryFilterShares.recipientUserId, recipient.id))).limit(1);
+  if (created[0]) await db.insert(familyFilterInvitationNotifications).values({ shareId: created[0].id, recipientUserId: recipient.id, status: "unread" }).onDuplicateKeyUpdate({ set: { status: "unread", createdAt: new Date(), readAt: null } });
   return listVerificationHistoryFilterShares(ownerUserId);
 }
 
@@ -485,7 +487,23 @@ export async function respondToVerificationHistoryFilterInvite(recipientUserId: 
   const invite = await db.select({ id: savedVerificationHistoryFilterShares.id }).from(savedVerificationHistoryFilterShares).where(and(eq(savedVerificationHistoryFilterShares.id, shareId), eq(savedVerificationHistoryFilterShares.recipientUserId, recipientUserId), eq(savedVerificationHistoryFilterShares.status, "pending"))).limit(1);
   if (!invite[0]) throw new Error("Family filter invitation not found");
   await db.update(savedVerificationHistoryFilterShares).set({ status: decision, respondedAt: new Date() }).where(eq(savedVerificationHistoryFilterShares.id, shareId));
+  await db.update(familyFilterInvitationNotifications).set({ status: "read", readAt: new Date() }).where(and(eq(familyFilterInvitationNotifications.shareId, shareId), eq(familyFilterInvitationNotifications.recipientUserId, recipientUserId), eq(familyFilterInvitationNotifications.status, "unread")));
   return { shareId, status: decision };
+}
+
+export async function listFamilyFilterInvitationNotifications(recipientUserId: number): Promise<FamilyFilterInvitationNotification[]> {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ id: familyFilterInvitationNotifications.id, shareId: savedVerificationHistoryFilterShares.id, filterId: savedVerificationHistoryFilters.id, name: savedVerificationHistoryFilters.name, query: savedVerificationHistoryFilters.query, startAt: savedVerificationHistoryFilters.startAt, endAt: savedVerificationHistoryFilters.endAt, sort: savedVerificationHistoryFilters.sort, filterCreatedAt: savedVerificationHistoryFilters.createdAt, filterUpdatedAt: savedVerificationHistoryFilters.updatedAt, inviteCreatedAt: savedVerificationHistoryFilterShares.createdAt, ownerName: users.name, ownerEmail: users.email }).from(familyFilterInvitationNotifications).innerJoin(savedVerificationHistoryFilterShares, eq(familyFilterInvitationNotifications.shareId, savedVerificationHistoryFilterShares.id)).innerJoin(savedVerificationHistoryFilters, eq(savedVerificationHistoryFilterShares.savedFilterId, savedVerificationHistoryFilters.id)).innerJoin(users, eq(savedVerificationHistoryFilterShares.ownerUserId, users.id)).where(and(eq(familyFilterInvitationNotifications.recipientUserId, recipientUserId), eq(familyFilterInvitationNotifications.status, "unread"), eq(savedVerificationHistoryFilterShares.status, "pending"))).orderBy(desc(familyFilterInvitationNotifications.createdAt));
+  return rows.map((row) => ({ id: row.id, invitation: { shareId: row.shareId, filter: { id: row.filterId, name: row.name, query: row.query, startAt: row.startAt?.getTime(), endAt: row.endAt?.getTime(), sort: row.sort, createdAt: row.filterCreatedAt.getTime(), updatedAt: row.filterUpdatedAt.getTime() }, ownerName: row.ownerName, ownerEmail: row.ownerEmail, status: "pending", createdAt: row.inviteCreatedAt.getTime() } }));
+}
+
+export async function markFamilyFilterInvitationNotificationRead(recipientUserId: number, notificationId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const owned = await db.select({ id: familyFilterInvitationNotifications.id }).from(familyFilterInvitationNotifications).where(and(eq(familyFilterInvitationNotifications.id, notificationId), eq(familyFilterInvitationNotifications.recipientUserId, recipientUserId))).limit(1);
+  if (!owned[0]) throw new Error("Family invitation notification not found");
+  await db.update(familyFilterInvitationNotifications).set({ status: "read", readAt: new Date() }).where(eq(familyFilterInvitationNotifications.id, notificationId));
 }
 
 export async function runBatchDocumentOcr(userId: number, documentIds: number[]) {

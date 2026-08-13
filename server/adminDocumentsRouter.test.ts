@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 const mocks = vi.hoisted(() => ({
-  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(), setDefaultVerificationHistoryFilter: vi.fn(), listVerificationHistoryFilterShares: vi.fn(), listReceivedVerificationHistoryFilters: vi.fn(), listReceivedVerificationHistoryFilterInvites: vi.fn(), shareVerificationHistoryFilter: vi.fn(), revokeVerificationHistoryFilterShare: vi.fn(), respondToVerificationHistoryFilterInvite: vi.fn(),
+  listSchemeCatalog: vi.fn(), updateSchemeAdmin: vi.fn(), uploadApplicationDocument: vi.fn(), removeApplicationDocument: vi.fn(), updateApplicationDocumentExpiry: vi.fn(), listDocumentExpiryNotifications: vi.fn(), markDocumentExpiryNotificationRead: vi.fn(), getDocumentReminderSetting: vi.fn(), saveDocumentReminderTask: vi.fn(), getApplicationDocumentPreview: vi.fn(), runApplicationDocumentOcr: vi.fn(), approveApplicationDocumentOcr: vi.fn(), getOcrPolicy: vi.fn(), updateOcrPolicy: vi.fn(), listDocumentVerificationHistory: vi.fn(), exportDocumentVerificationHistoryPdf: vi.fn(), runBatchDocumentOcr: vi.fn(), approveBatchDocumentOcr: vi.fn(), listSavedVerificationHistoryFilters: vi.fn(), saveVerificationHistoryFilter: vi.fn(), removeSavedVerificationHistoryFilter: vi.fn(), setDefaultVerificationHistoryFilter: vi.fn(), listVerificationHistoryFilterShares: vi.fn(), listReceivedVerificationHistoryFilters: vi.fn(), listReceivedVerificationHistoryFilterInvites: vi.fn(), listFamilyFilterInvitationNotifications: vi.fn(), markFamilyFilterInvitationNotificationRead: vi.fn(), shareVerificationHistoryFilter: vi.fn(), revokeVerificationHistoryFilterShare: vi.fn(), respondToVerificationHistoryFilterInvite: vi.fn(),
   getSchemeById: vi.fn(), getUserSchemeProfile: vi.fn(), listSavedSchemeIds: vi.fn(), saveUserSchemeProfile: vi.fn(), toggleSavedScheme: vi.fn(),
   listTrackedApplications: vi.fn(), trackSchemeApplication: vi.fn(), updateTrackedApplication: vi.fn(), createApplicationReminder: vi.fn(), assignReminderHeartbeat: vi.fn(), cancelApplicationReminder: vi.fn(),
 }));
@@ -144,5 +144,17 @@ describe("document and admin routers", () => {
     expect(mocks.respondToVerificationHistoryFilterInvite).toHaveBeenCalledWith(5, 31, "accepted");
     expect(listed).toMatchObject({ received: [], invitations: [invitation] });
     expect(response.invitation).toEqual({ shareId: 31, status: "accepted" });
+  });
+
+  it("lists and marks in-app family invitation alerts only for the signed-in recipient", async () => {
+    const notification = { id: 44, invitation: { shareId: 31, filter: { id: 12, name: "Scholarship documents", query: "income", startAt: undefined, endAt: undefined, sort: "newest" as const, createdAt: 1790000000000, updatedAt: 1790000000000 }, ownerName: "Family owner", ownerEmail: "owner@example.com", status: "pending" as const, createdAt: 1790000000000 } };
+    mocks.listFamilyFilterInvitationNotifications.mockResolvedValue([notification]); mocks.markFamilyFilterInvitationNotificationRead.mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(context("user"));
+    const listed = await caller.documents.historyFilters.notifications();
+    const marked = await caller.documents.historyFilters.markNotificationRead({ notificationId: 44 });
+    expect(mocks.listFamilyFilterInvitationNotifications).toHaveBeenCalledWith(5);
+    expect(mocks.markFamilyFilterInvitationNotificationRead).toHaveBeenCalledWith(5, 44);
+    expect(listed.notifications).toEqual([notification]);
+    expect(marked).toEqual({ marked: true });
   });
 });

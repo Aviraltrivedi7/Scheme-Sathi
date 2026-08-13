@@ -158,6 +158,16 @@ export const savedVerificationHistoryFilterShares = mysqlTable("saved_verificati
   respondedAt: timestamp("respondedAt"),
 }, (table) => [uniqueIndex("saved_history_filter_share_unique").on(table.savedFilterId, table.recipientUserId), index("saved_history_filter_share_owner_idx").on(table.ownerUserId), index("saved_history_filter_share_recipient_idx").on(table.recipientUserId)]);
 
+/** Email-style in-app alerts for private family-filter invitations. */
+export const familyFilterInvitationNotifications = mysqlTable("family_filter_invitation_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  shareId: int("shareId").notNull().references(() => savedVerificationHistoryFilterShares.id, { onDelete: "cascade" }),
+  recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: mysqlEnum("status", ["unread", "read"]).default("unread").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  readAt: timestamp("readAt"),
+}, (table) => [uniqueIndex("family_filter_invitation_notice_share_unique").on(table.shareId), index("family_filter_invitation_notice_recipient_status_idx").on(table.recipientUserId, table.status)]);
+
 /** Immutable confidence snapshots, written whenever document OCR completes successfully. */
 export const documentOcrConfidenceEvents = mysqlTable("document_ocr_confidence_events", {
   id: int("id").autoincrement().primaryKey(),

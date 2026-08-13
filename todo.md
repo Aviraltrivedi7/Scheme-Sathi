@@ -171,3 +171,14 @@
 - [x] Document invitation privacy, preview transformation scope, and OCR confidence-trend limitations.
 - [x] Re-render PDF pages at the active zoom level and test transform bounds/reset behavior.
 - [x] Reset OCR confidence history on document re-upload and add focused isolation coverage.
+
+## Invitation alerts, confidence chart, and PDF keyword search
+
+- [x] Review pending invitation records, OCR confidence snapshots, and current browser-only PDF renderer.
+- [x] Define read-state notification lifecycle, chart manual-review highlights, and session-only PDF text-search limits.
+- [x] Add protected in-app invitation notification persistence and owner/recipient read-state APIs.
+- [x] Add a visual OCR confidence trend chart that calls out documents requiring manual review.
+- [x] Add keyword search with match counts and page navigation inside the signed PDF preview modal.
+- [x] Add accessible invitation alert, confidence chart, and PDF search controls to the dashboard.
+- [x] Test notification lifecycle, chart classifications, PDF search bounds/matches, and responsive states.
+- [x] Document notification privacy, chart interpretation, and PDF search limitations.
