@@ -22,4 +22,6 @@ export type SharedVerificationHistoryFilter = {
   ownerEmail: string | null;
 };
 
-export type VerificationHistoryFilterShareRecipient = { shareId: number; savedFilterId: number; recipientUserId: number; recipientName: string | null; recipientEmail: string | null };
+export type FamilyFilterInviteStatus = "pending" | "accepted" | "declined";
+export type VerificationHistoryFilterShareRecipient = { shareId: number; savedFilterId: number; recipientUserId: number; recipientName: string | null; recipientEmail: string | null; status: FamilyFilterInviteStatus; createdAt: number; respondedAt: number | null };
+export type ReceivedVerificationHistoryFilterInvite = SharedVerificationHistoryFilter & { status: "pending"; createdAt: number };

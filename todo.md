@@ -158,3 +158,16 @@
 - [x] Add family filter share/revoke controls and accessible recipient feedback in the History workspace.
 - [x] Test page navigation bounds, ETA calculations, sharing authorization, revocation, and responsive controls.
 - [x] Document PDF preview privacy, ETA assumptions, and family filter-sharing limitations.
+
+## Family invitation approvals, PDF transforms, and OCR confidence trends
+
+- [x] Review current filter-share records, paged PDF preview renderer, and OCR extraction/confidence fields.
+- [x] Define invitation pending/accepted/declined rules, preview zoom/rotation bounds, and confidence trend labels.
+- [x] Add protected invitation lifecycle persistence and owner/recipient APIs for shared filters.
+- [x] Add PDF zoom in/out, reset, and rotate controls to the expanded signed preview modal.
+- [x] Add per-document OCR confidence trend indicators with clear current-state explanations.
+- [x] Add invitation approval inbox and owner invitation-status controls in the History workspace.
+- [x] Test invitation authorization/lifecycle, transform bounds, confidence-trend calculation, and responsive controls.
+- [x] Document invitation privacy, preview transformation scope, and OCR confidence-trend limitations.
+- [x] Re-render PDF pages at the active zoom level and test transform bounds/reset behavior.
+- [x] Reset OCR confidence history on document re-upload and add focused isolation coverage.

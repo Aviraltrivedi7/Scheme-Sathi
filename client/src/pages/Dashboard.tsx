@@ -29,7 +29,7 @@ function OcrReview({ extraction }: { extraction: { documentType: string; detecte
 }
 
 function DocumentTimeline({ activity }: { activity: { id: number; kind: string; detail: string | null; createdAt: number }[] }) {
-  const labels: Record<string, string> = { uploaded: "Document uploaded", reuploaded: "Fresh copy uploaded", expiryUpdated: "Expiry date updated", ocrStarted: "OCR started", ocrCompleted: "OCR details extracted", ocrFailed: "OCR needs attention", userVerified: "You verified details" };
+  const labels: Record<string, string> = { uploaded: "Document uploaded", reuploaded: "Fresh copy uploaded", expiryUpdated: "Expiry date updated", ocrStarted: "OCR started", ocrCompleted: "OCR details extracted", ocrFailed: "OCR needs attention", userVerified: "You verified details", ocrConfidenceTrend: "OCR confidence trend" };
   return <section className="document-timeline"><div className="timeline-heading"><History size={14} />Activity timeline</div>{activity.length ? activity.map((event) => <div className={`timeline-event ${event.kind}`} key={event.id}><span /><div><strong>{labels[event.kind] ?? event.kind}</strong>{event.detail && <small>{event.detail}</small>}<time>{dateFormat.format(new Date(event.createdAt))}</time></div></div>) : <small className="timeline-empty">Activity will appear after upload, OCR, expiry, or verification updates.</small>}</section>;
 }
 

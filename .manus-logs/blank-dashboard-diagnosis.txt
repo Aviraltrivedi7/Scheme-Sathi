@@ -1,0 +1,161 @@
+[2026-08-13T07:36:58.081Z] {"timestamp":1786606616610,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:36:58.081Z] {"timestamp":1786606616610,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentThumbnail.tsx"],"stack":null}
+[2026-08-13T07:36:58.081Z] {"timestamp":1786606616692,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:36:58.081Z] {"timestamp":1786606616692,"level":"DEBUG","args":["[vite]","hot updated: /src/components/BatchOcrReview.tsx"],"stack":null}
+[2026-08-13T07:38:14.081Z] {"timestamp":1786606692917,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:38:14.081Z] {"timestamp":1786606692917,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentThumbnail.tsx"],"stack":null}
+[2026-08-13T07:38:48.093Z] {"timestamp":1786606725114,"level":"LOG","args":["[vite] server connection lost. Polling for restart..."],"stack":null}
+[2026-08-13T07:38:50.525Z] {"timestamp":1786606728521,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:38:50.525Z] {"timestamp":1786606728541,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:38:50.525Z] {"timestamp":1786606729614,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:39:30.525Z] {"timestamp":1786606770121,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:40:16.524Z] {"timestamp":1786606814703,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:40:16.524Z] {"timestamp":1786606814704,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentThumbnail.tsx"],"stack":null}
+[2026-08-13T07:40:16.524Z] {"timestamp":1786606814780,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:40:16.524Z] {"timestamp":1786606814780,"level":"DEBUG","args":["[vite]","hot updated: /src/components/BatchOcrReview.tsx"],"stack":null}
+[2026-08-13T07:40:16.524Z] {"timestamp":1786606814956,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentHistoryTools.tsx"],"stack":null}
+[2026-08-13T07:40:16.524Z] {"timestamp":1786606814957,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:40:16.524Z] {"timestamp":1786606815013,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:43:12.524Z] {"timestamp":1786606991644,"level":"DEBUG","args":["[vite]","hot updated: /src/components/BatchOcrReview.tsx"],"stack":null}
+[2026-08-13T07:43:12.524Z] {"timestamp":1786606991644,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:43:12.524Z] {"timestamp":1786606991932,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T07:43:12.524Z] {"timestamp":1786606991932,"level":"DEBUG","args":["[vite]","hot updated: /src/components/BatchOcrReview.tsx"],"stack":null}
+[2026-08-13T07:43:58.217Z] {"timestamp":1786607036213,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:43:58.217Z] {"timestamp":1786607036220,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:43:58.217Z] {"timestamp":1786607036378,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:44:14.068Z] {"timestamp":1786607052058,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:44:14.068Z] {"timestamp":1786607052065,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:44:14.068Z] {"timestamp":1786607052205,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:45:35.562Z] {"timestamp":1786607133559,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:45:35.562Z] {"timestamp":1786607133566,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:45:35.562Z] {"timestamp":1786607133740,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:54:42.301Z] {"timestamp":1786607679329,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:54:42.301Z] {"timestamp":1786607679647,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:54:50.631Z] {"timestamp":1786607687774,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:54:50.631Z] {"timestamp":1786607688039,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:58:09.536Z] {"timestamp":1786607887526,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:58:09.536Z] {"timestamp":1786607887535,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:58:09.536Z] {"timestamp":1786607888606,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:58:54.816Z] {"timestamp":1786607932806,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:58:54.816Z] {"timestamp":1786607932817,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:58:54.816Z] {"timestamp":1786607933941,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:59:01.724Z] {"timestamp":1786607939713,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:59:01.724Z] {"timestamp":1786607939724,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:59:01.724Z] {"timestamp":1786607940862,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:59:11.445Z] {"timestamp":1786607949434,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:59:11.445Z] {"timestamp":1786607949446,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:59:11.445Z] {"timestamp":1786607950561,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:59:17.438Z] {"timestamp":1786607956186,"level":"ERROR","args":["[API Query Error]",{"type":"Error","message":"Failed query: select `saved_verification_history_filter_shares`.`id`, `saved_verification_history_filter_shares`.`savedFilterId`, `users`.`id`, `users`.`name`, `users`.`email`, `saved_verification_history_filter_shares`.`status`, `saved_verification_history_filter_shares`.`createdAt`, `saved_verification_history_filter_shares`.`respondedAt` from `saved_verification_history_filter_shares` inner join `users` on `saved_verification_history_filter_shares`.`recipientUserId` = `users`.`id` where `saved_verification_history_filter_shares`.`ownerUserId` = ?\nparams: 1","stack":"TRPCClientError: Failed query: select `saved_verification_history_filter_shares`.`id`, `saved_verification_history_filter_shares`.`savedFilterId`, `users`.`id`, `users`.`name`, `users`.`email`, `saved_verification_history_filter_shares`.`status`, `saved_verification_history_filter_shares`.`createdAt`, `saved_verification_history_filter_shares`.`respondedAt` from `saved_verification_history_filter_shares` inner join `users` on `saved_verification_history_filter_shares`.`recipientUserId` = `users`.`id` where `saved_verification_history_filter_shares`.`ownerUserId` = ?\nparams: 1\n    at TRPCClientError2.from (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-ICZ5RBPZ.js?v=77b442e9:2055:44)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-ICZ5RBPZ.js?v=77b442e9:2452:44"}],"stack":"Error\n    at console.error (http://127.0.0.1:3000/__manus__/debug-collector.js:391:37)\n    at http://127.0.0.1:3000/src/main.tsx?v=zZB623yL_5_ks-7EcwKZB:23:13\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2805:9\n    at Set.forEach (<anonymous>)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2804:22\n    at Object.batch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:697:18)\n    at QueryCache.notify (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2803:19)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:1443:19\n    at Object.batch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:697:18)\n    at #dispatch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:1439:19)"}
+[2026-08-13T07:59:46.248Z] {"timestamp":1786607984238,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T07:59:46.248Z] {"timestamp":1786607984324,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T07:59:46.248Z] {"timestamp":1786607985341,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T07:59:52.241Z] {"timestamp":1786607990910,"level":"ERROR","args":["[API Query Error]",{"type":"Error","message":"Failed query: select `saved_verification_history_filter_shares`.`id`, `saved_verification_history_filter_shares`.`savedFilterId`, `users`.`id`, `users`.`name`, `users`.`email`, `saved_verification_history_filter_shares`.`status`, `saved_verification_history_filter_shares`.`createdAt`, `saved_verification_history_filter_shares`.`respondedAt` from `saved_verification_history_filter_shares` inner join `users` on `saved_verification_history_filter_shares`.`recipientUserId` = `users`.`id` where `saved_verification_history_filter_shares`.`ownerUserId` = ?\nparams: 1","stack":"TRPCClientError: Failed query: select `saved_verification_history_filter_shares`.`id`, `saved_verification_history_filter_shares`.`savedFilterId`, `users`.`id`, `users`.`name`, `users`.`email`, `saved_verification_history_filter_shares`.`status`, `saved_verification_history_filter_shares`.`createdAt`, `saved_verification_history_filter_shares`.`respondedAt` from `saved_verification_history_filter_shares` inner join `users` on `saved_verification_history_filter_shares`.`recipientUserId` = `users`.`id` where `saved_verification_history_filter_shares`.`ownerUserId` = ?\nparams: 1\n    at TRPCClientError2.from (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-ICZ5RBPZ.js?v=77b442e9:2055:44)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-ICZ5RBPZ.js?v=77b442e9:2452:44"}],"stack":"Error\n    at console.error (http://127.0.0.1:3000/__manus__/debug-collector.js:391:37)\n    at http://127.0.0.1:3000/src/main.tsx?v=6ACY_2nUhFVe8u_hN0Cmh:23:13\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2805:9\n    at Set.forEach (<anonymous>)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2804:22\n    at Object.batch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:697:18)\n    at QueryCache.notify (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2803:19)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:1443:19\n    at Object.batch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:697:18)\n    at #dispatch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:1439:19)"}
+[2026-08-13T08:00:05.689Z] {"timestamp":1786608003678,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T08:00:05.689Z] {"timestamp":1786608003695,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T08:00:05.689Z] {"timestamp":1786608004789,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T08:00:11.681Z] {"timestamp":1786608010357,"level":"ERROR","args":["[API Query Error]",{"type":"Error","message":"Failed query: select `saved_verification_history_filter_shares`.`id`, `saved_verification_history_filter_shares`.`savedFilterId`, `users`.`id`, `users`.`name`, `users`.`email`, `saved_verification_history_filter_shares`.`status`, `saved_verification_history_filter_shares`.`createdAt`, `saved_verification_history_filter_shares`.`respondedAt` from `saved_verification_history_filter_shares` inner join `users` on `saved_verification_history_filter_shares`.`recipientUserId` = `users`.`id` where `saved_verification_history_filter_shares`.`ownerUserId` = ?\nparams: 1","stack":"TRPCClientError: Failed query: select `saved_verification_history_filter_shares`.`id`, `saved_verification_history_filter_shares`.`savedFilterId`, `users`.`id`, `users`.`name`, `users`.`email`, `saved_verification_history_filter_shares`.`status`, `saved_verification_history_filter_shares`.`createdAt`, `saved_verification_history_filter_shares`.`respondedAt` from `saved_verification_history_filter_shares` inner join `users` on `saved_verification_history_filter_shares`.`recipientUserId` = `users`.`id` where `saved_verification_history_filter_shares`.`ownerUserId` = ?\nparams: 1\n    at TRPCClientError2.from (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-ICZ5RBPZ.js?v=77b442e9:2055:44)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-ICZ5RBPZ.js?v=77b442e9:2452:44"}],"stack":"Error\n    at console.error (http://127.0.0.1:3000/__manus__/debug-collector.js:391:37)\n    at http://127.0.0.1:3000/src/main.tsx?v=3J0BXsk86NkO4ZkE8rpMO:23:13\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2805:9\n    at Set.forEach (<anonymous>)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2804:22\n    at Object.batch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:697:18)\n    at QueryCache.notify (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:2803:19)\n    at http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:1443:19\n    at Object.batch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:697:18)\n    at #dispatch (http://127.0.0.1:3000/@fs/home/ubuntu/gov-schemes-finder/node_modules/.vite/deps/chunk-UEJFBOLU.js?v=77b442e9:1439:19)"}
+[2026-08-13T08:01:05.680Z] {"timestamp":1786608064081,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:01:05.680Z] {"timestamp":1786608064082,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentThumbnail.tsx"],"stack":null}
+[2026-08-13T08:01:05.680Z] {"timestamp":1786608064104,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:01:05.680Z] {"timestamp":1786608064104,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentThumbnail.tsx"],"stack":null}
+[2026-08-13T08:01:35.680Z] {"timestamp":1786608095348,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:01:35.680Z] {"timestamp":1786608095348,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentThumbnail.css"],"stack":null}
+[2026-08-13T08:02:05.681Z] {"timestamp":1786608125618,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:02:05.681Z] {"timestamp":1786608125618,"level":"DEBUG","args":["[vite]","hot updated: /src/components/FamilyFilterShare.tsx"],"stack":null}
+[2026-08-13T08:02:33.682Z] {"timestamp":1786608153566,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:02:33.682Z] {"timestamp":1786608153567,"level":"DEBUG","args":["[vite]","hot updated: /src/components/FamilyFilterShare.css"],"stack":null}
+[2026-08-13T08:03:11.681Z] {"timestamp":1786608191148,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:03:11.681Z] {"timestamp":1786608191148,"level":"DEBUG","args":["[vite]","hot updated: /src/components/FamilyFilterShare.tsx"],"stack":null}
+[2026-08-13T08:03:54.940Z] {"timestamp":1786608232929,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T08:03:54.940Z] {"timestamp":1786608232941,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T08:03:54.940Z] {"timestamp":1786608234174,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T08:04:38.932Z] {"timestamp":1786608278563,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:04:50.932Z] {"timestamp":1786608289413,"level":"DEBUG","args":["[vite]","hot updated: /src/index.css"],"stack":null}
+[2026-08-13T08:04:50.932Z] {"timestamp":1786608289414,"level":"DEBUG","args":["[vite]","hot updated: /src/components/DocumentThumbnail.tsx"],"stack":null}
+[2026-08-13T08:07:52.783Z] {"timestamp":1786608470771,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T08:07:52.783Z] {"timestamp":1786608470783,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T08:07:52.783Z] {"timestamp":1786608471960,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+[2026-08-13T08:08:46.460Z] {"timestamp":1786608524456,"level":"DEBUG","args":["[Manus] Debug collector initialized (no rrweb, UI events only)"],"stack":null}
+[2026-08-13T08:08:46.460Z] {"timestamp":1786608524469,"level":"DEBUG","args":["[vite] connected."],"stack":null}
+[2026-08-13T08:08:46.460Z] {"timestamp":1786608524615,"level":"INFO","args":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"],"stack":null}
+--- DEV ---
+[2026-08-12T13:23:16.544Z] [OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-12T13:23:16.774Z] Server running on http://localhost:3000/
+[2026-08-12T13:23:17.134Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-12T13:32:40.128Z] 1:32:40 PM [tsx] change in ./drizzle/schema.ts Restarting...
+[2026-08-12T13:32:42.034Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-12T13:32:42.271Z] Server running on http://localhost:3000/
+[2026-08-12T13:32:43.462Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-12T13:34:50.169Z] 1:34:50 PM [vite] (client) hmr update /src/index.css, /src/components/DocumentHistoryTools.css
+[2026-08-12T13:34:50.174Z] 1:34:50 PM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.tsx
+[2026-08-12T13:34:50.175Z] 1:34:50 PM [vite] (client) hmr update /src/index.css, /src/components/DocumentHistoryTools.tsx
+[2026-08-12T13:35:25.664Z] 1:35:25 PM [vite] (client) hmr update /src/index.css, /src/components/DocumentHistoryTools.tsx
+[2026-08-12T13:36:18.158Z] 1:36:18 PM [vite] (client) hmr update /src/index.css, /src/components/BatchOcrReview.tsx
+[2026-08-12T13:36:18.682Z] 1:36:18 PM [vite] (client) hmr update /src/index.css, /src/components/BatchOcrReview.css
+[2026-08-12T13:36:43.674Z] 1:36:43 PM [vite] (client) hmr update /src/index.css, /src/components/BatchOcrReview.tsx
+[2026-08-13T07:34:54.485Z] 7:34:54 AM [tsx] change in ./server/routers.ts Restarting...
+[2026-08-13T07:34:56.298Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:34:56.521Z] Server running on http://localhost:3000/
+[2026-08-13T07:34:56.822Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T07:35:24.526Z] 7:35:24 AM [vite] (client) hmr update /src/components/DocumentHistoryTools.tsx, /src/index.css
+[2026-08-13T07:35:24.602Z] 7:35:24 AM [tsx] change in ./server/routers.ts Restarting...
+[2026-08-13T07:35:26.443Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:35:26.672Z] Server running on http://localhost:3000/
+[2026-08-13T07:35:27.947Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T07:36:56.288Z] 7:36:56 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.css
+[2026-08-13T07:36:56.290Z] 7:36:56 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.tsx
+[2026-08-13T07:36:56.304Z] 7:36:56 AM [vite] (client) hmr update /src/index.css, /src/components/BatchOcrReview.tsx
+[2026-08-13T07:38:12.796Z] 7:38:12 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.tsx
+[2026-08-13T07:38:45.089Z] 7:38:45 AM [tsx] change in ./server/db.ts Restarting...
+[2026-08-13T07:38:46.936Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:38:47.163Z] Server running on http://localhost:3000/
+[2026-08-13T07:38:48.406Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T07:39:30.025Z] 7:39:30 AM [vite] (client) hmr update /src/index.css
+[2026-08-13T07:40:14.519Z] 7:40:14 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.tsx
+[2026-08-13T07:40:14.521Z] 7:40:14 AM [vite] (client) hmr update /src/index.css, /src/components/BatchOcrReview.tsx
+[2026-08-13T07:40:14.654Z] 7:40:14 AM [vite] (client) hmr update /src/components/DocumentHistoryTools.tsx, /src/index.css
+[2026-08-13T07:40:14.690Z] 7:40:14 AM [vite] (client) hmr update /src/index.css
+[2026-08-13T07:43:11.430Z] 7:43:11 AM [vite] (client) hmr update /src/components/BatchOcrReview.tsx, /src/index.css
+[2026-08-13T07:43:11.843Z] 7:43:11 AM [vite] (client) hmr update /src/index.css, /src/components/BatchOcrReview.tsx
+[2026-08-13T07:58:05.106Z] 7:58:05 AM [tsx] change in ./drizzle/schema.ts Restarting...
+[2026-08-13T07:58:06.672Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:58:06.890Z] Server running on http://localhost:3000/
+[2026-08-13T07:58:07.410Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T07:58:50.387Z] 7:58:50 AM [tsx] change in ./server/db.ts Restarting...
+[2026-08-13T07:58:51.940Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:58:52.169Z] Server running on http://localhost:3000/
+[2026-08-13T07:58:52.685Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T07:58:57.264Z] 7:58:57 AM [tsx] change in ./server/db.ts Restarting...
+[2026-08-13T07:58:58.818Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:58:59.039Z] Server running on http://localhost:3000/
+[2026-08-13T07:58:59.592Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T07:59:06.970Z] 7:59:06 AM [tsx] change in ./server/db.ts Restarting...
+[2026-08-13T07:59:08.508Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:59:08.727Z] Server running on http://localhost:3000/
+[2026-08-13T07:59:09.317Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T07:59:41.794Z] 7:59:41 AM [tsx] change in ./server/db.ts Restarting...
+[2026-08-13T07:59:43.378Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T07:59:43.598Z] Server running on http://localhost:3000/
+[2026-08-13T07:59:44.104Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T08:00:01.254Z] 8:00:01 AM [tsx] change in ./server/routers.ts Restarting...
+[2026-08-13T08:00:02.720Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T08:00:02.941Z] Server running on http://localhost:3000/
+[2026-08-13T08:00:03.563Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T08:01:03.892Z] 8:01:03 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.tsx
+[2026-08-13T08:01:03.895Z] 8:01:03 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.tsx
+[2026-08-13T08:01:35.262Z] 8:01:35 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.css
+[2026-08-13T08:02:05.495Z] 8:02:05 AM [vite] (client) hmr update /src/index.css, /src/components/FamilyFilterShare.tsx
+[2026-08-13T08:02:33.466Z] 8:02:33 AM [vite] (client) hmr update /src/index.css, /src/components/FamilyFilterShare.css
+[2026-08-13T08:03:10.997Z] 8:03:10 AM [vite] (client) hmr update /src/index.css, /src/components/FamilyFilterShare.tsx
+[2026-08-13T08:03:50.373Z] 8:03:50 AM [vite] (client) hmr update /src/pages/Dashboard.tsx, /src/index.css
+[2026-08-13T08:03:50.477Z] 8:03:50 AM [tsx] change in ./server/db.ts Restarting...
+[2026-08-13T08:03:52.159Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T08:03:52.382Z] Server running on http://localhost:3000/
+[2026-08-13T08:03:52.808Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2026-08-13T08:04:38.352Z] 8:04:38 AM [vite] (client) hmr update /src/index.css
+[2026-08-13T08:04:49.257Z] 8:04:49 AM [vite] (client) hmr update /src/index.css, /src/components/DocumentThumbnail.tsx
+[2026-08-13T08:07:47.282Z] 8:07:47 AM [tsx] change in ./server/db.ts Restarting...
+[2026-08-13T08:07:47.781Z] c8:07:47 AM [tsx] change in ./shared/ocrConfidenceTrend.ts Restarting...
+[2026-08-13T08:07:49.288Z] c[OAuth] Initialized with baseURL: https://api.manus.im
+[2026-08-13T08:07:49.515Z] Server running on http://localhost:3000/
+[2026-08-13T08:07:50.632Z] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`

@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentReminderSettings, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -9,9 +9,10 @@ import { storageGetSignedUrl, storagePut } from "./storage";
 import { expiryNoticeKind, getDocumentExpiryState } from "./documentExpiry";
 import { extractDocumentDetails } from "./documentOcr";
 import { needsManualOcrReview, type OcrConfidence } from "@shared/ocrPolicy";
+import { shouldResetOcrConfidenceHistory, summariseOcrConfidenceTrend } from "@shared/ocrConfidenceTrend";
 import { buildDocumentActivityInsert, buildOcrApprovalUpdate, toDocumentTimeline, type DocumentActivityKind } from "./documentActivity";
 import { createVerificationHistoryPdf, filterVerificationHistory, type VerificationHistoryEvent } from "./verificationHistoryPdf";
-import type { SavedVerificationHistoryFilter, SharedVerificationHistoryFilter, VerificationHistoryFilterPresetInput, VerificationHistoryFilterShareRecipient } from "@shared/verificationHistoryFilters";
+import type { ReceivedVerificationHistoryFilterInvite, SavedVerificationHistoryFilter, SharedVerificationHistoryFilter, VerificationHistoryFilterPresetInput, VerificationHistoryFilterShareRecipient } from "@shared/verificationHistoryFilters";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -216,8 +217,12 @@ export async function listTrackedApplications(userId: number) {
       reminders: reminders.map(mapReminder).sort((a, b) => a.remindAt - b.remindAt),
       documents: await Promise.all(documents.map(async (document) => {
         const events = await db.select().from(documentActivityEvents).where(eq(documentActivityEvents.applicationDocumentId, document.id)).orderBy(desc(documentActivityEvents.createdAt));
+        const confidenceHistory = await db.select().from(documentOcrConfidenceEvents).where(eq(documentOcrConfidenceEvents.applicationDocumentId, document.id)).orderBy(desc(documentOcrConfidenceEvents.createdAt));
         const needsManualReview = document.ocrStatus === "failed" || (document.ocrStatus === "complete" && document.ocrExtraction ? needsManualOcrReview(document.ocrExtraction.confidence, document.ocrExtraction.concerns, ocrPolicy.minimumConfidence) : false);
-        return { id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity: toDocumentTimeline(events) };
+        const ocrConfidenceHistory = confidenceHistory.map((event) => ({ confidence: event.confidence, concernCount: event.concernCount, createdAt: event.createdAt.getTime() }));
+        const confidenceTrend = summariseOcrConfidenceTrend(ocrConfidenceHistory);
+        const activity = confidenceTrend ? [{ id: -document.id, kind: "ocrConfidenceTrend", detail: confidenceTrend.label, createdAt: confidenceTrend.createdAt }, ...toDocumentTimeline(events)] : toDocumentTimeline(events);
+        return { id: document.id, documentName: document.documentName, storageUrl: document.storageUrl, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null, expiryState: getDocumentExpiryState(document.expiresAt?.getTime() ?? null), ocrStatus: document.ocrStatus, ocrExtraction: document.ocrExtraction, ocrError: document.ocrError ?? null, ocrVerifiedAt: document.ocrVerifiedAt?.getTime() ?? null, userVerifiedAt: document.userVerifiedAt?.getTime() ?? null, needsManualReview, uploadedAt: document.uploadedAt.getTime(), activity, ocrConfidenceHistory };
       })),
     };
   }));
@@ -301,6 +306,7 @@ export async function uploadApplicationDocument(userId: number, trackedApplicati
   await db.insert(applicationDocuments).values({ trackedApplicationId, documentName, storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null }).onDuplicateKeyUpdate({ set: { storageKey: uploaded.key, storageUrl: uploaded.url, fileName, mimeType, expiresAt: expiresAt ? new Date(expiresAt) : null, ocrStatus: "notRequested", ocrExtraction: null, ocrError: null, ocrVerifiedAt: null, updatedAt: new Date() } });
   const rows = await db.select().from(applicationDocuments).where(and(eq(applicationDocuments.trackedApplicationId, trackedApplicationId), eq(applicationDocuments.documentName, documentName))).limit(1);
   if (rows[0]) {
+    if (shouldResetOcrConfidenceHistory(Boolean(previous[0]))) await db.delete(documentOcrConfidenceEvents).where(eq(documentOcrConfidenceEvents.applicationDocumentId, rows[0].id));
     await db.update(documentExpiryNotifications).set({ status: "read", readAt: new Date() }).where(eq(documentExpiryNotifications.applicationDocumentId, rows[0].id));
     await recordDocumentActivity(rows[0].id, previous[0] ? "reuploaded" : "uploaded", previous[0] ? "Fresh file uploaded; OCR verification reset." : "Document uploaded to checklist.");
   }
@@ -344,6 +350,7 @@ export async function runApplicationDocumentOcr(userId: number, documentId: numb
   try {
     const extraction = await extractDocumentDetails({ signedUrl: await storageGetSignedUrl(owned.document.storageKey), mimeType: owned.document.mimeType, checklistName: owned.document.documentName, fileName: owned.document.fileName });
     await db.update(applicationDocuments).set({ ocrStatus: "complete", ocrExtraction: extraction, ocrError: null, ocrVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(applicationDocuments.id, documentId));
+    await db.insert(documentOcrConfidenceEvents).values({ applicationDocumentId: documentId, confidence: extraction.confidence, concernCount: extraction.concerns.length });
     await recordDocumentActivity(documentId, "ocrCompleted", `AI extraction completed with ${extraction.confidence} confidence.`);
     return extraction;
   } catch (error) {
@@ -434,14 +441,22 @@ export async function setDefaultVerificationHistoryFilter(userId: number, filter
 export async function listVerificationHistoryFilterShares(ownerUserId: number): Promise<VerificationHistoryFilterShareRecipient[]> {
   const db = await getDb();
   if (!db) databaseUnavailable();
-  return db.select({ shareId: savedVerificationHistoryFilterShares.id, savedFilterId: savedVerificationHistoryFilterShares.savedFilterId, recipientUserId: users.id, recipientName: users.name, recipientEmail: users.email }).from(savedVerificationHistoryFilterShares).innerJoin(users, eq(savedVerificationHistoryFilterShares.recipientUserId, users.id)).where(eq(savedVerificationHistoryFilterShares.ownerUserId, ownerUserId));
+  const rows = await db.select({ shareId: savedVerificationHistoryFilterShares.id, savedFilterId: savedVerificationHistoryFilterShares.savedFilterId, recipientUserId: users.id, recipientName: users.name, recipientEmail: users.email, status: savedVerificationHistoryFilterShares.status, createdAt: savedVerificationHistoryFilterShares.createdAt, respondedAt: savedVerificationHistoryFilterShares.respondedAt }).from(savedVerificationHistoryFilterShares).innerJoin(users, eq(savedVerificationHistoryFilterShares.recipientUserId, users.id)).where(eq(savedVerificationHistoryFilterShares.ownerUserId, ownerUserId));
+  return rows.map((row) => ({ ...row, createdAt: row.createdAt.getTime(), respondedAt: row.respondedAt?.getTime() ?? null }));
 }
 
 export async function listReceivedVerificationHistoryFilters(recipientUserId: number): Promise<SharedVerificationHistoryFilter[]> {
   const db = await getDb();
   if (!db) databaseUnavailable();
-  const rows = await db.select({ shareId: savedVerificationHistoryFilterShares.id, id: savedVerificationHistoryFilters.id, name: savedVerificationHistoryFilters.name, query: savedVerificationHistoryFilters.query, startAt: savedVerificationHistoryFilters.startAt, endAt: savedVerificationHistoryFilters.endAt, sort: savedVerificationHistoryFilters.sort, createdAt: savedVerificationHistoryFilters.createdAt, updatedAt: savedVerificationHistoryFilters.updatedAt, ownerName: users.name, ownerEmail: users.email }).from(savedVerificationHistoryFilterShares).innerJoin(savedVerificationHistoryFilters, eq(savedVerificationHistoryFilterShares.savedFilterId, savedVerificationHistoryFilters.id)).innerJoin(users, eq(savedVerificationHistoryFilterShares.ownerUserId, users.id)).where(eq(savedVerificationHistoryFilterShares.recipientUserId, recipientUserId)).orderBy(desc(savedVerificationHistoryFilterShares.createdAt));
+  const rows = await db.select({ shareId: savedVerificationHistoryFilterShares.id, id: savedVerificationHistoryFilters.id, name: savedVerificationHistoryFilters.name, query: savedVerificationHistoryFilters.query, startAt: savedVerificationHistoryFilters.startAt, endAt: savedVerificationHistoryFilters.endAt, sort: savedVerificationHistoryFilters.sort, createdAt: savedVerificationHistoryFilters.createdAt, updatedAt: savedVerificationHistoryFilters.updatedAt, ownerName: users.name, ownerEmail: users.email }).from(savedVerificationHistoryFilterShares).innerJoin(savedVerificationHistoryFilters, eq(savedVerificationHistoryFilterShares.savedFilterId, savedVerificationHistoryFilters.id)).innerJoin(users, eq(savedVerificationHistoryFilterShares.ownerUserId, users.id)).where(and(eq(savedVerificationHistoryFilterShares.recipientUserId, recipientUserId), eq(savedVerificationHistoryFilterShares.status, "accepted"))).orderBy(desc(savedVerificationHistoryFilterShares.createdAt));
   return rows.map((row) => ({ shareId: row.shareId, filter: { id: row.id, name: row.name, query: row.query, startAt: row.startAt?.getTime(), endAt: row.endAt?.getTime(), sort: row.sort, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() }, ownerName: row.ownerName, ownerEmail: row.ownerEmail }));
+}
+
+export async function listReceivedVerificationHistoryFilterInvites(recipientUserId: number): Promise<ReceivedVerificationHistoryFilterInvite[]> {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select({ shareId: savedVerificationHistoryFilterShares.id, id: savedVerificationHistoryFilters.id, name: savedVerificationHistoryFilters.name, query: savedVerificationHistoryFilters.query, startAt: savedVerificationHistoryFilters.startAt, endAt: savedVerificationHistoryFilters.endAt, sort: savedVerificationHistoryFilters.sort, createdAt: savedVerificationHistoryFilters.createdAt, updatedAt: savedVerificationHistoryFilters.updatedAt, invitationCreatedAt: savedVerificationHistoryFilterShares.createdAt, ownerName: users.name, ownerEmail: users.email }).from(savedVerificationHistoryFilterShares).innerJoin(savedVerificationHistoryFilters, eq(savedVerificationHistoryFilterShares.savedFilterId, savedVerificationHistoryFilters.id)).innerJoin(users, eq(savedVerificationHistoryFilterShares.ownerUserId, users.id)).where(and(eq(savedVerificationHistoryFilterShares.recipientUserId, recipientUserId), eq(savedVerificationHistoryFilterShares.status, "pending"))).orderBy(desc(savedVerificationHistoryFilterShares.createdAt));
+  return rows.map((row) => ({ shareId: row.shareId, filter: { id: row.id, name: row.name, query: row.query, startAt: row.startAt?.getTime(), endAt: row.endAt?.getTime(), sort: row.sort, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() }, ownerName: row.ownerName, ownerEmail: row.ownerEmail, status: "pending", createdAt: row.invitationCreatedAt.getTime() }));
 }
 
 export async function shareVerificationHistoryFilter(ownerUserId: number, filterId: number, recipientEmail: string) {
@@ -454,7 +469,7 @@ export async function shareVerificationHistoryFilter(ownerUserId: number, filter
   const recipient = recipients[0];
   if (!recipient) throw new Error("Ask this family member to sign in once before sharing a filter.");
   if (recipient.id === ownerUserId) throw new Error("Your own account already has this filter.");
-  await db.insert(savedVerificationHistoryFilterShares).values({ savedFilterId: filterId, ownerUserId, recipientUserId: recipient.id }).onDuplicateKeyUpdate({ set: { createdAt: new Date() } });
+  await db.insert(savedVerificationHistoryFilterShares).values({ savedFilterId: filterId, ownerUserId, recipientUserId: recipient.id, status: "pending" }).onDuplicateKeyUpdate({ set: { status: "pending", createdAt: new Date(), respondedAt: null } });
   return listVerificationHistoryFilterShares(ownerUserId);
 }
 
@@ -462,6 +477,15 @@ export async function revokeVerificationHistoryFilterShare(ownerUserId: number, 
   const db = await getDb();
   if (!db) databaseUnavailable();
   await db.delete(savedVerificationHistoryFilterShares).where(and(eq(savedVerificationHistoryFilterShares.ownerUserId, ownerUserId), eq(savedVerificationHistoryFilterShares.id, shareId)));
+}
+
+export async function respondToVerificationHistoryFilterInvite(recipientUserId: number, shareId: number, decision: "accepted" | "declined") {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const invite = await db.select({ id: savedVerificationHistoryFilterShares.id }).from(savedVerificationHistoryFilterShares).where(and(eq(savedVerificationHistoryFilterShares.id, shareId), eq(savedVerificationHistoryFilterShares.recipientUserId, recipientUserId), eq(savedVerificationHistoryFilterShares.status, "pending"))).limit(1);
+  if (!invite[0]) throw new Error("Family filter invitation not found");
+  await db.update(savedVerificationHistoryFilterShares).set({ status: decision, respondedAt: new Date() }).where(eq(savedVerificationHistoryFilterShares.id, shareId));
+  return { shareId, status: decision };
 }
 
 export async function runBatchDocumentOcr(userId: number, documentIds: number[]) {

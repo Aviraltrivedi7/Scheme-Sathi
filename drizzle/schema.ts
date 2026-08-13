@@ -153,8 +153,19 @@ export const savedVerificationHistoryFilterShares = mysqlTable("saved_verificati
   savedFilterId: int("savedFilterId").notNull().references(() => savedVerificationHistoryFilters.id, { onDelete: "cascade" }),
   ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
   recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: mysqlEnum("status", ["pending", "accepted", "declined"]).default("accepted").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  respondedAt: timestamp("respondedAt"),
 }, (table) => [uniqueIndex("saved_history_filter_share_unique").on(table.savedFilterId, table.recipientUserId), index("saved_history_filter_share_owner_idx").on(table.ownerUserId), index("saved_history_filter_share_recipient_idx").on(table.recipientUserId)]);
+
+/** Immutable confidence snapshots, written whenever document OCR completes successfully. */
+export const documentOcrConfidenceEvents = mysqlTable("document_ocr_confidence_events", {
+  id: int("id").autoincrement().primaryKey(),
+  applicationDocumentId: int("applicationDocumentId").notNull().references(() => applicationDocuments.id, { onDelete: "cascade" }),
+  confidence: mysqlEnum("confidence", ["low", "medium", "high"]).notNull(),
+  concernCount: int("concernCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [index("document_ocr_confidence_document_created_idx").on(table.applicationDocumentId, table.createdAt)]);
 
 /** Singleton policy for deciding when a completed OCR result needs a manual user review. */
 export const ocrPolicySettings = mysqlTable("ocr_policy_settings", {
