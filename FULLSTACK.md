@@ -222,3 +222,17 @@ The public **Need help?** drawer now uses a real server-side, streamed Claude re
 The prompt changes its quick questions on the home, profile, results, and details screens. It requests clear Hindi or English based on the active language, includes a visible typing state while chunks arrive, and gives safe recovery guidance if the service is unavailable. System instructions prohibit definite eligibility claims, invented official rules, and requests for Aadhaar, bank details, passwords, OTPs, or document uploads. It tells the user to verify requirements and deadlines on the official portal.
 
 `server/schemeHelp.test.ts` covers bounded bilingual request validation and selected-scheme context construction, while the UI contract test confirms streaming endpoint, dynamic prompts, and typing state presence. The real SSE endpoint was smoke-tested with a development-safe public query; it returned Claude output successfully. The full suite now contains **67 tests** across 24 files, and TypeScript, production build, and public landing-page rendering pass. The old static function remains inert; the live help trigger renders the new streamed drawer. No publishing or real personal user data was used.
+
+## P0/P1 Public Scheme Discovery Improvements
+
+The public results experience now explains matching transparently. Each score pill opens a bilingual **score explanation modal** containing every weighted rule used by the local matching model: age (15), income (15), category (18), work profile (22), state (12), gender (8), and status-specific rules (5 each). A matched rule displays its earned points and a clear reason; a non-matching rule displays zero with the reason. The score remains a discovery aid only and explicitly does not confirm final eligibility.
+
+On screens narrower than 640px, the public hero now stacks in the specified order: visual first, then headline and supporting copy, then full-width CTAs. The existing page retains its desktop editorial composition while the mobile arrangement eliminates excess hero height and gives action buttons a direct, thumb-friendly flow.
+
+Scheme details now include a bilingual **WhatsApp share** action. It opens WhatsApp with a concise prefilled message containing the scheme name, short benefit summary, available deadline state, and official portal URL; ordinary copy-link behavior remains available beside it. No recipient, personal profile, or document data is stored by the application as part of sharing.
+
+Deadline metadata now drives a visible urgency banner. A deadline within 30 days appears as closing soon with a date; a timestamp already in the past is correctly classified as closed even if it is less than one day old. Closed schemes disable the direct application button while retaining source-aware guidance to check the official portal.
+
+Users can select up to three result cards for comparison. The fixed comparison bar prevents the fourth selection, requires at least two choices to open, and launches an accessible full-screen comparison modal for benefit summary, match score, key eligibility, documents, steps, and official links. All selection state remains browser-local for the session.
+
+Focused public UX coverage verifies weighted score reasoning, deadline boundaries, WhatsApp URL construction, comparison cap wiring, and mobile hero order. The complete suite now has **70 tests** across 25 files; TypeScript, production build, fresh server restart, and desktop/mobile landing renders pass. No publishing or live user sharing action was performed.

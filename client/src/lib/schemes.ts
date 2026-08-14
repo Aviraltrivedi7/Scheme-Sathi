@@ -335,6 +335,37 @@ export function scoreScheme(profile: UserProfile, scheme: Scheme) {
   return { score: Math.min(100, Math.round(score)), factors };
 }
 
+export type ScoreBreakdownItem = { key: string; points: number; matched: boolean; english: string; hindi: string };
+export function getScoreBreakdown(profile: UserProfile, scheme: Scheme): ScoreBreakdownItem[] {
+  const rule = scheme.eligibility;
+  const ageMatched = rule.age_min === undefined || (profile.age >= rule.age_min && (rule.age_max === undefined || profile.age <= rule.age_max));
+  const incomeMatched = rule.income_max === undefined || profile.annualIncome <= rule.income_max;
+  const categoryMatched = rule.caste_categories === undefined || rule.caste_categories === "all" || rule.caste_categories.includes(profile.caste) || rule.caste_categories.includes("all");
+  const workMatched = rule.occupations === undefined || rule.occupations === "all" || rule.occupations.includes(profile.occupation) || (profile.isFarmer && rule.occupations.includes("Agriculture"));
+  const stateMatched = rule.states === undefined || rule.states === "all" || rule.states.includes(profile.state);
+  const genderMatched = rule.gender === undefined || rule.gender === "all" || rule.gender.includes(profile.gender) || rule.gender.includes("all");
+  const ranges = (minimum?: number, maximum?: number) => minimum === undefined ? "any age" : maximum === undefined ? `age ${minimum}+` : `ages ${minimum}–${maximum}`;
+  return [
+    { key: "age", points: 15, matched: ageMatched, english: ageMatched ? `Your age (${profile.age}) fits the scheme’s ${ranges(rule.age_min, rule.age_max)} criteria.` : `Your age (${profile.age}) does not fit the scheme’s ${ranges(rule.age_min, rule.age_max)} criteria.`, hindi: ageMatched ? `आपकी आयु (${profile.age}) योजना की ${ranges(rule.age_min, rule.age_max)} पात्रता में आती है।` : `आपकी आयु (${profile.age}) योजना की ${ranges(rule.age_min, rule.age_max)} पात्रता में नहीं आती है।` },
+    { key: "income", points: 15, matched: incomeMatched, english: incomeMatched ? "Your stated household income fits this scheme’s income criterion." : "Your stated household income is above this scheme’s listed income criterion.", hindi: incomeMatched ? "आपकी बताई घरेलू आय योजना के आय मानदंड में आती है।" : "आपकी बताई घरेलू आय योजना के सूचीबद्ध आय मानदंड से ऊपर है।" },
+    { key: "category", points: 18, matched: categoryMatched, english: categoryMatched ? "Your social category is supported by this eligibility rule." : "Your selected social category did not add points under this eligibility rule.", hindi: categoryMatched ? "आपकी सामाजिक श्रेणी इस पात्रता नियम में शामिल है।" : "आपकी चुनी सामाजिक श्रेणी ने इस पात्रता नियम में अंक नहीं जोड़े।" },
+    { key: "work", points: 22, matched: workMatched, english: workMatched ? "Your work profile matches the scheme’s supported occupation rule." : "Your work profile did not match this scheme’s listed occupation rule.", hindi: workMatched ? "आपका काम का प्रोफाइल योजना के समर्थित व्यवसाय नियम से मिलता है।" : "आपका काम का प्रोफाइल योजना के सूचीबद्ध व्यवसाय नियम से नहीं मिला।" },
+    { key: "state", points: 12, matched: stateMatched, english: stateMatched ? "The scheme is available for your selected state or is open nationally." : "This scheme’s listed state coverage did not match your selected state.", hindi: stateMatched ? "योजना आपके चुने राज्य में उपलब्ध है या राष्ट्रीय स्तर पर खुली है।" : "योजना की सूचीबद्ध राज्य कवरेज आपके चुने राज्य से नहीं मिली।" },
+    { key: "gender", points: 8, matched: genderMatched, english: genderMatched ? "Your selected gender fits this eligibility rule or the rule is open to all." : "Your selected gender did not add points under this eligibility rule.", hindi: genderMatched ? "आपका चुना लिंग इस पात्रता नियम में आता है या नियम सभी के लिए खुला है।" : "आपके चुने लिंग ने इस पात्रता नियम में अंक नहीं जोड़े।" },
+    { key: "student", points: 5, matched: rule.is_student !== true || profile.isStudent, english: rule.is_student !== true || profile.isStudent ? "Student status fits this rule or is not required." : "This scheme requires student status, which is not selected in your profile.", hindi: rule.is_student !== true || profile.isStudent ? "छात्र स्थिति इस नियम से मेल खाती है या आवश्यक नहीं है।" : "इस योजना में छात्र स्थिति चाहिए, जो आपके प्रोफाइल में चयनित नहीं है।" },
+    { key: "farmer", points: 5, matched: rule.is_farmer !== true || profile.isFarmer, english: rule.is_farmer !== true || profile.isFarmer ? "Farmer status fits this rule or is not required." : "This scheme requires farmer status, which is not selected in your profile.", hindi: rule.is_farmer !== true || profile.isFarmer ? "किसान स्थिति इस नियम से मेल खाती है या आवश्यक नहीं है।" : "इस योजना में किसान स्थिति चाहिए, जो आपके प्रोफाइल में चयनित नहीं है।" },
+    { key: "disability", points: 5, matched: rule.is_disabled !== true || profile.isDisabled, english: rule.is_disabled !== true || profile.isDisabled ? "Disability status fits this rule or is not required." : "This scheme requires disability status, which is not selected in your profile.", hindi: rule.is_disabled !== true || profile.isDisabled ? "दिव्यांग स्थिति इस नियम से मेल खाती है या आवश्यक नहीं है।" : "इस योजना में दिव्यांग स्थिति चाहिए, जो आपके प्रोफाइल में चयनित नहीं है।" },
+  ];
+}
+
+export function getDeadlineUrgency(deadline?: number | null, now = Date.now()) {
+  if (!deadline) return { state: "none" as const, days: null };
+  if (deadline < now) return { state: "closed" as const, days: Math.floor((deadline - now) / 86_400_000) };
+  const days = Math.ceil((deadline - now) / 86_400_000);
+  if (days <= 30) return { state: "closingSoon" as const, days };
+  return { state: "open" as const, days };
+}
+
 export function getTier(score: number) {
   if (score >= 85) return { label: "Strong match", labelHi: "बहुत अच्छा मिलान", tone: "strong" };
   if (score >= 70) return { label: "Good match", labelHi: "अच्छा मिलान", tone: "good" };

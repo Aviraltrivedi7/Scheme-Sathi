@@ -1,0 +1,33 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { getDeadlineUrgency, getScoreBreakdown, schemes, type UserProfile } from "../client/src/lib/schemes";
+
+const farmerProfile: UserProfile = { age: 34, state: "Maharashtra", caste: "OBC", annualIncome: 180000, occupation: "Farmer", gender: "Male", isStudent: false, isFarmer: true, isDisabled: false };
+
+describe("public scheme score and engagement UX", () => {
+  it("explains matching and non-matching points from the same profile rules", () => {
+    const pmKisan = schemes.find((scheme) => scheme.id === "pmkisan")!;
+    const breakdown = getScoreBreakdown(farmerProfile, pmKisan);
+    expect(breakdown.find((item) => item.key === "work")).toMatchObject({ points: 22, matched: true });
+    expect(breakdown.find((item) => item.key === "farmer")).toMatchObject({ points: 5, matched: true });
+    expect(breakdown).toHaveLength(9);
+  });
+
+  it("classifies deadline urgency with inclusive closing-soon and closed boundaries", () => {
+    const now = Date.UTC(2026, 7, 14, 12);
+    expect(getDeadlineUrgency(now + 30 * 86_400_000, now)).toMatchObject({ state: "closingSoon", days: 30 });
+    expect(getDeadlineUrgency(now - 1, now)).toMatchObject({ state: "closed" });
+    expect(getDeadlineUrgency(null, now)).toMatchObject({ state: "none", days: null });
+  });
+
+  it("wires WhatsApp sharing, bounded comparison, and mobile hero order into the public UI", () => {
+    const home = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
+    const css = readFileSync(resolve(process.cwd(), "client/src/index.css"), "utf8");
+    expect(home).toContain("https://wa.me/?text=");
+    expect(home).toContain("current.length >= 3");
+    expect(home).toContain("ScoreExplanationModal");
+    expect(home).toContain("SchemeComparisonModal");
+    expect(css).toContain(".hero-art-wrap { order: -1");
+  });
+});

@@ -268,4 +268,15 @@
 - [x] Implement the P0 Claude-powered streaming help drawer across backend and frontend.
 - [x] Test the P0 help stream, bounded context, dynamic prompts, safety behavior, and public-page rendering.
 - [x] Document and checkpoint the P0 development-only implementation.
-- [ ] Select and implement the next supplied-brief priority item after P0 real AI help drawer.
+- [x] Select the next supplied-brief priorities after P0 real AI help drawer.
+
+## Approved P0/P1 public scheme UX sequence
+
+- [x] Map score factors, responsive hero CSS, sharing, deadline metadata, and result-card comparison extension points.
+- [x] Add bilingual score explanation modal with factor-level point reasoning.
+- [x] Fix mobile hero stack order, height, and CTA spacing below 640px.
+- [x] Add bilingual WhatsApp sharing beside the scheme link-copy control.
+- [x] Add deadline urgency/closed-state banners with safe official-portal controls.
+- [x] Add up-to-three scheme selection, floating comparison bar, and accessible full-screen comparison modal.
+- [x] Test score reasoning, sharing URL, deadline boundaries, comparison cap, bilingual copy, and mobile layout.
+- [x] Document and checkpoint the completed P0/P1 sequence without publishing.
