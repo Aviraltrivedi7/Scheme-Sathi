@@ -260,3 +260,12 @@
 - [x] Add reviewer capacity controls, owner template controls, and capacity-aware assignment/escalation UI feedback.
 - [x] Test server recovery, capacity enforcement, owner/template privacy, assignment rejection, and responsive flows.
 - [x] Document capacity behavior, template privacy, and development-only verification.
+
+## Supplied implementation brief
+
+- [x] Read the supplied brief and map its P0 real AI help-drawer requirement to existing Scheme Sathi capabilities.
+- [x] Define the P0 AI help context, streaming transport, model privacy, and validation approach.
+- [x] Implement the P0 Claude-powered streaming help drawer across backend and frontend.
+- [x] Test the P0 help stream, bounded context, dynamic prompts, safety behavior, and public-page rendering.
+- [x] Document and checkpoint the P0 development-only implementation.
+- [ ] Select and implement the next supplied-brief priority item after P0 real AI help drawer.

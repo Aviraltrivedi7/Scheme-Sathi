@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { applicationReminderHandler, documentExpiryReminderHandler, documentReviewDueReminderHandler } from "../scheduled";
+import { registerSchemeHelpRoutes } from "../schemeHelpRoutes";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -40,6 +41,7 @@ async function startServer() {
   app.post("/api/scheduled/application-reminder", applicationReminderHandler);
   app.post("/api/scheduled/document-expiry-reminders", documentExpiryReminderHandler);
   app.post("/api/scheduled/document-review-due-reminder", documentReviewDueReminderHandler);
+  registerSchemeHelpRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

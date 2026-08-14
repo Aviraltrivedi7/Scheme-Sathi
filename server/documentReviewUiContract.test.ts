@@ -32,5 +32,9 @@ describe("review collaboration and PDF note UI contracts", () => {
     expect(snooze).toContain("REMINDER SNOOZE");
     expect(preferences).toContain("Maximum active reviews");
     expect(escalations).toContain("Private follow-up templates");
+    const helpDrawer = readFileSync(resolve(process.cwd(), "client/src/components/SchemeHelpDrawer.tsx"), "utf8");
+    expect(helpDrawer).toContain("/api/help/stream");
+    expect(helpDrawer).toContain("promptsByScreen");
+    expect(helpDrawer).toContain("Scheme Sathi is typing");
   });
 });

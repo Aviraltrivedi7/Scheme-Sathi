@@ -420,6 +420,20 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   return (await response.json()) as InvokeResult;
 }
 
+/** Opens an OpenAI-compatible SSE response for a server-side streaming UI. */
+export async function streamLLM(params: InvokeParams, signal?: AbortSignal): Promise<Response> {
+  assertApiKey();
+  const payload: Record<string, unknown> = { messages: params.messages.map(normalizeMessage), stream: true };
+  if (params.model) payload.model = params.model;
+  const maxTokens = params.max_tokens ?? params.maxTokens;
+  if (typeof maxTokens === "number") payload.max_tokens = maxTokens;
+  if (params.thinking) payload.thinking = params.thinking;
+  if (params.reasoning) payload.reasoning = params.reasoning;
+  const response = await fetch(resolveApiUrl(), { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${ENV.forgeApiKey}` }, body: JSON.stringify(payload), signal });
+  if (!response.ok) { const errorText = await response.text(); throw new Error(`LLM stream failed: ${response.status} ${response.statusText} – ${errorText}`); }
+  return response;
+}
+
 export type ModelInfo = {
   id: string;
   object: string;

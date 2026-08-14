@@ -14,6 +14,7 @@ import {
   categories, casteCategories, factorLabels, getTier, occupations, schemes, scoreScheme,
   states, type Scheme, type UserProfile,
 } from "@/lib/schemes";
+import { SchemeHelpDrawer } from "@/components/SchemeHelpDrawer";
 
 type Language = "en" | "hi";
 type Screen = "home" | "profile" | "results" | "details";
@@ -194,6 +195,6 @@ export default function Home() {
     {screen === "results" && <ResultsScreen language={language} profile={profile} onBack={start} onOpen={(scheme) => { setSelected(scheme); setScreen("details"); }} savedIds={savedIds} toggleSave={toggleSave} initialCategory={browseCategory} catalog={catalog} serverMatches={serverMatches} />}
     {screen === "details" && selected && <DetailsScreen scheme={selected} language={language} profile={profile} onBack={() => setScreen("results")} saved={savedIds.includes(selected.id)} toggleSave={() => toggleSave(selected.id)} />}
     <button className="help-fab" onClick={() => setHelpOpen(true)} aria-label="Open help"><MessageCircle size={19} /><span>{languageText(language, "Need help?", "मदद चाहिए?")}</span></button>
-    {helpOpen && <HelpDrawer language={language} onClose={() => setHelpOpen(false)} />}
+    {helpOpen && <SchemeHelpDrawer language={language} screen={screen} profile={profile} selectedScheme={selected} onClose={() => setHelpOpen(false)} />}
   </div>;
 }
