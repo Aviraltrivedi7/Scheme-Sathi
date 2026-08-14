@@ -23,11 +23,17 @@ describe("public scheme score and engagement UX", () => {
 
   it("wires WhatsApp sharing, bounded comparison, and mobile hero order into the public UI", () => {
     const home = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
+    const comparison = readFileSync(resolve(process.cwd(), "client/src/components/SchemeComparisonModal.tsx"), "utf8");
     const css = readFileSync(resolve(process.cwd(), "client/src/index.css"), "utf8");
     expect(home).toContain("https://wa.me/?text=");
     expect(home).toContain("current.length >= 3");
     expect(home).toContain("ScoreExplanationModal");
     expect(home).toContain("SchemeComparisonModal");
-    expect(css).toContain(".hero-art-wrap { order: -1");
+    expect(home).toContain("createDeadlineCalendarIcs");
+    expect(home).toContain("trpc.saved.getNote");
+    expect(home).toContain("saved-scheme-note");
+    expect(comparison).toContain("createComparisonCsv");
+    expect(comparison).toContain("openComparisonPdfDialog");
+    expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
   });
 });

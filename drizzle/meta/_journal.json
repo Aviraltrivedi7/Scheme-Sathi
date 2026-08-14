@@ -120,6 +120,13 @@
       "when": 1786697646677,
       "tag": "0016_reflective_shocker",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1786706728502,
+      "tag": "0017_equal_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

@@ -2,12 +2,88 @@ import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { approveApplicationDocumentOcr, approveBatchDocumentOcr, assignDocumentReviewer, assignDocumentReviewDueReminderTask, assignDocumentReviewSnoozeTask, assignReminderHeartbeat, cancelApplicationReminder, cancelDocumentReviewDueReminder, createApplicationReminder, deleteDocumentPdfAnnotation, deleteDocumentReviewEscalationTemplate, exportDocumentVerificationHistoryCsv, exportDocumentVerificationHistoryPdf, getApplicationDocumentPreview, getDocumentReminderSetting, getDocumentReviewerAlertPreferences, getMyDocumentReviewWorkload, getOcrPolicy, getSchemeById, getUserSchemeProfile, listDocumentExpiryNotifications, listDocumentPdfAnnotations, listDocumentReviewAssignmentNotifications, listDocumentReviewAssignments, listDocumentReviewAudit, listDocumentReviewEscalationTemplates, listDocumentVerificationHistory, listFamilyFilterInvitationNotifications, listMyDocumentReviewAssignments, listOwnerOverdueDocumentReviews, listReceivedVerificationHistoryFilterInvites, listReceivedVerificationHistoryFilters, listSavedSchemeIds, listVerificationHistoryFilterShares, listSavedVerificationHistoryFilters, listSchemeCatalog, listTrackedApplications, markDocumentExpiryNotificationRead, markDocumentReviewAssignmentNotificationRead, markFamilyFilterInvitationNotificationRead, removeApplicationDocument, removeSavedVerificationHistoryFilter, respondToVerificationHistoryFilterInvite, revokeDocumentReviewer, revokeVerificationHistoryFilterShare, runApplicationDocumentOcr, runBatchDocumentOcr, saveDocumentPdfAnnotation, saveDocumentReminderTask, saveDocumentReviewerAlertPreferences, saveDocumentReviewEscalationTemplate, saveUserSchemeProfile, saveVerificationHistoryFilter, setApplicationDocumentReviewState, setDefaultVerificationHistoryFilter, setDocumentReviewAssignmentDueDate, setDocumentReviewEscalation, shareVerificationHistoryFilter, snoozeDocumentReviewDueReminder, toggleSavedScheme, trackSchemeApplication, updateApplicationDocumentExpiry, updateMyDocumentReviewAssignment, updateOcrPolicy, updateSchemeAdmin, updateTrackedApplication, uploadApplicationDocument } from "./db";
+import {
+  approveApplicationDocumentOcr,
+  approveBatchDocumentOcr,
+  assignDocumentReviewer,
+  assignDocumentReviewDueReminderTask,
+  assignDocumentReviewSnoozeTask,
+  assignReminderHeartbeat,
+  cancelApplicationReminder,
+  cancelDocumentReviewDueReminder,
+  createApplicationReminder,
+  deleteDocumentPdfAnnotation,
+  deleteDocumentReviewEscalationTemplate,
+  deleteSchemeNote,
+  exportDocumentVerificationHistoryCsv,
+  exportDocumentVerificationHistoryPdf,
+  getApplicationDocumentPreview,
+  getDocumentReminderSetting,
+  getDocumentReviewerAlertPreferences,
+  getMyDocumentReviewWorkload,
+  getOcrPolicy,
+  getSchemeById,
+  getSchemeNote,
+  getUserSchemeProfile,
+  listDocumentExpiryNotifications,
+  listDocumentPdfAnnotations,
+  listDocumentReviewAssignmentNotifications,
+  listDocumentReviewAssignments,
+  listDocumentReviewAudit,
+  listDocumentReviewEscalationTemplates,
+  listDocumentVerificationHistory,
+  listFamilyFilterInvitationNotifications,
+  listMyDocumentReviewAssignments,
+  listOwnerOverdueDocumentReviews,
+  listReceivedVerificationHistoryFilterInvites,
+  listReceivedVerificationHistoryFilters,
+  listSavedSchemeIds,
+  listVerificationHistoryFilterShares,
+  listSavedVerificationHistoryFilters,
+  listSchemeCatalog,
+  listTrackedApplications,
+  markDocumentExpiryNotificationRead,
+  markDocumentReviewAssignmentNotificationRead,
+  markFamilyFilterInvitationNotificationRead,
+  removeApplicationDocument,
+  removeSavedVerificationHistoryFilter,
+  respondToVerificationHistoryFilterInvite,
+  revokeDocumentReviewer,
+  revokeVerificationHistoryFilterShare,
+  runApplicationDocumentOcr,
+  runBatchDocumentOcr,
+  saveDocumentPdfAnnotation,
+  saveDocumentReminderTask,
+  saveDocumentReviewerAlertPreferences,
+  saveDocumentReviewEscalationTemplate,
+  saveUserSchemeProfile,
+  saveVerificationHistoryFilter,
+  setApplicationDocumentReviewState,
+  setDefaultVerificationHistoryFilter,
+  setDocumentReviewAssignmentDueDate,
+  setDocumentReviewEscalation,
+  shareVerificationHistoryFilter,
+  snoozeDocumentReviewDueReminder,
+  toggleSavedScheme,
+  trackSchemeApplication,
+  updateApplicationDocumentExpiry,
+  updateMyDocumentReviewAssignment,
+  updateOcrPolicy,
+  updateSchemeAdmin,
+  updateTrackedApplication,
+  uploadApplicationDocument,
+  upsertSchemeNote,
+} from "./db";
 import { buildReminderCron } from "./applicationReminder";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { createHeartbeatJob, deleteHeartbeatJob } from "./_core/heartbeat";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import {
+  adminProcedure,
+  protectedProcedure,
+  publicProcedure,
+  router,
+} from "./_core/trpc";
 import { rankSchemes } from "./schemeMatching";
 
 const profileInput = z.object({
@@ -21,18 +97,105 @@ const profileInput = z.object({
   isFarmer: z.boolean(),
   isDisabled: z.boolean(),
 });
-const timelineFilters = z.object({ startAt: z.number().int().positive().optional(), endAt: z.number().int().positive().optional(), sort: z.enum(["newest", "oldest"]).optional(), query: z.string().trim().max(120).optional() }).refine((input) => !input.startAt || !input.endAt || input.startAt <= input.endAt, { message: "Start date must precede end date." });
-const savedTimelineFilterInput = z.object({ name: z.string().trim().min(1).max(80), query: z.string().trim().max(120), startAt: z.number().int().positive().optional(), endAt: z.number().int().positive().optional(), sort: z.enum(["newest", "oldest"]) }).refine((input) => !input.startAt || !input.endAt || input.startAt <= input.endAt, { message: "Start date must precede end date." });
-const reviewAuditStatuses = ["assigned", "started", "completed", "revoked", "noteCreated", "noteUpdated", "noteDeleted", "dueReminderSent", "reminderSnoozed", "escalated", "escalationResolved"] as const;
-const reviewAuditFilters = z.object({ documentId: z.number().int().positive(), startAt: z.number().int().positive().optional(), endAt: z.number().int().positive().optional(), statuses: z.array(z.enum(reviewAuditStatuses)).max(reviewAuditStatuses.length).optional() }).refine((input) => !input.startAt || !input.endAt || input.startAt <= input.endAt, { message: "Start date must precede end date." });
-const reviewerAlertPreferenceInput = z.object({ assignmentAlertsEnabled: z.boolean(), dueDateRemindersEnabled: z.boolean(), defaultReminderLeadHours: z.number().int().min(1).max(168), maxActiveAssignments: z.number().int().min(1).max(50) });
-const reviewerDueDateInput = z.object({ assignmentId: z.number().int().positive(), dueAt: z.number().int().positive().nullable(), reminderAt: z.number().int().positive().nullable() }).refine((input) => !input.reminderAt || Boolean(input.dueAt), { message: "Choose a review due date before scheduling a reminder." }).refine((input) => !input.dueAt || !input.reminderAt || input.reminderAt < input.dueAt, { message: "The reminder must be before the review due date." }).refine((input) => !input.reminderAt || input.reminderAt > Date.now() + 60_000, { message: "Choose a reminder at least one minute in the future." });
-const reviewEscalationInput = z.object({ assignmentId: z.number().int().positive(), action: z.enum(["escalate", "resolve"]), note: z.string().trim().max(500).optional() });
-const reviewSnoozeInput = z.object({ assignmentId: z.number().int().positive(), snoozeUntil: z.number().int().positive() }).refine((input) => input.snoozeUntil > Date.now() + 60_000, { message: "Choose a snooze time at least one minute in the future." });
-const escalationTemplateInput = z.object({ templateId: z.number().int().positive().optional(), name: z.string().trim().min(1).max(80), body: z.string().trim().min(1).max(500) });
+const timelineFilters = z
+  .object({
+    startAt: z.number().int().positive().optional(),
+    endAt: z.number().int().positive().optional(),
+    sort: z.enum(["newest", "oldest"]).optional(),
+    query: z.string().trim().max(120).optional(),
+  })
+  .refine(
+    input => !input.startAt || !input.endAt || input.startAt <= input.endAt,
+    { message: "Start date must precede end date." }
+  );
+const savedTimelineFilterInput = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    query: z.string().trim().max(120),
+    startAt: z.number().int().positive().optional(),
+    endAt: z.number().int().positive().optional(),
+    sort: z.enum(["newest", "oldest"]),
+  })
+  .refine(
+    input => !input.startAt || !input.endAt || input.startAt <= input.endAt,
+    { message: "Start date must precede end date." }
+  );
+const reviewAuditStatuses = [
+  "assigned",
+  "started",
+  "completed",
+  "revoked",
+  "noteCreated",
+  "noteUpdated",
+  "noteDeleted",
+  "dueReminderSent",
+  "reminderSnoozed",
+  "escalated",
+  "escalationResolved",
+] as const;
+const reviewAuditFilters = z
+  .object({
+    documentId: z.number().int().positive(),
+    startAt: z.number().int().positive().optional(),
+    endAt: z.number().int().positive().optional(),
+    statuses: z
+      .array(z.enum(reviewAuditStatuses))
+      .max(reviewAuditStatuses.length)
+      .optional(),
+  })
+  .refine(
+    input => !input.startAt || !input.endAt || input.startAt <= input.endAt,
+    { message: "Start date must precede end date." }
+  );
+const reviewerAlertPreferenceInput = z.object({
+  assignmentAlertsEnabled: z.boolean(),
+  dueDateRemindersEnabled: z.boolean(),
+  defaultReminderLeadHours: z.number().int().min(1).max(168),
+  maxActiveAssignments: z.number().int().min(1).max(50),
+});
+const reviewerDueDateInput = z
+  .object({
+    assignmentId: z.number().int().positive(),
+    dueAt: z.number().int().positive().nullable(),
+    reminderAt: z.number().int().positive().nullable(),
+  })
+  .refine(input => !input.reminderAt || Boolean(input.dueAt), {
+    message: "Choose a review due date before scheduling a reminder.",
+  })
+  .refine(
+    input =>
+      !input.dueAt || !input.reminderAt || input.reminderAt < input.dueAt,
+    { message: "The reminder must be before the review due date." }
+  )
+  .refine(
+    input => !input.reminderAt || input.reminderAt > Date.now() + 60_000,
+    { message: "Choose a reminder at least one minute in the future." }
+  );
+const reviewEscalationInput = z.object({
+  assignmentId: z.number().int().positive(),
+  action: z.enum(["escalate", "resolve"]),
+  note: z.string().trim().max(500).optional(),
+});
+const reviewSnoozeInput = z
+  .object({
+    assignmentId: z.number().int().positive(),
+    snoozeUntil: z.number().int().positive(),
+  })
+  .refine(input => input.snoozeUntil > Date.now() + 60_000, {
+    message: "Choose a snooze time at least one minute in the future.",
+  });
+const escalationTemplateInput = z.object({
+  templateId: z.number().int().positive().optional(),
+  name: z.string().trim().min(1).max(80),
+  body: z.string().trim().min(1).max(500),
+});
+const schemeNoteInput = z.object({
+  schemeId: z.string().min(1).max(96),
+  note: z.string().trim().min(1).max(4000),
+});
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
+  // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -45,8 +208,31 @@ export const appRouter = router({
     }),
   }),
   schemes: router({
-    list: publicProcedure.input(z.object({ category: z.string().optional(), level: z.enum(["Central", "State"]).optional(), state: z.string().optional(), deadline: z.enum(["announced", "closingSoon", "openEnded"]).optional(), sort: z.enum(["name", "category", "deadline", "reviewed"]).optional(), query: z.string().max(120).optional() }).optional()).query(async ({ input }) => ({ schemes: await listSchemeCatalog(input) })),
-    byId: publicProcedure.input(z.object({ schemeId: z.string().min(1).max(96) })).query(async ({ input }) => ({ scheme: await getSchemeById(input.schemeId) ?? null })),
+    list: publicProcedure
+      .input(
+        z
+          .object({
+            category: z.string().optional(),
+            level: z.enum(["Central", "State"]).optional(),
+            state: z.string().optional(),
+            deadline: z
+              .enum(["announced", "closingSoon", "openEnded"])
+              .optional(),
+            sort: z
+              .enum(["name", "category", "deadline", "reviewed"])
+              .optional(),
+            query: z.string().max(120).optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input }) => ({
+        schemes: await listSchemeCatalog(input),
+      })),
+    byId: publicProcedure
+      .input(z.object({ schemeId: z.string().min(1).max(96) }))
+      .query(async ({ input }) => ({
+        scheme: (await getSchemeById(input.schemeId)) ?? null,
+      })),
   }),
   matching: router({
     run: publicProcedure.input(profileInput).mutation(async ({ input }) => {
@@ -55,141 +241,685 @@ export const appRouter = router({
     }),
   }),
   profile: router({
-    mine: protectedProcedure.query(async ({ ctx }) => ({ profile: await getUserSchemeProfile(ctx.user.id) })),
-    save: protectedProcedure.input(profileInput).mutation(async ({ ctx, input }) => ({ profile: await saveUserSchemeProfile(ctx.user.id, input) })),
+    mine: protectedProcedure.query(async ({ ctx }) => ({
+      profile: await getUserSchemeProfile(ctx.user.id),
+    })),
+    save: protectedProcedure
+      .input(profileInput)
+      .mutation(async ({ ctx, input }) => ({
+        profile: await saveUserSchemeProfile(ctx.user.id, input),
+      })),
   }),
   saved: router({
-    list: protectedProcedure.query(async ({ ctx }) => ({ schemeIds: await listSavedSchemeIds(ctx.user.id) })),
-    toggle: protectedProcedure.input(z.object({ schemeId: z.string().min(1).max(96) })).mutation(async ({ ctx, input }) => {
-      const scheme = await getSchemeById(input.schemeId);
-      if (!scheme) throw new Error("Scheme not found");
-      return toggleSavedScheme(ctx.user.id, input.schemeId);
-    }),
+    list: protectedProcedure.query(async ({ ctx }) => ({
+      schemeIds: await listSavedSchemeIds(ctx.user.id),
+    })),
+    toggle: protectedProcedure
+      .input(z.object({ schemeId: z.string().min(1).max(96) }))
+      .mutation(async ({ ctx, input }) => {
+        const scheme = await getSchemeById(input.schemeId);
+        if (!scheme) throw new Error("Scheme not found");
+        return toggleSavedScheme(ctx.user.id, input.schemeId);
+      }),
+    getNote: protectedProcedure
+      .input(z.object({ schemeId: z.string().min(1).max(96) }))
+      .query(async ({ ctx, input }) => ({
+        note: await getSchemeNote(ctx.user.id, input.schemeId),
+      })),
+    upsertNote: protectedProcedure
+      .input(schemeNoteInput)
+      .mutation(async ({ ctx, input }) => ({
+        note: await upsertSchemeNote(ctx.user.id, input.schemeId, input.note),
+      })),
+    deleteNote: protectedProcedure
+      .input(z.object({ schemeId: z.string().min(1).max(96) }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteSchemeNote(ctx.user.id, input.schemeId);
+        return { deleted: true };
+      }),
   }),
   applications: router({
-    list: protectedProcedure.query(async ({ ctx }) => ({ applications: await listTrackedApplications(ctx.user.id), ocrPolicy: await getOcrPolicy() })),
-    track: protectedProcedure.input(z.object({ schemeId: z.string().min(1).max(96) })).mutation(async ({ ctx, input }) => ({ application: await trackSchemeApplication(ctx.user.id, input.schemeId) })),
-    update: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), status: z.enum(applicationStatuses).optional(), applicationReference: z.string().max(128).nullable().optional(), applicationDeadline: z.number().int().positive().nullable().optional(), deadlineLabel: z.string().max(255).nullable().optional(), notes: z.string().max(4000).nullable().optional() })).mutation(async ({ ctx, input }) => {
-      const { trackedApplicationId, ...patch } = input;
-      return { application: await updateTrackedApplication(ctx.user.id, trackedApplicationId, patch) };
-    }),
+    list: protectedProcedure.query(async ({ ctx }) => ({
+      applications: await listTrackedApplications(ctx.user.id),
+      ocrPolicy: await getOcrPolicy(),
+    })),
+    track: protectedProcedure
+      .input(z.object({ schemeId: z.string().min(1).max(96) }))
+      .mutation(async ({ ctx, input }) => ({
+        application: await trackSchemeApplication(ctx.user.id, input.schemeId),
+      })),
+    update: protectedProcedure
+      .input(
+        z.object({
+          trackedApplicationId: z.number().int().positive(),
+          status: z.enum(applicationStatuses).optional(),
+          applicationReference: z.string().max(128).nullable().optional(),
+          applicationDeadline: z
+            .number()
+            .int()
+            .positive()
+            .nullable()
+            .optional(),
+          deadlineLabel: z.string().max(255).nullable().optional(),
+          notes: z.string().max(4000).nullable().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { trackedApplicationId, ...patch } = input;
+        return {
+          application: await updateTrackedApplication(
+            ctx.user.id,
+            trackedApplicationId,
+            patch
+          ),
+        };
+      }),
   }),
   reminders: router({
-    create: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), remindAt: z.number().int().positive() }).refine((input) => input.remindAt > Date.now() + 60_000, { message: "Choose a reminder at least one minute from now." })).mutation(async ({ ctx, input }) => {
-      const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
-      const reminder = await createApplicationReminder(ctx.user.id, input.trackedApplicationId, input.remindAt);
-      try {
-        const job = await createHeartbeatJob({ name: `scheme-sathi-reminder-${ctx.user.id}-${reminder.id}`, cron: buildReminderCron(input.remindAt), path: "/api/scheduled/application-reminder", payload: {}, description: `One-time Scheme Sathi application reminder ${reminder.id}` }, sessionToken);
-        return { reminder: await assignReminderHeartbeat(ctx.user.id, reminder.id, job.taskUid), nextExecutionAt: job.nextExecutionAt ?? null };
-      } catch (error) {
-        await cancelApplicationReminder(ctx.user.id, reminder.id);
-        throw error;
-      }
-    }),
-    cancel: protectedProcedure.input(z.object({ reminderId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-      const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
-      const reminder = await cancelApplicationReminder(ctx.user.id, input.reminderId);
-      if (reminder.scheduleCronTaskUid) await deleteHeartbeatJob(reminder.scheduleCronTaskUid, sessionToken);
-      return { reminderId: input.reminderId, cancelled: true };
-    }),
+    create: protectedProcedure
+      .input(
+        z
+          .object({
+            trackedApplicationId: z.number().int().positive(),
+            remindAt: z.number().int().positive(),
+          })
+          .refine(input => input.remindAt > Date.now() + 60_000, {
+            message: "Choose a reminder at least one minute from now.",
+          })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const sessionToken =
+          parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        const reminder = await createApplicationReminder(
+          ctx.user.id,
+          input.trackedApplicationId,
+          input.remindAt
+        );
+        try {
+          const job = await createHeartbeatJob(
+            {
+              name: `scheme-sathi-reminder-${ctx.user.id}-${reminder.id}`,
+              cron: buildReminderCron(input.remindAt),
+              path: "/api/scheduled/application-reminder",
+              payload: {},
+              description: `One-time Scheme Sathi application reminder ${reminder.id}`,
+            },
+            sessionToken
+          );
+          return {
+            reminder: await assignReminderHeartbeat(
+              ctx.user.id,
+              reminder.id,
+              job.taskUid
+            ),
+            nextExecutionAt: job.nextExecutionAt ?? null,
+          };
+        } catch (error) {
+          await cancelApplicationReminder(ctx.user.id, reminder.id);
+          throw error;
+        }
+      }),
+    cancel: protectedProcedure
+      .input(z.object({ reminderId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const sessionToken =
+          parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        const reminder = await cancelApplicationReminder(
+          ctx.user.id,
+          input.reminderId
+        );
+        if (reminder.scheduleCronTaskUid)
+          await deleteHeartbeatJob(reminder.scheduleCronTaskUid, sessionToken);
+        return { reminderId: input.reminderId, cancelled: true };
+      }),
   }),
   documents: router({
-    upload: protectedProcedure.input(z.object({ trackedApplicationId: z.number().int().positive(), documentName: z.string().min(1).max(255), fileName: z.string().min(1).max(180), mimeType: z.string().min(1).max(128), base64Data: z.string().min(1).max(8_000_000), expiresAt: z.number().int().positive().nullable().optional() })).mutation(async ({ ctx, input }) => { const document = await uploadApplicationDocument(ctx.user.id, input.trackedApplicationId, input.documentName, input.fileName, input.mimeType, input.base64Data, input.expiresAt); return { document: { id: document.id, documentName: document.documentName, fileName: document.fileName, mimeType: document.mimeType, expiresAt: document.expiresAt?.getTime() ?? null } }; }),
-    remove: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await removeApplicationDocument(ctx.user.id, input.documentId); return { removed: true }; }),
-    updateExpiry: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), expiresAt: z.number().int().positive().nullable() })).mutation(async ({ ctx, input }) => { await updateApplicationDocumentExpiry(ctx.user.id, input.documentId, input.expiresAt); return { updated: true }; }),
-    preview: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).query(async ({ ctx, input }) => ({ preview: await getApplicationDocumentPreview(ctx.user.id, input.documentId) })),
-    extract: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => ({ extraction: await runApplicationDocumentOcr(ctx.user.id, input.documentId) })),
-    approveOcr: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await approveApplicationDocumentOcr(ctx.user.id, input.documentId); return { approved: true }; }),
-    setReviewState: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), reviewState: z.enum(["reviewed", "flagged", "unreviewed"]) })).mutation(async ({ ctx, input }) => { await setApplicationDocumentReviewState(ctx.user.id, input.documentId, input.reviewState); return { updated: true }; }),
+    upload: protectedProcedure
+      .input(
+        z.object({
+          trackedApplicationId: z.number().int().positive(),
+          documentName: z.string().min(1).max(255),
+          fileName: z.string().min(1).max(180),
+          mimeType: z.string().min(1).max(128),
+          base64Data: z.string().min(1).max(8_000_000),
+          expiresAt: z.number().int().positive().nullable().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const document = await uploadApplicationDocument(
+          ctx.user.id,
+          input.trackedApplicationId,
+          input.documentName,
+          input.fileName,
+          input.mimeType,
+          input.base64Data,
+          input.expiresAt
+        );
+        return {
+          document: {
+            id: document.id,
+            documentName: document.documentName,
+            fileName: document.fileName,
+            mimeType: document.mimeType,
+            expiresAt: document.expiresAt?.getTime() ?? null,
+          },
+        };
+      }),
+    remove: protectedProcedure
+      .input(z.object({ documentId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        await removeApplicationDocument(ctx.user.id, input.documentId);
+        return { removed: true };
+      }),
+    updateExpiry: protectedProcedure
+      .input(
+        z.object({
+          documentId: z.number().int().positive(),
+          expiresAt: z.number().int().positive().nullable(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await updateApplicationDocumentExpiry(
+          ctx.user.id,
+          input.documentId,
+          input.expiresAt
+        );
+        return { updated: true };
+      }),
+    preview: protectedProcedure
+      .input(z.object({ documentId: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => ({
+        preview: await getApplicationDocumentPreview(
+          ctx.user.id,
+          input.documentId
+        ),
+      })),
+    extract: protectedProcedure
+      .input(z.object({ documentId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => ({
+        extraction: await runApplicationDocumentOcr(
+          ctx.user.id,
+          input.documentId
+        ),
+      })),
+    approveOcr: protectedProcedure
+      .input(z.object({ documentId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        await approveApplicationDocumentOcr(ctx.user.id, input.documentId);
+        return { approved: true };
+      }),
+    setReviewState: protectedProcedure
+      .input(
+        z.object({
+          documentId: z.number().int().positive(),
+          reviewState: z.enum(["reviewed", "flagged", "unreviewed"]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await setApplicationDocumentReviewState(
+          ctx.user.id,
+          input.documentId,
+          input.reviewState
+        );
+        return { updated: true };
+      }),
     reviewers: router({
-      list: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).query(async ({ ctx, input }) => ({ assignments: await listDocumentReviewAssignments(ctx.user.id, input.documentId) })),
-      assign: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), reviewerEmail: z.string().trim().email().max(320) })).mutation(async ({ ctx, input }) => ({ assignments: await assignDocumentReviewer(ctx.user.id, input.documentId, input.reviewerEmail) })),
-      revoke: protectedProcedure.input(z.object({ assignmentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const result = await revokeDocumentReviewer(ctx.user.id, input.assignmentId); const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? ""; if (result.previousTaskUid) await deleteHeartbeatJob(result.previousTaskUid, sessionToken).catch(() => undefined); return { revoked: true }; }),
-      mine: protectedProcedure.query(async ({ ctx }) => ({ assignments: await listMyDocumentReviewAssignments(ctx.user.id) })),
-      updateMine: protectedProcedure.input(z.object({ assignmentId: z.number().int().positive(), status: z.enum(["inReview", "completed"]) })).mutation(async ({ ctx, input }) => { await updateMyDocumentReviewAssignment(ctx.user.id, input.assignmentId, input.status); return { updated: true }; }),
-      audit: protectedProcedure.input(reviewAuditFilters).query(async ({ ctx, input }) => ({ events: await listDocumentReviewAudit(ctx.user.id, input.documentId, { startAt: input.startAt, endAt: input.endAt, kinds: input.statuses }) })),
-      notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listDocumentReviewAssignmentNotifications(ctx.user.id) })),
-      markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markDocumentReviewAssignmentNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
+      list: protectedProcedure
+        .input(z.object({ documentId: z.number().int().positive() }))
+        .query(async ({ ctx, input }) => ({
+          assignments: await listDocumentReviewAssignments(
+            ctx.user.id,
+            input.documentId
+          ),
+        })),
+      assign: protectedProcedure
+        .input(
+          z.object({
+            documentId: z.number().int().positive(),
+            reviewerEmail: z.string().trim().email().max(320),
+          })
+        )
+        .mutation(async ({ ctx, input }) => ({
+          assignments: await assignDocumentReviewer(
+            ctx.user.id,
+            input.documentId,
+            input.reviewerEmail
+          ),
+        })),
+      revoke: protectedProcedure
+        .input(z.object({ assignmentId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          const result = await revokeDocumentReviewer(
+            ctx.user.id,
+            input.assignmentId
+          );
+          const sessionToken =
+            parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+          if (result.previousTaskUid)
+            await deleteHeartbeatJob(
+              result.previousTaskUid,
+              sessionToken
+            ).catch(() => undefined);
+          return { revoked: true };
+        }),
+      mine: protectedProcedure.query(async ({ ctx }) => ({
+        assignments: await listMyDocumentReviewAssignments(ctx.user.id),
+      })),
+      updateMine: protectedProcedure
+        .input(
+          z.object({
+            assignmentId: z.number().int().positive(),
+            status: z.enum(["inReview", "completed"]),
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          await updateMyDocumentReviewAssignment(
+            ctx.user.id,
+            input.assignmentId,
+            input.status
+          );
+          return { updated: true };
+        }),
+      audit: protectedProcedure
+        .input(reviewAuditFilters)
+        .query(async ({ ctx, input }) => ({
+          events: await listDocumentReviewAudit(ctx.user.id, input.documentId, {
+            startAt: input.startAt,
+            endAt: input.endAt,
+            kinds: input.statuses,
+          }),
+        })),
+      notifications: protectedProcedure.query(async ({ ctx }) => ({
+        notifications: await listDocumentReviewAssignmentNotifications(
+          ctx.user.id
+        ),
+      })),
+      markNotificationRead: protectedProcedure
+        .input(z.object({ notificationId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          await markDocumentReviewAssignmentNotificationRead(
+            ctx.user.id,
+            input.notificationId
+          );
+          return { marked: true };
+        }),
       preferences: router({
-        get: protectedProcedure.query(async ({ ctx }) => ({ preferences: await getDocumentReviewerAlertPreferences(ctx.user.id) })),
-        save: protectedProcedure.input(reviewerAlertPreferenceInput).mutation(async ({ ctx, input }) => ({ preferences: await saveDocumentReviewerAlertPreferences(ctx.user.id, input) })),
+        get: protectedProcedure.query(async ({ ctx }) => ({
+          preferences: await getDocumentReviewerAlertPreferences(ctx.user.id),
+        })),
+        save: protectedProcedure
+          .input(reviewerAlertPreferenceInput)
+          .mutation(async ({ ctx, input }) => ({
+            preferences: await saveDocumentReviewerAlertPreferences(
+              ctx.user.id,
+              input
+            ),
+          })),
       }),
       dueDates: router({
-        set: protectedProcedure.input(reviewerDueDateInput).mutation(async ({ ctx, input }) => {
-          const result = await setDocumentReviewAssignmentDueDate(ctx.user.id, input.assignmentId, input.dueAt, input.reminderAt);
-          const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
-          if (result.previousTaskUid) await deleteHeartbeatJob(result.previousTaskUid, sessionToken).catch(() => undefined);
-          if (!input.reminderAt) return { scheduled: false, deferred: false };
-          if (process.env.NODE_ENV !== "production") return { scheduled: false, deferred: true };
-          const job = await createHeartbeatJob({ name: `scheme-sathi-review-due-${input.assignmentId}-${Date.now()}`, cron: buildReminderCron(input.reminderAt), path: "/api/scheduled/document-review-due-reminder", payload: {}, description: `One-time reviewer due-date reminder for assignment ${input.assignmentId}` }, sessionToken);
-          await assignDocumentReviewDueReminderTask(ctx.user.id, input.assignmentId, job.taskUid);
-          return { scheduled: true, deferred: false, nextExecutionAt: job.nextExecutionAt ?? null };
+        set: protectedProcedure
+          .input(reviewerDueDateInput)
+          .mutation(async ({ ctx, input }) => {
+            const result = await setDocumentReviewAssignmentDueDate(
+              ctx.user.id,
+              input.assignmentId,
+              input.dueAt,
+              input.reminderAt
+            );
+            const sessionToken =
+              parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+            if (result.previousTaskUid)
+              await deleteHeartbeatJob(
+                result.previousTaskUid,
+                sessionToken
+              ).catch(() => undefined);
+            if (!input.reminderAt) return { scheduled: false, deferred: false };
+            if (process.env.NODE_ENV !== "production")
+              return { scheduled: false, deferred: true };
+            const job = await createHeartbeatJob(
+              {
+                name: `scheme-sathi-review-due-${input.assignmentId}-${Date.now()}`,
+                cron: buildReminderCron(input.reminderAt),
+                path: "/api/scheduled/document-review-due-reminder",
+                payload: {},
+                description: `One-time reviewer due-date reminder for assignment ${input.assignmentId}`,
+              },
+              sessionToken
+            );
+            await assignDocumentReviewDueReminderTask(
+              ctx.user.id,
+              input.assignmentId,
+              job.taskUid
+            );
+            return {
+              scheduled: true,
+              deferred: false,
+              nextExecutionAt: job.nextExecutionAt ?? null,
+            };
+          }),
+        cancel: protectedProcedure
+          .input(z.object({ assignmentId: z.number().int().positive() }))
+          .mutation(async ({ ctx, input }) => {
+            const result = await cancelDocumentReviewDueReminder(
+              ctx.user.id,
+              input.assignmentId
+            );
+            const sessionToken =
+              parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+            if (result.previousTaskUid)
+              await deleteHeartbeatJob(
+                result.previousTaskUid,
+                sessionToken
+              ).catch(() => undefined);
+            return { cancelled: true };
+          }),
+      }),
+      workload: protectedProcedure.query(async ({ ctx }) =>
+        getMyDocumentReviewWorkload(ctx.user.id)
+      ),
+      overdue: protectedProcedure.query(async ({ ctx }) => ({
+        reviews: await listOwnerOverdueDocumentReviews(ctx.user.id),
+      })),
+      escalation: protectedProcedure
+        .input(reviewEscalationInput)
+        .mutation(async ({ ctx, input }) => {
+          await setDocumentReviewEscalation(ctx.user.id, input.assignmentId, {
+            action: input.action,
+            note: input.note,
+          });
+          return { updated: true };
         }),
-        cancel: protectedProcedure.input(z.object({ assignmentId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const result = await cancelDocumentReviewDueReminder(ctx.user.id, input.assignmentId); const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? ""; if (result.previousTaskUid) await deleteHeartbeatJob(result.previousTaskUid, sessionToken).catch(() => undefined); return { cancelled: true }; }),
-      }),
-      workload: protectedProcedure.query(async ({ ctx }) => getMyDocumentReviewWorkload(ctx.user.id)),
-      overdue: protectedProcedure.query(async ({ ctx }) => ({ reviews: await listOwnerOverdueDocumentReviews(ctx.user.id) })),
-      escalation: protectedProcedure.input(reviewEscalationInput).mutation(async ({ ctx, input }) => { await setDocumentReviewEscalation(ctx.user.id, input.assignmentId, { action: input.action, note: input.note }); return { updated: true }; }),
       escalationTemplates: router({
-        list: protectedProcedure.query(async ({ ctx }) => ({ templates: await listDocumentReviewEscalationTemplates(ctx.user.id) })),
-        save: protectedProcedure.input(escalationTemplateInput).mutation(async ({ ctx, input }) => ({ templateId: await saveDocumentReviewEscalationTemplate(ctx.user.id, input) })),
-        remove: protectedProcedure.input(z.object({ templateId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await deleteDocumentReviewEscalationTemplate(ctx.user.id, input.templateId); return { removed: true }; }),
+        list: protectedProcedure.query(async ({ ctx }) => ({
+          templates: await listDocumentReviewEscalationTemplates(ctx.user.id),
+        })),
+        save: protectedProcedure
+          .input(escalationTemplateInput)
+          .mutation(async ({ ctx, input }) => ({
+            templateId: await saveDocumentReviewEscalationTemplate(
+              ctx.user.id,
+              input
+            ),
+          })),
+        remove: protectedProcedure
+          .input(z.object({ templateId: z.number().int().positive() }))
+          .mutation(async ({ ctx, input }) => {
+            await deleteDocumentReviewEscalationTemplate(
+              ctx.user.id,
+              input.templateId
+            );
+            return { removed: true };
+          }),
       }),
-      snooze: protectedProcedure.input(reviewSnoozeInput).mutation(async ({ ctx, input }) => {
-        const result = await snoozeDocumentReviewDueReminder(ctx.user.id, input.assignmentId, input.snoozeUntil);
-        const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
-        if (result.previousTaskUid) await deleteHeartbeatJob(result.previousTaskUid, sessionToken).catch(() => undefined);
-        if (process.env.NODE_ENV !== "production") return { scheduled: false, deferred: true };
-        const job = await createHeartbeatJob({ name: `scheme-sathi-review-snooze-${input.assignmentId}-${Date.now()}`, cron: buildReminderCron(input.snoozeUntil), path: "/api/scheduled/document-review-due-reminder", payload: {}, description: `One-time reviewer reminder snooze for assignment ${input.assignmentId}` }, sessionToken);
-        await assignDocumentReviewSnoozeTask(ctx.user.id, input.assignmentId, job.taskUid);
-        return { scheduled: true, deferred: false, nextExecutionAt: job.nextExecutionAt ?? null };
-      }),
+      snooze: protectedProcedure
+        .input(reviewSnoozeInput)
+        .mutation(async ({ ctx, input }) => {
+          const result = await snoozeDocumentReviewDueReminder(
+            ctx.user.id,
+            input.assignmentId,
+            input.snoozeUntil
+          );
+          const sessionToken =
+            parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+          if (result.previousTaskUid)
+            await deleteHeartbeatJob(
+              result.previousTaskUid,
+              sessionToken
+            ).catch(() => undefined);
+          if (process.env.NODE_ENV !== "production")
+            return { scheduled: false, deferred: true };
+          const job = await createHeartbeatJob(
+            {
+              name: `scheme-sathi-review-snooze-${input.assignmentId}-${Date.now()}`,
+              cron: buildReminderCron(input.snoozeUntil),
+              path: "/api/scheduled/document-review-due-reminder",
+              payload: {},
+              description: `One-time reviewer reminder snooze for assignment ${input.assignmentId}`,
+            },
+            sessionToken
+          );
+          await assignDocumentReviewSnoozeTask(
+            ctx.user.id,
+            input.assignmentId,
+            job.taskUid
+          );
+          return {
+            scheduled: true,
+            deferred: false,
+            nextExecutionAt: job.nextExecutionAt ?? null,
+          };
+        }),
     }),
     annotations: router({
-      list: protectedProcedure.input(z.object({ documentId: z.number().int().positive() })).query(async ({ ctx, input }) => ({ annotations: await listDocumentPdfAnnotations(ctx.user.id, input.documentId) })),
-      save: protectedProcedure.input(z.object({ documentId: z.number().int().positive(), annotationId: z.number().int().positive().optional(), pageNumber: z.number().int().positive().max(2000), note: z.string().trim().min(1).max(4000) })).mutation(async ({ ctx, input }) => ({ annotationId: await saveDocumentPdfAnnotation(ctx.user.id, input) })),
-      remove: protectedProcedure.input(z.object({ annotationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await deleteDocumentPdfAnnotation(ctx.user.id, input.annotationId); return { removed: true }; }),
+      list: protectedProcedure
+        .input(z.object({ documentId: z.number().int().positive() }))
+        .query(async ({ ctx, input }) => ({
+          annotations: await listDocumentPdfAnnotations(
+            ctx.user.id,
+            input.documentId
+          ),
+        })),
+      save: protectedProcedure
+        .input(
+          z.object({
+            documentId: z.number().int().positive(),
+            annotationId: z.number().int().positive().optional(),
+            pageNumber: z.number().int().positive().max(2000),
+            note: z.string().trim().min(1).max(4000),
+          })
+        )
+        .mutation(async ({ ctx, input }) => ({
+          annotationId: await saveDocumentPdfAnnotation(ctx.user.id, input),
+        })),
+      remove: protectedProcedure
+        .input(z.object({ annotationId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          await deleteDocumentPdfAnnotation(ctx.user.id, input.annotationId);
+          return { removed: true };
+        }),
     }),
-    history: protectedProcedure.input(timelineFilters.optional()).query(async ({ ctx, input }) => ({ events: await listDocumentVerificationHistory(ctx.user.id, input) })),
-    exportHistoryPdf: protectedProcedure.input(timelineFilters.optional()).mutation(async ({ ctx, input }) => exportDocumentVerificationHistoryPdf(ctx.user.id, input)),
-    exportHistoryCsv: protectedProcedure.input(timelineFilters.optional()).mutation(async ({ ctx, input }) => exportDocumentVerificationHistoryCsv(ctx.user.id, input)),
-    batchExtract: protectedProcedure.input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(5) })).mutation(async ({ ctx, input }) => ({ outcomes: await runBatchDocumentOcr(ctx.user.id, Array.from(new Set(input.documentIds))) })),
-    batchApproveOcr: protectedProcedure.input(z.object({ documentIds: z.array(z.number().int().positive()).min(1).max(10) })).mutation(async ({ ctx, input }) => ({ outcomes: await approveBatchDocumentOcr(ctx.user.id, Array.from(new Set(input.documentIds))) })),
+    history: protectedProcedure
+      .input(timelineFilters.optional())
+      .query(async ({ ctx, input }) => ({
+        events: await listDocumentVerificationHistory(ctx.user.id, input),
+      })),
+    exportHistoryPdf: protectedProcedure
+      .input(timelineFilters.optional())
+      .mutation(async ({ ctx, input }) =>
+        exportDocumentVerificationHistoryPdf(ctx.user.id, input)
+      ),
+    exportHistoryCsv: protectedProcedure
+      .input(timelineFilters.optional())
+      .mutation(async ({ ctx, input }) =>
+        exportDocumentVerificationHistoryCsv(ctx.user.id, input)
+      ),
+    batchExtract: protectedProcedure
+      .input(
+        z.object({
+          documentIds: z.array(z.number().int().positive()).min(1).max(5),
+        })
+      )
+      .mutation(async ({ ctx, input }) => ({
+        outcomes: await runBatchDocumentOcr(
+          ctx.user.id,
+          Array.from(new Set(input.documentIds))
+        ),
+      })),
+    batchApproveOcr: protectedProcedure
+      .input(
+        z.object({
+          documentIds: z.array(z.number().int().positive()).min(1).max(10),
+        })
+      )
+      .mutation(async ({ ctx, input }) => ({
+        outcomes: await approveBatchDocumentOcr(
+          ctx.user.id,
+          Array.from(new Set(input.documentIds))
+        ),
+      })),
     historyFilters: router({
-      list: protectedProcedure.query(async ({ ctx }) => ({ filters: await listSavedVerificationHistoryFilters(ctx.user.id), shares: await listVerificationHistoryFilterShares(ctx.user.id), received: await listReceivedVerificationHistoryFilters(ctx.user.id), invitations: await listReceivedVerificationHistoryFilterInvites(ctx.user.id) })),
-      save: protectedProcedure.input(savedTimelineFilterInput).mutation(async ({ ctx, input }) => ({ filter: await saveVerificationHistoryFilter(ctx.user.id, input) })),
-      remove: protectedProcedure.input(z.object({ filterId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await removeSavedVerificationHistoryFilter(ctx.user.id, input.filterId); return { removed: true }; }),
-      setDefault: protectedProcedure.input(z.object({ filterId: z.number().int().positive().nullable() })).mutation(async ({ ctx, input }) => ({ filters: await setDefaultVerificationHistoryFilter(ctx.user.id, input.filterId) })),
-      share: protectedProcedure.input(z.object({ filterId: z.number().int().positive(), recipientEmail: z.string().trim().email().max(320) })).mutation(async ({ ctx, input }) => ({ shares: await shareVerificationHistoryFilter(ctx.user.id, input.filterId, input.recipientEmail) })),
-      revokeShare: protectedProcedure.input(z.object({ shareId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await revokeVerificationHistoryFilterShare(ctx.user.id, input.shareId); return { revoked: true }; }),
-      respondToInvite: protectedProcedure.input(z.object({ shareId: z.number().int().positive(), decision: z.enum(["accepted", "declined"]) })).mutation(async ({ ctx, input }) => ({ invitation: await respondToVerificationHistoryFilterInvite(ctx.user.id, input.shareId, input.decision) })),
-      notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listFamilyFilterInvitationNotifications(ctx.user.id) })),
-      markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markFamilyFilterInvitationNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
+      list: protectedProcedure.query(async ({ ctx }) => ({
+        filters: await listSavedVerificationHistoryFilters(ctx.user.id),
+        shares: await listVerificationHistoryFilterShares(ctx.user.id),
+        received: await listReceivedVerificationHistoryFilters(ctx.user.id),
+        invitations: await listReceivedVerificationHistoryFilterInvites(
+          ctx.user.id
+        ),
+      })),
+      save: protectedProcedure
+        .input(savedTimelineFilterInput)
+        .mutation(async ({ ctx, input }) => ({
+          filter: await saveVerificationHistoryFilter(ctx.user.id, input),
+        })),
+      remove: protectedProcedure
+        .input(z.object({ filterId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          await removeSavedVerificationHistoryFilter(
+            ctx.user.id,
+            input.filterId
+          );
+          return { removed: true };
+        }),
+      setDefault: protectedProcedure
+        .input(z.object({ filterId: z.number().int().positive().nullable() }))
+        .mutation(async ({ ctx, input }) => ({
+          filters: await setDefaultVerificationHistoryFilter(
+            ctx.user.id,
+            input.filterId
+          ),
+        })),
+      share: protectedProcedure
+        .input(
+          z.object({
+            filterId: z.number().int().positive(),
+            recipientEmail: z.string().trim().email().max(320),
+          })
+        )
+        .mutation(async ({ ctx, input }) => ({
+          shares: await shareVerificationHistoryFilter(
+            ctx.user.id,
+            input.filterId,
+            input.recipientEmail
+          ),
+        })),
+      revokeShare: protectedProcedure
+        .input(z.object({ shareId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          await revokeVerificationHistoryFilterShare(
+            ctx.user.id,
+            input.shareId
+          );
+          return { revoked: true };
+        }),
+      respondToInvite: protectedProcedure
+        .input(
+          z.object({
+            shareId: z.number().int().positive(),
+            decision: z.enum(["accepted", "declined"]),
+          })
+        )
+        .mutation(async ({ ctx, input }) => ({
+          invitation: await respondToVerificationHistoryFilterInvite(
+            ctx.user.id,
+            input.shareId,
+            input.decision
+          ),
+        })),
+      notifications: protectedProcedure.query(async ({ ctx }) => ({
+        notifications: await listFamilyFilterInvitationNotifications(
+          ctx.user.id
+        ),
+      })),
+      markNotificationRead: protectedProcedure
+        .input(z.object({ notificationId: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+          await markFamilyFilterInvitationNotificationRead(
+            ctx.user.id,
+            input.notificationId
+          );
+          return { marked: true };
+        }),
     }),
-    notifications: protectedProcedure.query(async ({ ctx }) => ({ notifications: await listDocumentExpiryNotifications(ctx.user.id) })),
-    markNotificationRead: protectedProcedure.input(z.object({ notificationId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await markDocumentExpiryNotificationRead(ctx.user.id, input.notificationId); return { marked: true }; }),
+    notifications: protectedProcedure.query(async ({ ctx }) => ({
+      notifications: await listDocumentExpiryNotifications(ctx.user.id),
+    })),
+    markNotificationRead: protectedProcedure
+      .input(z.object({ notificationId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        await markDocumentExpiryNotificationRead(
+          ctx.user.id,
+          input.notificationId
+        );
+        return { marked: true };
+      }),
   }),
   admin: router({
     schemes: router({
-      list: adminProcedure.query(async () => ({ schemes: await listSchemeCatalog({ sort: "name" }) })),
-      update: adminProcedure.input(z.object({ schemeId: z.string().min(1).max(96), name: z.string().min(3).max(255).optional(), nameHindi: z.string().min(3).max(255).optional(), administeringBody: z.string().min(3).max(255).optional(), benefits: z.string().min(10).max(3000).optional(), benefitsHindi: z.string().min(10).max(3000).optional(), portalUrl: z.string().url().max(512).optional(), applicationDeadline: z.number().int().positive().nullable().optional(), deadlineLabel: z.string().max(255).nullable().optional(), reviewed: z.string().min(3).max(64).optional() })).mutation(async ({ input }) => {
-        const { schemeId, ...patch } = input;
-        return { scheme: await updateSchemeAdmin(schemeId, patch) };
-      }),
+      list: adminProcedure.query(async () => ({
+        schemes: await listSchemeCatalog({ sort: "name" }),
+      })),
+      update: adminProcedure
+        .input(
+          z.object({
+            schemeId: z.string().min(1).max(96),
+            name: z.string().min(3).max(255).optional(),
+            nameHindi: z.string().min(3).max(255).optional(),
+            administeringBody: z.string().min(3).max(255).optional(),
+            benefits: z.string().min(10).max(3000).optional(),
+            benefitsHindi: z.string().min(10).max(3000).optional(),
+            portalUrl: z.string().url().max(512).optional(),
+            applicationDeadline: z
+              .number()
+              .int()
+              .positive()
+              .nullable()
+              .optional(),
+            deadlineLabel: z.string().max(255).nullable().optional(),
+            reviewed: z.string().min(3).max(64).optional(),
+          })
+        )
+        .mutation(async ({ input }) => {
+          const { schemeId, ...patch } = input;
+          return { scheme: await updateSchemeAdmin(schemeId, patch) };
+        }),
     }),
     documentAutomation: router({
-      status: adminProcedure.query(async () => ({ setting: await getDocumentReminderSetting() })),
+      status: adminProcedure.query(async () => ({
+        setting: await getDocumentReminderSetting(),
+      })),
       enable: adminProcedure.mutation(async ({ ctx }) => {
         const existing = await getDocumentReminderSetting();
-        if (existing?.scheduleCronTaskUid) return { setting: existing, alreadyEnabled: true };
-        const sessionToken = parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
-        const job = await createHeartbeatJob({ name: "scheme-sathi-document-expiry-daily", cron: "0 0 3 * * *", path: "/api/scheduled/document-expiry-reminders", payload: {}, description: "Daily scan for expiring or expired Scheme Sathi document uploads" }, sessionToken);
-        return { setting: await saveDocumentReminderTask(job.taskUid), alreadyEnabled: false, nextExecutionAt: job.nextExecutionAt ?? null };
+        if (existing?.scheduleCronTaskUid)
+          return { setting: existing, alreadyEnabled: true };
+        const sessionToken =
+          parseCookie(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        const job = await createHeartbeatJob(
+          {
+            name: "scheme-sathi-document-expiry-daily",
+            cron: "0 0 3 * * *",
+            path: "/api/scheduled/document-expiry-reminders",
+            payload: {},
+            description:
+              "Daily scan for expiring or expired Scheme Sathi document uploads",
+          },
+          sessionToken
+        );
+        return {
+          setting: await saveDocumentReminderTask(job.taskUid),
+          alreadyEnabled: false,
+          nextExecutionAt: job.nextExecutionAt ?? null,
+        };
       }),
     }),
     ocrPolicy: router({
       get: adminProcedure.query(async () => ({ policy: await getOcrPolicy() })),
-      update: adminProcedure.input(z.object({ minimumConfidence: z.enum(["low", "medium", "high"]) })).mutation(async ({ ctx, input }) => ({ policy: await updateOcrPolicy(ctx.user.id, input.minimumConfidence) })),
+      update: adminProcedure
+        .input(
+          z.object({ minimumConfidence: z.enum(["low", "medium", "high"]) })
+        )
+        .mutation(async ({ ctx, input }) => ({
+          policy: await updateOcrPolicy(ctx.user.id, input.minimumConfidence),
+        })),
     }),
   }),
 });

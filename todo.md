@@ -280,3 +280,13 @@
 - [x] Add up-to-three scheme selection, floating comparison bar, and accessible full-screen comparison modal.
 - [x] Test score reasoning, sharing URL, deadline boundaries, comparison cap, bilingual copy, and mobile layout.
 - [x] Document and checkpoint the completed P0/P1 sequence without publishing.
+
+## Reusable workflow skill, calendar sync, comparison export, and scheme notes
+
+- [x] Review the established Scheme Sathi build workflow, saved-scheme data, comparison UI, and deadline metadata.
+- [x] Define a reusable skill package plus calendar event, export, and owner-private note semantics.
+- [x] Create and validate the reusable Scheme Sathi workflow skill package.
+- [x] Add protected saved-scheme note persistence and typed APIs.
+- [x] Add calendar deadline export, comparison PDF/CSV export, and personal note interfaces.
+- [x] Test skill package, note ownership, iCalendar content, PDF/CSV content, and responsive flows.
+- [x] Document and checkpoint the completed development-only implementation.
