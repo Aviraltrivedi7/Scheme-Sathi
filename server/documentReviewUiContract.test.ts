@@ -30,5 +30,7 @@ describe("review collaboration and PDF note UI contracts", () => {
     expect(workload).toContain("MY REVIEW WORKLOAD");
     expect(escalations).toContain("OWNER ESCALATIONS");
     expect(snooze).toContain("REMINDER SNOOZE");
+    expect(preferences).toContain("Maximum active reviews");
+    expect(escalations).toContain("Private follow-up templates");
   });
 });

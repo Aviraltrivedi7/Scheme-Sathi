@@ -1,6 +1,6 @@
 import { and, desc, eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentPdfAnnotations, documentReminderSettings, documentReviewerAlertPreferences, documentReviewAssignmentNotifications, documentReviewAssignments, documentReviewAuditEvents, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
+import { applicationDocuments, applicationReminders, documentActivityEvents, documentExpiryNotifications, documentOcrConfidenceEvents, documentPdfAnnotations, documentReminderSettings, documentReviewerAlertPreferences, documentReviewAssignmentNotifications, documentReviewAssignments, documentReviewAuditEvents, documentReviewEscalationTemplates, familyFilterInvitationNotifications, InsertUser, ocrPolicySettings, savedSchemes, savedVerificationHistoryFilters, savedVerificationHistoryFilterShares, schemeCatalog, trackedApplications, userSchemeProfiles, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { schemeCatalog as seedCatalog, type SchemeCatalogItem, type SchemeProfileInput } from "@shared/schemeCatalog";
 import type { ApplicationStatus } from "@shared/applicationTracker";
@@ -409,23 +409,50 @@ async function recordDocumentReviewAudit(documentId: number, actorUserId: number
   await db.insert(documentReviewAuditEvents).values({ applicationDocumentId: documentId, assignmentId, actorUserId, kind, detail: detail.slice(0, 500) });
 }
 
-const defaultReviewerAlertPreferences = { assignmentAlertsEnabled: true, dueDateRemindersEnabled: true, defaultReminderLeadHours: 24 };
+const defaultReviewerAlertPreferences = { assignmentAlertsEnabled: true, dueDateRemindersEnabled: true, defaultReminderLeadHours: 24, maxActiveAssignments: 5 };
 
 export async function getDocumentReviewerAlertPreferences(userId: number) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   const rows = await db.select().from(documentReviewerAlertPreferences).where(eq(documentReviewerAlertPreferences.userId, userId)).limit(1);
   const row = rows[0];
-  return { ...defaultReviewerAlertPreferences, ...(row ? { assignmentAlertsEnabled: row.assignmentAlertsEnabled, dueDateRemindersEnabled: row.dueDateRemindersEnabled, defaultReminderLeadHours: row.defaultReminderLeadHours } : {}) };
+  return { ...defaultReviewerAlertPreferences, ...(row ? { assignmentAlertsEnabled: row.assignmentAlertsEnabled, dueDateRemindersEnabled: row.dueDateRemindersEnabled, defaultReminderLeadHours: row.defaultReminderLeadHours, maxActiveAssignments: row.maxActiveAssignments } : {}) };
 }
 
-export async function saveDocumentReviewerAlertPreferences(userId: number, input: { assignmentAlertsEnabled: boolean; dueDateRemindersEnabled: boolean; defaultReminderLeadHours: number }) {
+export async function saveDocumentReviewerAlertPreferences(userId: number, input: { assignmentAlertsEnabled: boolean; dueDateRemindersEnabled: boolean; defaultReminderLeadHours: number; maxActiveAssignments: number }) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   const existing = await db.select({ id: documentReviewerAlertPreferences.id }).from(documentReviewerAlertPreferences).where(eq(documentReviewerAlertPreferences.userId, userId)).limit(1);
   if (existing[0]) await db.update(documentReviewerAlertPreferences).set({ ...input, updatedAt: new Date() }).where(eq(documentReviewerAlertPreferences.id, existing[0].id));
   else await db.insert(documentReviewerAlertPreferences).values({ userId, ...input });
   return getDocumentReviewerAlertPreferences(userId);
+}
+
+export async function listDocumentReviewEscalationTemplates(ownerUserId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db.select().from(documentReviewEscalationTemplates).where(eq(documentReviewEscalationTemplates.ownerUserId, ownerUserId)).orderBy(desc(documentReviewEscalationTemplates.updatedAt));
+  return rows.map((row) => ({ id: row.id, name: row.name, body: row.body, createdAt: row.createdAt.getTime(), updatedAt: row.updatedAt.getTime() }));
+}
+
+export async function saveDocumentReviewEscalationTemplate(ownerUserId: number, input: { templateId?: number; name: string; body: string }) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const name = input.name.trim(); const body = input.body.trim();
+  if (!name || !body) throw new Error("Add both a template name and follow-up message.");
+  if (input.templateId) { const existing = await db.select({ id: documentReviewEscalationTemplates.id }).from(documentReviewEscalationTemplates).where(and(eq(documentReviewEscalationTemplates.id, input.templateId), eq(documentReviewEscalationTemplates.ownerUserId, ownerUserId))).limit(1); if (!existing[0]) throw new Error("Escalation template not found."); await db.update(documentReviewEscalationTemplates).set({ name, body, updatedAt: new Date() }).where(eq(documentReviewEscalationTemplates.id, input.templateId)); return input.templateId; }
+  const existing = await db.select({ id: documentReviewEscalationTemplates.id }).from(documentReviewEscalationTemplates).where(eq(documentReviewEscalationTemplates.ownerUserId, ownerUserId));
+  if (existing.length >= 20) throw new Error("You can keep up to 20 private escalation templates.");
+  const created = await db.insert(documentReviewEscalationTemplates).values({ ownerUserId, name, body });
+  return Number(created[0].insertId);
+}
+
+export async function deleteDocumentReviewEscalationTemplate(ownerUserId: number, templateId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const existing = await db.select({ id: documentReviewEscalationTemplates.id }).from(documentReviewEscalationTemplates).where(and(eq(documentReviewEscalationTemplates.id, templateId), eq(documentReviewEscalationTemplates.ownerUserId, ownerUserId))).limit(1);
+  if (!existing[0]) throw new Error("Escalation template not found.");
+  await db.delete(documentReviewEscalationTemplates).where(eq(documentReviewEscalationTemplates.id, templateId));
 }
 
 export async function listDocumentReviewAssignments(ownerUserId: number, documentId: number) {
@@ -445,10 +472,12 @@ export async function assignDocumentReviewer(ownerUserId: number, documentId: nu
   if (!reviewer) throw new Error("Ask the reviewer to sign in once before assigning this document.");
   if (reviewer.id === ownerUserId) throw new Error("You already own this document and do not need to assign yourself.");
   const existing = await db.select().from(documentReviewAssignments).where(and(eq(documentReviewAssignments.applicationDocumentId, documentId), eq(documentReviewAssignments.reviewerUserId, reviewer.id))).limit(1);
+  const preferences = await getDocumentReviewerAlertPreferences(reviewer.id);
+  const needsCapacity = !existing[0] || existing[0].status === "completed" || existing[0].status === "revoked";
+  if (needsCapacity) { const reviewerAssignments = await db.select({ status: documentReviewAssignments.status }).from(documentReviewAssignments).where(eq(documentReviewAssignments.reviewerUserId, reviewer.id)); const activeCount = reviewerAssignments.filter((assignment) => assignment.status === "assigned" || assignment.status === "inReview").length; if (activeCount >= preferences.maxActiveAssignments) throw new Error(`This reviewer has reached their active review limit of ${preferences.maxActiveAssignments}.`); }
   let assignmentId: number;
   if (existing[0]) { assignmentId = existing[0].id; await db.update(documentReviewAssignments).set({ ownerUserId, status: "assigned", assignedAt: new Date(), completedAt: null, revokedAt: null, escalationState: "normal", escalatedAt: null, escalationNote: null, updatedAt: new Date() }).where(eq(documentReviewAssignments.id, assignmentId)); }
   else { const created = await db.insert(documentReviewAssignments).values({ applicationDocumentId: documentId, ownerUserId, reviewerUserId: reviewer.id, status: "assigned" }); assignmentId = Number(created[0].insertId); }
-  const preferences = await getDocumentReviewerAlertPreferences(reviewer.id);
   if (preferences.assignmentAlertsEnabled) await db.insert(documentReviewAssignmentNotifications).values({ assignmentId, recipientUserId: reviewer.id, kind: "assignment", status: "unread" }).onDuplicateKeyUpdate({ set: { recipientUserId: reviewer.id, status: "unread", createdAt: new Date(), readAt: null } });
   await recordDocumentReviewAudit(documentId, ownerUserId, "assigned", `Assigned ${reviewer.name ?? reviewer.email ?? "a reviewer"}.`, assignmentId);
   return listDocumentReviewAssignments(ownerUserId, documentId);

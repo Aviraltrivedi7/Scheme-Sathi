@@ -164,9 +164,20 @@ export const documentReviewerAlertPreferences = mysqlTable("document_reviewer_al
   assignmentAlertsEnabled: boolean("assignmentAlertsEnabled").default(true).notNull(),
   dueDateRemindersEnabled: boolean("dueDateRemindersEnabled").default(true).notNull(),
   defaultReminderLeadHours: int("defaultReminderLeadHours").default(24).notNull(),
+  maxActiveAssignments: int("maxActiveAssignments").default(5).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => [uniqueIndex("review_alert_preferences_user_unique").on(table.userId)]);
+
+/** Owner-private reusable copy blocks for following up on an overdue assigned review. */
+export const documentReviewEscalationTemplates = mysqlTable("document_review_escalation_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerUserId: int("ownerUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 80 }).notNull(),
+  body: varchar("body", { length: 500 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [index("review_escalation_template_owner_updated_idx").on(table.ownerUserId, table.updatedAt)]);
 
 /** In-app alert created or refreshed whenever an owner assigns a reviewer to a document. */
 export const documentReviewAssignmentNotifications = mysqlTable("document_review_assignment_notifications", {

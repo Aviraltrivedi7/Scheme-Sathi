@@ -251,3 +251,12 @@
 - [x] Add workload dashboard, overdue escalation controls, and reviewer reminder snooze actions to the collaboration workspace.
 - [x] Test authorization, workload calculations, overdue status, escalation auditing, snooze timing, and responsive feedback.
 - [x] Document review-management privacy, reminder limitations, non-publishing behavior, and development verification.
+
+## Reviewer capacity limits and escalation templates
+
+- [x] Restore development server health and inspect reviewer assignment and escalation workflow extension points.
+- [x] Define reviewer-owned active-assignment capacity limits and owner-private escalation template semantics.
+- [x] Add protected persistence and typed APIs for capacity preferences, capacity validation, and escalation template management.
+- [x] Add reviewer capacity controls, owner template controls, and capacity-aware assignment/escalation UI feedback.
+- [x] Test server recovery, capacity enforcement, owner/template privacy, assignment rejection, and responsive flows.
+- [x] Document capacity behavior, template privacy, and development-only verification.
