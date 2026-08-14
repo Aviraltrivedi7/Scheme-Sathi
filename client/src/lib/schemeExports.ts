@@ -2,6 +2,15 @@ import type { Scheme } from "@/lib/schemes";
 
 export type ExportLanguage = "en" | "hi";
 export type ComparableScheme = Scheme & { score: number; factors: string[] };
+export const comparisonExportFields = [
+  "matchScore",
+  "benefit",
+  "eligibility",
+  "documents",
+  "steps",
+  "officialPortal",
+] as const;
+export type ComparisonExportField = (typeof comparisonExportFields)[number];
 
 const text = (language: ExportLanguage, english: string, hindi: string) =>
   language === "hi" ? hindi : english;
@@ -116,26 +125,46 @@ function keyEligibility(scheme: Scheme, language: ExportLanguage) {
     .join(" · ");
 }
 
-export function comparisonRows(
-  schemes: ComparableScheme[],
+export function comparisonExportFieldLabel(
+  field: ComparisonExportField,
   language: ExportLanguage
 ) {
-  return [
+  const labels: Record<ComparisonExportField, [string, string]> = {
+    matchScore: ["Match score", "मिलान स्कोर"],
+    benefit: ["Benefit", "लाभ"],
+    eligibility: ["Key eligibility", "मुख्य पात्रता"],
+    documents: ["Documents", "दस्तावेज़"],
+    steps: ["Application steps", "आवेदन के चरण"],
+    officialPortal: ["Official portal", "आधिकारिक पोर्टल"],
+  };
+  return text(language, ...labels[field]);
+}
+
+export function comparisonRows(
+  schemes: ComparableScheme[],
+  language: ExportLanguage,
+  fields: readonly ComparisonExportField[] = comparisonExportFields
+) {
+  const rows = [
     {
+      id: "matchScore" as const,
       label: text(language, "Match score", "मिलान स्कोर"),
       values: schemes.map(scheme => `${scheme.score}/100`),
     },
     {
+      id: "benefit" as const,
       label: text(language, "Benefit", "लाभ"),
       values: schemes.map(scheme =>
         text(language, scheme.benefits, scheme.benefitsHindi)
       ),
     },
     {
+      id: "eligibility" as const,
       label: text(language, "Key eligibility", "मुख्य पात्रता"),
       values: schemes.map(scheme => keyEligibility(scheme, language)),
     },
     {
+      id: "documents" as const,
       label: text(language, "Documents", "दस्तावेज़"),
       values: schemes.map(scheme =>
         (language === "hi" ? scheme.documentsHindi : scheme.documents).join(
@@ -144,6 +173,7 @@ export function comparisonRows(
       ),
     },
     {
+      id: "steps" as const,
       label: text(language, "Application steps", "आवेदन के चरण"),
       values: schemes.map(scheme =>
         (language === "hi" ? scheme.stepsHindi : scheme.steps)
@@ -152,21 +182,25 @@ export function comparisonRows(
       ),
     },
     {
+      id: "officialPortal" as const,
       label: text(language, "Official portal", "आधिकारिक पोर्टल"),
       values: schemes.map(scheme => scheme.portalUrl),
     },
   ];
+  const selected = new Set(fields.length ? fields : comparisonExportFields);
+  return rows.filter(row => selected.has(row.id));
 }
 
 export function createComparisonCsv(
   schemes: ComparableScheme[],
-  language: ExportLanguage
+  language: ExportLanguage,
+  fields: readonly ComparisonExportField[] = comparisonExportFields
 ) {
   const header = [
     text(language, "Comparison point", "तुलना का बिंदु"),
     ...schemes.map(scheme => text(language, scheme.name, scheme.nameHindi)),
   ];
-  const rows = comparisonRows(schemes, language).map(row => [
+  const rows = comparisonRows(schemes, language, fields).map(row => [
     row.label,
     ...row.values,
   ]);
@@ -179,7 +213,8 @@ export function createComparisonCsv(
 export function createComparisonPrintHtml(
   schemes: ComparableScheme[],
   language: ExportLanguage,
-  generatedAt = new Date()
+  generatedAt = new Date(),
+  fields: readonly ComparisonExportField[] = comparisonExportFields
 ) {
   const heading = text(language, "Scheme comparison", "योजना तुलना");
   const subtitle = text(
@@ -193,7 +228,7 @@ export function createComparisonPrintHtml(
         `<th>${escapeHtml(text(language, scheme.name, scheme.nameHindi))}</th>`
     )
     .join("");
-  const body = comparisonRows(schemes, language)
+  const body = comparisonRows(schemes, language, fields)
     .map(
       row =>
         `<tr><th>${escapeHtml(row.label)}</th>${row.values.map(value => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`
@@ -218,12 +253,15 @@ export function downloadTextFile(
 
 export function openComparisonPdfDialog(
   schemes: ComparableScheme[],
-  language: ExportLanguage
+  language: ExportLanguage,
+  fields: readonly ComparisonExportField[] = comparisonExportFields
 ) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
   printWindow.document.open();
-  printWindow.document.write(createComparisonPrintHtml(schemes, language));
+  printWindow.document.write(
+    createComparisonPrintHtml(schemes, language, new Date(), fields)
+  );
   printWindow.document.close();
   window.setTimeout(() => printWindow.print(), 240);
   return true;

@@ -290,3 +290,14 @@
 - [x] Add calendar deadline export, comparison PDF/CSV export, and personal note interfaces.
 - [x] Test skill package, note ownership, iCalendar content, PDF/CSV content, and responsive flows.
 - [x] Document and checkpoint the completed development-only implementation.
+
+## Google Calendar sync, saved-note dashboard, and custom comparison exports
+
+- [x] Review the current connector configuration plus deadline, saved-note, dashboard, and comparison export contracts.
+- [x] Define credential-gated real Google OAuth activation boundaries alongside truthful local demo, note-filter, and export-field semantics.
+- [x] Prepare the direct-sync interaction boundary without fabricating OAuth credentials or claiming a real Google connection.
+- [x] Add owner-scoped saved-note listing and filtering APIs for the user dashboard.
+- [x] Add Google Calendar demo controls, saved-note dashboard filters, and custom CSV/PDF comparison-field selection UI.
+- [x] Test demo disclosure, note ownership/filtering, selected-field CSV/PDF output, and responsive states.
+- [x] Document and checkpoint the completed development-only enhancement without publishing.
+- [x] Implement the requested clearly labeled local Google Calendar demo mode until real OAuth credentials are supplied.

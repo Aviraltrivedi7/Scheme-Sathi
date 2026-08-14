@@ -38,6 +38,7 @@ import {
   listReceivedVerificationHistoryFilterInvites,
   listReceivedVerificationHistoryFilters,
   listSavedSchemeIds,
+  listSavedSchemeNotes,
   listVerificationHistoryFilterShares,
   listSavedVerificationHistoryFilters,
   listSchemeCatalog,
@@ -254,6 +255,11 @@ export const appRouter = router({
     list: protectedProcedure.query(async ({ ctx }) => ({
       schemeIds: await listSavedSchemeIds(ctx.user.id),
     })),
+    notes: protectedProcedure
+      .input(z.object({ query: z.string().trim().max(120).optional() }).optional())
+      .query(async ({ ctx, input }) => ({
+        notes: await listSavedSchemeNotes(ctx.user.id, input?.query),
+      })),
     toggle: protectedProcedure
       .input(z.object({ schemeId: z.string().min(1).max(96) }))
       .mutation(async ({ ctx, input }) => {

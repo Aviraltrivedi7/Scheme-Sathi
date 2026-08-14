@@ -1319,6 +1319,7 @@ function DetailsScreen({
 }) {
   const [checked, setChecked] = useState<string[]>([]);
   const [personalNote, setPersonalNote] = useState("");
+  const [calendarDemoSynced, setCalendarDemoSynced] = useState(false);
   const utils = trpc.useUtils();
   const closed =
     getDeadlineUrgency(scheme.applicationDeadline).state === "closed";
@@ -1381,6 +1382,17 @@ function DetailsScreen({
         language,
         "Calendar file downloaded. Open it to add this deadline to your calendar.",
         "कैलेंडर फ़ाइल डाउनलोड हो गई है। समयसीमा जोड़ने के लिए इसे खोलें।"
+      )
+    );
+  };
+  const previewGoogleCalendarDemo = () => {
+    if (!calendarEvent) return;
+    setCalendarDemoSynced(true);
+    toast.message(
+      text(
+        language,
+        "Demo preview updated. No Google account or calendar event was accessed.",
+        "डेमो प्रीव्यू अपडेट हो गया। किसी Google खाते या कैलेंडर इवेंट को एक्सेस नहीं किया गया।"
       )
     );
   };
@@ -1598,6 +1610,18 @@ function DetailsScreen({
                 <CalendarPlus size={16} />
                 {text(language, "Add deadline to calendar", "समयसीमा कैलेंडर में जोड़ें")}
               </button>
+            )}
+            {calendarEvent && (
+              <div className={`google-calendar-demo ${calendarDemoSynced ? "is-previewed" : ""}`}>
+                <div>
+                  <strong>{calendarDemoSynced ? text(language, "Demo event previewed", "डेमो इवेंट प्रीव्यू हो गया") : text(language, "Google Calendar demo", "Google Calendar डेमो")}</strong>
+                  <small>{calendarDemoSynced ? text(language, `${text(language, scheme.name, scheme.nameHindi)} deadline is shown in the local demo state only.`, `${text(language, scheme.name, scheme.nameHindi)} की समयसीमा केवल स्थानीय डेमो स्थिति में दिखाई गई है।`) : text(language, "Preview the direct-sync flow now; real Google OAuth activates only after credentials are configured.", "अभी डायरेक्ट-सिंक फ्लो का प्रीव्यू देखें; असली Google OAuth केवल क्रेडेंशियल कॉन्फ़िगर होने पर सक्रिय होगा।")}</small>
+                </div>
+                <button onClick={previewGoogleCalendarDemo} aria-label={text(language, "Preview Google Calendar demo", "Google Calendar डेमो प्रीव्यू करें")}>
+                  <CalendarPlus size={15} />
+                  {calendarDemoSynced ? text(language, "Preview again", "फिर प्रीव्यू करें") : text(language, "Preview sync", "सिंक प्रीव्यू")}
+                </button>
+              </div>
             )}
             <button
               className="share-link"

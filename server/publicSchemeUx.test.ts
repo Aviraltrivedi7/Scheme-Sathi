@@ -32,8 +32,11 @@ describe("public scheme score and engagement UX", () => {
     expect(home).toContain("createDeadlineCalendarIcs");
     expect(home).toContain("trpc.saved.getNote");
     expect(home).toContain("saved-scheme-note");
+    expect(home).toContain("Google Calendar demo");
+    expect(home).toContain("calendarDemoSynced");
     expect(comparison).toContain("createComparisonCsv");
     expect(comparison).toContain("openComparisonPdfDialog");
+    expect(comparison).toContain("selectedExportFields");
     expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
   });
 });

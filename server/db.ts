@@ -329,6 +329,30 @@ export async function listSavedSchemeIds(userId: number) {
   return rows.map(row => row.schemeId);
 }
 
+export async function listSavedSchemeNotes(userId: number, query?: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db
+    .select({ note: schemeNotes, scheme: schemeCatalog })
+    .from(schemeNotes)
+    .innerJoin(schemeCatalog, eq(schemeNotes.schemeId, schemeCatalog.id))
+    .where(eq(schemeNotes.userId, userId))
+    .orderBy(desc(schemeNotes.updatedAt));
+  const normalizedQuery = query?.trim().toLowerCase();
+  return rows
+    .map(row => ({
+      schemeId: row.note.schemeId,
+      note: row.note.note,
+      updatedAt: row.note.updatedAt.getTime(),
+      schemeName: row.scheme.name,
+      schemeNameHindi: row.scheme.nameHindi,
+      category: row.scheme.category,
+      categoryHindi: row.scheme.categoryHindi,
+      applicationDeadline: row.scheme.applicationDeadline?.getTime() ?? null,
+    }))
+    .filter(item => !normalizedQuery || `${item.schemeName} ${item.schemeNameHindi} ${item.category} ${item.categoryHindi} ${item.note}`.toLowerCase().includes(normalizedQuery));
+}
+
 async function getOwnedSavedScheme(userId: number, schemeId: string) {
   const db = await getDb();
   if (!db) databaseUnavailable();

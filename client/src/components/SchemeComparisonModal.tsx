@@ -1,7 +1,8 @@
 import { Check, ExternalLink, FileDown, FileSpreadsheet, X } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 import type { Scheme } from "@/lib/schemes";
-import { createComparisonCsv, downloadTextFile, openComparisonPdfDialog } from "@/lib/schemeExports";
+import { comparisonExportFieldLabel, comparisonExportFields, createComparisonCsv, downloadTextFile, openComparisonPdfDialog, type ComparisonExportField } from "@/lib/schemeExports";
 
 type Language = "en" | "hi";
 const text = (language: Language, english: string, hindi: string) =>
@@ -17,6 +18,7 @@ export function SchemeComparisonModal({
   onClose: () => void;
   onRemove: (id: string) => void;
 }) {
+  const [selectedExportFields, setSelectedExportFields] = useState<ComparisonExportField[]>([...comparisonExportFields]);
   const rows = [
     {
       label: text(language, "Match score", "मिलान स्कोर"),
@@ -60,15 +62,27 @@ export function SchemeComparisonModal({
     },
   ];
   const exportCsv = () => {
-    downloadTextFile(createComparisonCsv(schemes, language), "scheme-sathi-comparison.csv", "text/csv;charset=utf-8");
+    downloadTextFile(createComparisonCsv(schemes, language, selectedExportFields), "scheme-sathi-comparison.csv", "text/csv;charset=utf-8");
     toast.success(text(language, "Comparison exported as CSV.", "तुलना CSV के रूप में डाउनलोड हो गई है।"));
   };
   const exportPdf = () => {
-    if (!openComparisonPdfDialog(schemes, language)) {
+    if (!openComparisonPdfDialog(schemes, language, selectedExportFields)) {
       toast.error(text(language, "Your browser blocked the PDF dialog. Allow pop-ups and try again.", "आपके ब्राउज़र ने PDF डायलॉग रोक दिया। पॉप-अप की अनुमति देकर फिर कोशिश करें।"));
       return;
     }
     toast.message(text(language, "Choose “Save as PDF” in the print dialog.", "प्रिंट डायलॉग में “Save as PDF” चुनें।"));
+  };
+  const toggleExportField = (field: ComparisonExportField) => {
+    setSelectedExportFields(current => {
+      if (current.includes(field)) {
+        if (current.length === 1) {
+          toast.message(text(language, "Keep at least one field in your export.", "एक्सपोर्ट में कम-से-कम एक फ़ील्ड रखें।"));
+          return current;
+        }
+        return current.filter(item => item !== field);
+      }
+      return [...current, field];
+    });
   };
   return (
     <div className="comparison-backdrop" role="presentation" onClick={onClose}>
@@ -146,6 +160,20 @@ export function SchemeComparisonModal({
             </tbody>
           </table>
         </div>
+        <section className="comparison-export-field-picker" aria-labelledby="comparison-export-fields-title">
+          <div>
+            <span className="section-kicker">{text(language, "Export details", "एक्सपोर्ट विवरण")}</span>
+            <h3 id="comparison-export-fields-title">{text(language, "Choose fields for CSV or PDF", "CSV या PDF के लिए फ़ील्ड चुनें")}</h3>
+          </div>
+          <div className="comparison-field-options">
+            {comparisonExportFields.map(field => (
+              <label key={field} className={selectedExportFields.includes(field) ? "selected" : ""}>
+                <input type="checkbox" checked={selectedExportFields.includes(field)} onChange={() => toggleExportField(field)} />
+                <span>{comparisonExportFieldLabel(field, language)}</span>
+              </label>
+            ))}
+          </div>
+        </section>
         <footer>
           <span className="comparison-export-actions">
             <button className="comparison-export-csv" onClick={exportCsv}>

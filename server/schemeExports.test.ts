@@ -35,4 +35,21 @@ describe("scheme calendar and comparison exports", () => {
     expect(printable).toContain("Scheme Sathi. Verify current details");
     expect(printable).not.toContain('<script>');
   });
+
+  it("exports only the user-selected comparison fields in both CSV and PDF report content", () => {
+    const comparison = [
+      { ...nsp, score: 91, factors: ["student"] },
+      { ...pmKisan, score: 76, factors: ["farmer"] },
+    ];
+    const fields = ["benefit", "officialPortal"] as const;
+    const csv = createComparisonCsv(comparison, "en", fields);
+    const printable = createComparisonPrintHtml(comparison, "en", new Date(now), fields);
+
+    expect(csv).toContain('"Benefit"');
+    expect(csv).toContain('"Official portal"');
+    expect(csv).not.toContain('"Match score"');
+    expect(printable).toContain("Benefit");
+    expect(printable).toContain("Official portal");
+    expect(printable).not.toContain("Match score");
+  });
 });

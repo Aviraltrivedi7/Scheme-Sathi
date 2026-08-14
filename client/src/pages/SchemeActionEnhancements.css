@@ -9,6 +9,58 @@
   background: #e7d3ae;
 }
 
+.google-calendar-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px dashed #79a7cc;
+  background: #eaf3f9;
+  color: #214d71;
+}
+
+.google-calendar-demo.is-previewed {
+  border-color: #77a98c;
+  background: #eaf5ee;
+  color: #255d45;
+}
+
+.google-calendar-demo strong,
+.google-calendar-demo small {
+  display: block;
+}
+
+.google-calendar-demo strong {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.google-calendar-demo small {
+  margin-top: 3px;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.google-calendar-demo button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  min-height: 31px;
+  padding: 0 8px;
+  color: #fff;
+  background: #2f6ea2;
+  font-size: 8px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.google-calendar-demo.is-previewed button {
+  background: #2e7d55;
+}
+
 .comparison-export-actions,
 .comparison-footer-note {
   display: inline-flex;
@@ -42,6 +94,56 @@
   color: #fff;
   background: var(--saffron-deep);
   border-color: var(--saffron-deep) !important;
+}
+
+.comparison-export-field-picker {
+  display: grid;
+  grid-template-columns: minmax(170px, .8fr) minmax(0, 1.7fr);
+  gap: 16px;
+  align-items: center;
+  padding: 15px 20px;
+  border-top: 1px solid var(--line);
+  background: #fffaf1;
+}
+
+.comparison-export-field-picker h3 {
+  margin-top: 5px;
+  color: var(--ink);
+  font-family: "DM Serif Display", Georgia, serif;
+  font-size: 20px;
+  line-height: 1.05;
+}
+
+.comparison-field-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.comparison-field-options label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 29px;
+  padding: 0 8px;
+  border: 1px solid #dacdb8;
+  background: #fffdf8;
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.comparison-field-options label.selected {
+  border-color: #9fbdab;
+  background: #e8f4ed;
+  color: #245d50;
+}
+
+.comparison-field-options input {
+  width: 12px;
+  height: 12px;
+  accent-color: #2e7d55;
 }
 
 .saved-scheme-note {
@@ -134,6 +236,12 @@
 }
 
 @media (max-width: 640px) {
+  .google-calendar-demo {
+    grid-template-columns: 1fr;
+  }
+  .google-calendar-demo button {
+    width: 100%;
+  }
   .comparison-modal footer,
   .comparison-export-actions {
     align-items: stretch;
@@ -147,6 +255,11 @@
 
   .comparison-export-actions button {
     width: 100%;
+  }
+
+  .comparison-export-field-picker {
+    grid-template-columns: 1fr;
+    padding: 15px;
   }
 
   .comparison-footer-note {

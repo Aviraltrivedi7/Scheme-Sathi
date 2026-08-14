@@ -4,6 +4,7 @@ import type { TrpcContext } from "./_core/context";
 const mocks = vi.hoisted(() => ({
   getSchemeById: vi.fn(),
   listSavedSchemeIds: vi.fn(),
+  listSavedSchemeNotes: vi.fn(),
   toggleSavedScheme: vi.fn(),
   getSchemeNote: vi.fn(),
   upsertSchemeNote: vi.fn(),
@@ -45,5 +46,15 @@ describe("saved scheme personal note router", () => {
 
     await expect(caller.saved.upsertNote({ schemeId: "nsp", note: "   " })).rejects.toThrow();
     expect(mocks.upsertSchemeNote).not.toHaveBeenCalledWith(77, "nsp", "");
+  });
+
+  it("lists dashboard notes through the authenticated owner scope and bounded query", async () => {
+    mocks.listSavedSchemeNotes.mockResolvedValue([{ schemeId: "nsp", schemeName: "National Scholarship Portal", note: "Check certificate", updatedAt: 123, category: "Education" }]);
+    const caller = appRouter.createCaller(authenticatedContext(42));
+
+    const result = await caller.saved.notes({ query: "certificate" });
+
+    expect(result.notes).toHaveLength(1);
+    expect(mocks.listSavedSchemeNotes).toHaveBeenCalledWith(42, "certificate");
   });
 });
