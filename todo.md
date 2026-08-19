@@ -317,3 +317,10 @@
 - [x] Fix the drawer sizing and internal scroll behavior so all help content remains reachable.
 - [x] Test desktop/mobile drawer rendering and conversation overflow states.
 - [x] Document and checkpoint the development-only bug fix without publishing.
+
+## Scheme Sathi startup readiness analysis
+
+- [x] Review the current Scheme Sathi product surface, differentiation, and startup readiness gaps.
+- [x] Research official scheme-discovery infrastructure, user-access barriers, and relevant trust/compliance constraints.
+- [x] Define target segments, startup positioning, monetization options, and a focused go-to-market wedge.
+- [x] Produce a phased product roadmap, KPI scorecard, risk register, and practical next actions.
