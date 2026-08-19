@@ -48,11 +48,14 @@ body {
 }
 .help-conversation {
   display: grid;
+  flex: 1 1 auto;
+  min-height: 72px;
   gap: 8px;
-  max-height: 250px;
+  max-height: none;
   overflow: auto;
   margin-top: 12px;
   padding-right: 3px;
+  scrollbar-gutter: stable;
 }
 .help-message {
   display: grid;
@@ -2037,8 +2040,13 @@ h3 {
 }
 .help-drawer {
   width: min(100%, 390px);
-  height: 100%;
+  height: 100dvh;
+  min-height: 0;
   padding: 29px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--paper);
   box-shadow: -15px 0 40px rgba(0, 0, 0, 0.12);
   animation: drawer-in 0.25s var(--ease-out);
@@ -2096,6 +2104,7 @@ h3 {
   color: var(--saffron-deep);
 }
 .help-form {
+  flex: 0 0 auto;
   display: flex;
   gap: 7px;
   margin-top: 24px;
@@ -2117,6 +2126,7 @@ h3 {
   padding: 0;
 }
 .help-disclaimer {
+  flex: 0 0 auto;
   display: block;
   color: var(--ink-muted);
   font-size: 9px;
@@ -2531,10 +2541,33 @@ h3 {
     display: none;
   }
   .help-drawer {
-    padding: 24px 18px;
+    height: 100dvh;
+    padding: 18px 18px max(18px, env(safe-area-inset-bottom));
   }
   .drawer-head h2 {
     font-size: 31px;
+  }
+  .assistant-message {
+    margin-top: 19px;
+    padding: 12px;
+  }
+  .prompt-list {
+    gap: 4px;
+    margin-top: 14px;
+  }
+  .prompt-list button {
+    min-height: 38px;
+    padding: 8px 10px;
+  }
+  .help-conversation {
+    min-height: 64px;
+    margin-top: 10px;
+  }
+  .help-form {
+    margin-top: 12px;
+  }
+  .help-disclaimer {
+    margin-top: 10px;
   }
   .api-status {
     margin: 0;

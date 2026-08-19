@@ -310,3 +310,10 @@
 - [x] Add preset save/load controls, dashboard scheme deep links, and inline note edit/delete actions.
 - [x] Test preset ownership and validation, note update/delete ownership, deep-link state, and responsive interfaces.
 - [x] Document and checkpoint the completed development-only enhancement without publishing.
+
+## Mobile Need help drawer clipping fix
+
+- [x] Inspect the mobile Need help drawer content height, scroll container, and footer visibility.
+- [x] Fix the drawer sizing and internal scroll behavior so all help content remains reachable.
+- [x] Test desktop/mobile drawer rendering and conversation overflow states.
+- [x] Document and checkpoint the development-only bug fix without publishing.

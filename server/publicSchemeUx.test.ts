@@ -46,5 +46,9 @@ describe("public scheme score and engagement UX", () => {
     expect(dashboardNotes).toContain("trpc.saved.deleteNote");
     expect(directDetail).toContain("trpc.schemes.byId");
     expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
+    expect(css).toContain("height: 100dvh");
+    expect(css).toContain("flex: 1 1 auto");
+    expect(css).toContain("max-height: none");
+    expect(css).toContain("safe-area-inset-bottom");
   });
 });
