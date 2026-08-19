@@ -151,6 +151,31 @@ export const schemeNotes = mysqlTable(
   ]
 );
 
+/** Owner-private named field selections reused by comparison CSV and PDF exports. */
+export const comparisonExportPresets = mysqlTable(
+  "comparison_export_presets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 60 }).notNull(),
+    fields: json("fields").$type<string[]>().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("comparison_export_presets_user_name_unique").on(
+      table.userId,
+      table.name
+    ),
+    index("comparison_export_presets_user_updated_idx").on(
+      table.userId,
+      table.updatedAt
+    ),
+  ]
+);
+
 /** Private application desk entries. A user may track each catalog scheme once. */
 export const trackedApplications = mysqlTable(
   "tracked_applications",

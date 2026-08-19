@@ -92,8 +92,15 @@
 }
 .saved-note-card-heading span { color: var(--saffron-deep); font-weight: 800; }
 .saved-notes-grid h3 { margin-top: 10px; color: var(--ink); font-family: "DM Serif Display", Georgia, serif; font-size: 19px; line-height: 1.05; }
+.saved-note-scheme-link { display: inline-flex; gap: 6px; align-items: center; padding: 0; color: inherit; background: transparent; text-align: left; font: inherit; }
+.saved-note-scheme-link:hover { color: var(--saffron-deep); }
 .saved-notes-grid p { display: -webkit-box; overflow: hidden; margin-top: 8px; color: var(--ink-soft); font-size: 10px; line-height: 1.55; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
 .saved-notes-grid small { display: inline-flex; gap: 5px; align-items: center; margin-top: 12px; color: #3d665a; font-size: 9px; line-height: 1.3; }
+.saved-notes-grid textarea { width: 100%; min-height: 86px; margin-top: 10px; padding: 8px; border: 1px solid #c9b99f; background: #fffdf8; color: var(--ink); font: inherit; font-size: 10px; line-height: 1.45; resize: vertical; }
+.saved-note-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+.saved-note-actions button { display: inline-flex; gap: 5px; align-items: center; min-height: 27px; padding: 0 7px; border: 1px solid #d8c9b6; background: #fffdf8; color: var(--ink-muted); font-size: 8px; font-weight: 800; }
+.saved-note-actions .saved-note-save { border-color: #99b9a7; background: #e8f4ed; color: #245d50; }
+.saved-note-actions .saved-note-delete { border-color: #e3b2a8; background: #fff3f0; color: #9b4335; }
 .saved-notes-state { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 90px; margin-top: 14px; color: var(--ink-muted); font-size: 10px; }
 .saved-notes-state.empty { justify-content: flex-start; color: var(--saffron-deep); }
 .saved-notes-state.empty div { display: grid; gap: 3px; color: var(--ink-muted); }

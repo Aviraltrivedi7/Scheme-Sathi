@@ -974,6 +974,7 @@ function ResultsScreen({
   catalog,
   serverMatches,
   saved,
+  authenticated,
   onSave,
   onOpen,
   onBack,
@@ -984,6 +985,7 @@ function ResultsScreen({
   catalog: Scheme[];
   serverMatches: MatchedScheme[];
   saved: string[];
+  authenticated: boolean;
   onSave: (id: string) => void;
   onOpen: (scheme: MatchedScheme) => void;
   onBack: () => void;
@@ -1287,6 +1289,7 @@ function ResultsScreen({
         <SchemeComparisonModal
           schemes={selectedSchemes}
           language={language}
+          authenticated={authenticated}
           onClose={() => setCompareOpen(false)}
           onRemove={id => {
             toggleCompare(id);
@@ -1904,6 +1907,7 @@ export default function Home() {
           catalog={catalog}
           serverMatches={serverMatches}
           saved={savedIds}
+          authenticated={isAuthenticated}
           onSave={toggleSave}
           onOpen={scheme => {
             setSelected(scheme);

@@ -301,3 +301,12 @@
 - [x] Test demo disclosure, note ownership/filtering, selected-field CSV/PDF output, and responsive states.
 - [x] Document and checkpoint the completed development-only enhancement without publishing.
 - [x] Implement the requested clearly labeled local Google Calendar demo mode until real OAuth credentials are supplied.
+
+## Comparison export presets and saved-note management
+
+- [x] Review the existing comparison export selector, saved-note APIs, dashboard panel, and scheme detail route state.
+- [x] Define owner-private preset limits, field validation, deep-link context, and dashboard note edit/delete semantics.
+- [x] Add protected comparison export preset persistence and saved-note management APIs.
+- [x] Add preset save/load controls, dashboard scheme deep links, and inline note edit/delete actions.
+- [x] Test preset ownership and validation, note update/delete ownership, deep-link state, and responsive interfaces.
+- [x] Document and checkpoint the completed development-only enhancement without publishing.

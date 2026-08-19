@@ -4,10 +4,11 @@ import { Toaster } from "@/components/ui/sonner";
 import Dashboard from "@/pages/Dashboard";
 import Discover from "@/pages/Discover";
 import AdminSchemes from "@/pages/AdminSchemes";
+import SchemeDetail from "@/pages/SchemeDetail";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Home from "./pages/Home";
 
 export default function App() {
-  return <ErrorBoundary><Toaster position="top-right" /><Switch><Route path="/" component={Home} /><Route path="/discover" component={Discover} /><Route path="/dashboard" component={Dashboard} /><Route path="/admin/schemes" component={AdminSchemes} /><Route component={Home} /></Switch></ErrorBoundary>;
+  return <ErrorBoundary><Toaster position="top-right" /><Switch><Route path="/" component={Home} /><Route path="/discover" component={Discover} /><Route path="/scheme/:schemeId" component={SchemeDetail} /><Route path="/dashboard" component={Dashboard} /><Route path="/admin/schemes" component={AdminSchemes} /><Route component={Home} /></Switch></ErrorBoundary>;
 }

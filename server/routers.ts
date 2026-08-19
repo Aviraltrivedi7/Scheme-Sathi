@@ -12,6 +12,7 @@ import {
   cancelApplicationReminder,
   cancelDocumentReviewDueReminder,
   createApplicationReminder,
+  deleteComparisonExportPreset,
   deleteDocumentPdfAnnotation,
   deleteDocumentReviewEscalationTemplate,
   deleteSchemeNote,
@@ -32,6 +33,7 @@ import {
   listDocumentReviewAudit,
   listDocumentReviewEscalationTemplates,
   listDocumentVerificationHistory,
+  listComparisonExportPresets,
   listFamilyFilterInvitationNotifications,
   listMyDocumentReviewAssignments,
   listOwnerOverdueDocumentReviews,
@@ -53,6 +55,7 @@ import {
   revokeVerificationHistoryFilterShare,
   runApplicationDocumentOcr,
   runBatchDocumentOcr,
+  saveComparisonExportPreset,
   saveDocumentPdfAnnotation,
   saveDocumentReminderTask,
   saveDocumentReviewerAlertPreferences,
@@ -194,6 +197,22 @@ const schemeNoteInput = z.object({
   schemeId: z.string().min(1).max(96),
   note: z.string().trim().min(1).max(4000),
 });
+const comparisonExportFieldInput = z.enum([
+  "matchScore",
+  "benefit",
+  "eligibility",
+  "documents",
+  "steps",
+  "officialPortal",
+]);
+const comparisonExportPresetInput = z
+  .object({
+    name: z.string().trim().min(1).max(60),
+    fields: z.array(comparisonExportFieldInput).min(1).max(6),
+  })
+  .refine(input => new Set(input.fields).size === input.fields.length, {
+    message: "Choose each export field only once.",
+  });
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -281,6 +300,26 @@ export const appRouter = router({
       .input(z.object({ schemeId: z.string().min(1).max(96) }))
       .mutation(async ({ ctx, input }) => {
         await deleteSchemeNote(ctx.user.id, input.schemeId);
+        return { deleted: true };
+      }),
+  }),
+  comparisonExports: router({
+    listPresets: protectedProcedure.query(async ({ ctx }) => ({
+      presets: await listComparisonExportPresets(ctx.user.id),
+    })),
+    savePreset: protectedProcedure
+      .input(comparisonExportPresetInput)
+      .mutation(async ({ ctx, input }) => ({
+        preset: await saveComparisonExportPreset(
+          ctx.user.id,
+          input.name,
+          input.fields
+        ),
+      })),
+    deletePreset: protectedProcedure
+      .input(z.object({ presetId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteComparisonExportPreset(ctx.user.id, input.presetId);
         return { deleted: true };
       }),
   }),

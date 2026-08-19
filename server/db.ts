@@ -15,6 +15,7 @@ import {
   documentReviewEscalationTemplates,
   familyFilterInvitationNotifications,
   InsertUser,
+  comparisonExportPresets,
   ocrPolicySettings,
   schemeNotes,
   savedSchemes,
@@ -351,6 +352,86 @@ export async function listSavedSchemeNotes(userId: number, query?: string) {
       applicationDeadline: row.scheme.applicationDeadline?.getTime() ?? null,
     }))
     .filter(item => !normalizedQuery || `${item.schemeName} ${item.schemeNameHindi} ${item.category} ${item.categoryHindi} ${item.note}`.toLowerCase().includes(normalizedQuery));
+}
+
+export async function listComparisonExportPresets(userId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db
+    .select()
+    .from(comparisonExportPresets)
+    .where(eq(comparisonExportPresets.userId, userId))
+    .orderBy(desc(comparisonExportPresets.updatedAt));
+  return rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    fields: Array.isArray(row.fields) ? row.fields : [],
+    updatedAt: row.updatedAt.getTime(),
+  }));
+}
+
+export async function saveComparisonExportPreset(
+  userId: number,
+  name: string,
+  fields: string[]
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const normalizedName = name.trim();
+  if (!normalizedName) throw new Error("Give this export preset a name.");
+  const existing = await db
+    .select({ id: comparisonExportPresets.id })
+    .from(comparisonExportPresets)
+    .where(eq(comparisonExportPresets.userId, userId));
+  const namedRows = await db
+    .select({ id: comparisonExportPresets.id })
+    .from(comparisonExportPresets)
+    .where(
+      and(
+        eq(comparisonExportPresets.userId, userId),
+        eq(comparisonExportPresets.name, normalizedName)
+      )
+    )
+    .limit(1);
+  if (!namedRows[0] && existing.length >= 12)
+    throw new Error("You can save up to 12 comparison export presets.");
+  await db
+    .insert(comparisonExportPresets)
+    .values({ userId, name: normalizedName, fields })
+    .onDuplicateKeyUpdate({
+      set: { fields, updatedAt: new Date() },
+    });
+  const saved = await db
+    .select()
+    .from(comparisonExportPresets)
+    .where(
+      and(
+        eq(comparisonExportPresets.userId, userId),
+        eq(comparisonExportPresets.name, normalizedName)
+      )
+    )
+    .limit(1);
+  const preset = saved[0];
+  if (!preset) throw new Error("The export preset could not be saved.");
+  return {
+    id: preset.id,
+    name: preset.name,
+    fields: Array.isArray(preset.fields) ? preset.fields : [],
+    updatedAt: preset.updatedAt.getTime(),
+  };
+}
+
+export async function deleteComparisonExportPreset(userId: number, presetId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db
+    .delete(comparisonExportPresets)
+    .where(
+      and(
+        eq(comparisonExportPresets.id, presetId),
+        eq(comparisonExportPresets.userId, userId)
+      )
+    );
 }
 
 async function getOwnedSavedScheme(userId: number, schemeId: string) {

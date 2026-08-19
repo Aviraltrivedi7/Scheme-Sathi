@@ -2,6 +2,7 @@ import { Check, ExternalLink, FileDown, FileSpreadsheet, X } from "lucide-react"
 import { toast } from "sonner";
 import { useState } from "react";
 import type { Scheme } from "@/lib/schemes";
+import { trpc } from "@/lib/trpc";
 import { comparisonExportFieldLabel, comparisonExportFields, createComparisonCsv, downloadTextFile, openComparisonPdfDialog, type ComparisonExportField } from "@/lib/schemeExports";
 
 type Language = "en" | "hi";
@@ -10,15 +11,35 @@ const text = (language: Language, english: string, hindi: string) =>
 export function SchemeComparisonModal({
   schemes,
   language,
+  authenticated,
   onClose,
   onRemove,
 }: {
   schemes: (Scheme & { score: number; factors: string[] })[];
   language: Language;
+  authenticated: boolean;
   onClose: () => void;
   onRemove: (id: string) => void;
 }) {
   const [selectedExportFields, setSelectedExportFields] = useState<ComparisonExportField[]>([...comparisonExportFields]);
+  const [presetName, setPresetName] = useState("");
+  const utils = trpc.useUtils();
+  const presetsQuery = trpc.comparisonExports.listPresets.useQuery(undefined, { enabled: authenticated, retry: false });
+  const savePreset = trpc.comparisonExports.savePreset.useMutation({
+    onSuccess: async () => {
+      setPresetName("");
+      await utils.comparisonExports.listPresets.invalidate();
+      toast.success(text(language, "Export preset saved privately.", "एक्सपोर्ट प्रीसेट निजी रूप से सहेज लिया गया है।"));
+    },
+    onError: error => toast.error(error.message),
+  });
+  const deletePreset = trpc.comparisonExports.deletePreset.useMutation({
+    onSuccess: async () => {
+      await utils.comparisonExports.listPresets.invalidate();
+      toast.message(text(language, "Export preset removed.", "एक्सपोर्ट प्रीसेट हटा दिया गया है।"));
+    },
+    onError: error => toast.error(error.message),
+  });
   const rows = [
     {
       label: text(language, "Match score", "मिलान स्कोर"),
@@ -83,6 +104,12 @@ export function SchemeComparisonModal({
       }
       return [...current, field];
     });
+  };
+  const loadPreset = (fields: string[]) => {
+    const validFields = fields.filter((field): field is ComparisonExportField => comparisonExportFields.includes(field as ComparisonExportField));
+    if (!validFields.length) return toast.error(text(language, "This preset has no valid export fields.", "इस प्रीसेट में मान्य एक्सपोर्ट फ़ील्ड नहीं हैं।"));
+    setSelectedExportFields(validFields);
+    toast.message(text(language, "Export fields updated from preset.", "प्रीसेट से एक्सपोर्ट फ़ील्ड अपडेट हो गए।"));
   };
   return (
     <div className="comparison-backdrop" role="presentation" onClick={onClose}>
@@ -172,6 +199,19 @@ export function SchemeComparisonModal({
                 <span>{comparisonExportFieldLabel(field, language)}</span>
               </label>
             ))}
+          </div>
+          <div className="comparison-export-presets">
+            {authenticated ? <>
+              <div className="comparison-preset-save">
+                <input value={presetName} maxLength={60} onChange={event => setPresetName(event.target.value)} placeholder={text(language, "Name this export setup", "इस एक्सपोर्ट सेटअप का नाम दें")} aria-label={text(language, "Export preset name", "एक्सपोर्ट प्रीसेट नाम")} />
+                <button disabled={!presetName.trim() || savePreset.isPending} onClick={() => savePreset.mutate({ name: presetName, fields: selectedExportFields })}>{savePreset.isPending ? text(language, "Saving…", "सहेज रहे हैं…") : text(language, "Save preset", "प्रीसेट सहेजें")}</button>
+              </div>
+              <div className="comparison-preset-list" aria-label={text(language, "Saved export presets", "सहेजे हुए एक्सपोर्ट प्रीसेट")}>
+                {presetsQuery.isLoading ? <small>{text(language, "Loading your presets…", "आपके प्रीसेट लोड हो रहे हैं…")}</small> : null}
+                {!presetsQuery.isLoading && !presetsQuery.data?.presets.length ? <small>{text(language, "Save an export setup to reuse it later.", "बाद में फिर इस्तेमाल करने के लिए एक्सपोर्ट सेटअप सहेजें।")}</small> : null}
+                {presetsQuery.data?.presets.map(preset => <span key={preset.id}><button className="comparison-preset-load" onClick={() => loadPreset(preset.fields)}>{preset.name}</button><button className="comparison-preset-delete" aria-label={text(language, `Delete ${preset.name} preset`, `${preset.name} प्रीसेट हटाएँ`)} disabled={deletePreset.isPending} onClick={() => deletePreset.mutate({ presetId: preset.id })}>×</button></span>)}
+              </div>
+            </> : <small className="comparison-preset-signin">{text(language, "Sign in to save private export presets for later.", "बाद के लिए निजी एक्सपोर्ट प्रीसेट सहेजने हेतु साइन इन करें।")}</small>}
           </div>
         </section>
         <footer>

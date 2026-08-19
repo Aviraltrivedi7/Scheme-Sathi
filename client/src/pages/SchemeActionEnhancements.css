@@ -146,6 +146,75 @@
   accent-color: #2e7d55;
 }
 
+.comparison-export-presets {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed #d9cdb9;
+}
+
+.comparison-preset-save {
+  display: flex;
+  gap: 7px;
+}
+
+.comparison-preset-save input {
+  flex: 1;
+  min-width: 0;
+  min-height: 31px;
+  padding: 0 9px;
+  border: 1px solid #d6c7b2;
+  background: #fffdf8;
+  color: var(--ink);
+  font: inherit;
+  font-size: 9px;
+}
+
+.comparison-preset-save button,
+.comparison-preset-load,
+.comparison-preset-delete {
+  min-height: 31px;
+  padding: 0 9px;
+  border: 1px solid #b8d2c0;
+  background: #e8f4ed;
+  color: #245d50;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.comparison-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.comparison-preset-list small,
+.comparison-preset-signin {
+  color: var(--ink-muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.comparison-preset-list > span {
+  display: inline-flex;
+}
+
+.comparison-preset-load {
+  border-right: 0;
+}
+
+.comparison-preset-delete {
+  min-width: 25px;
+  padding: 0;
+  border-color: #d9a89d;
+  background: #fff2ef;
+  color: #9a4133;
+  font-size: 16px;
+  line-height: 1;
+}
+
 .saved-scheme-note {
   margin-top: 22px;
   padding: 18px;
@@ -260,6 +329,14 @@
   .comparison-export-field-picker {
     grid-template-columns: 1fr;
     padding: 15px;
+  }
+
+  .comparison-preset-save {
+    flex-direction: column;
+  }
+
+  .comparison-preset-save button {
+    width: 100%;
   }
 
   .comparison-footer-note {

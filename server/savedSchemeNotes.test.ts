@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   getSchemeById: vi.fn(),
   listSavedSchemeIds: vi.fn(),
   listSavedSchemeNotes: vi.fn(),
+  listComparisonExportPresets: vi.fn(),
+  saveComparisonExportPreset: vi.fn(),
+  deleteComparisonExportPreset: vi.fn(),
   toggleSavedScheme: vi.fn(),
   getSchemeNote: vi.fn(),
   upsertSchemeNote: vi.fn(),
@@ -56,5 +59,28 @@ describe("saved scheme personal note router", () => {
 
     expect(result.notes).toHaveLength(1);
     expect(mocks.listSavedSchemeNotes).toHaveBeenCalledWith(42, "certificate");
+  });
+
+  it("lists, saves and removes export presets through the authenticated owner only", async () => {
+    mocks.listComparisonExportPresets.mockResolvedValue([{ id: 8, name: "Quick view", fields: ["benefit"], updatedAt: 123 }]);
+    mocks.saveComparisonExportPreset.mockResolvedValue({ id: 8, name: "Quick view", fields: ["benefit"], updatedAt: 123 });
+    const caller = appRouter.createCaller(authenticatedContext(42));
+
+    const listed = await caller.comparisonExports.listPresets();
+    const saved = await caller.comparisonExports.savePreset({ name: "Quick view", fields: ["benefit", "officialPortal"] });
+    await caller.comparisonExports.deletePreset({ presetId: 8 });
+
+    expect(listed.presets).toHaveLength(1);
+    expect(saved.preset).toMatchObject({ name: "Quick view" });
+    expect(mocks.listComparisonExportPresets).toHaveBeenCalledWith(42);
+    expect(mocks.saveComparisonExportPreset).toHaveBeenCalledWith(42, "Quick view", ["benefit", "officialPortal"]);
+    expect(mocks.deleteComparisonExportPreset).toHaveBeenCalledWith(42, 8);
+  });
+
+  it("rejects repeated or unsupported preset fields before database mutation", async () => {
+    const caller = appRouter.createCaller(authenticatedContext(42));
+
+    await expect(caller.comparisonExports.savePreset({ name: "Duplicate", fields: ["benefit", "benefit"] })).rejects.toThrow();
+    expect(mocks.saveComparisonExportPreset).not.toHaveBeenCalledWith(42, "Duplicate", ["benefit", "benefit"]);
   });
 });
