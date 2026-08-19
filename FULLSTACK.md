@@ -307,6 +307,21 @@ Migration `0021_odd_professor_monster.sql` adds two narrow analytics tables. `pi
 
 Advanced Discovery now exposes **Scheme level**, **Provider area**, and **Source status** filters in addition to its existing state, category, deadline, and search controls. Provider values are derived from the seeded database catalog through `schemes.filterOptions`; the list query accepts `administeringBody` and `verificationStatus` parameters and supports a **Provider area** sorting mode. Cards show whether an item is official-directory-listed or eligibility-verified and retain a separate source-directory link where it differs from the application portal. The warm Discover render returned 42 records, populated provider choices, and displayed the new source labels. Focused query/router/UI tests, the full **88-test** suite across 30 files, TypeScript validation, and the production build passed. The project remains development-only: no publishing, live external cohort action, or personal pilot data was created.
 
+## Hindi Scholarship Navigation and Cohort Date-Range Reports
+
+Advanced Discovery is now **Hindi-first** with an on-page English toggle. The search, state, category, scheme-level, provider-area, source-status, deadline, and sorting controls use Hindi labels by default. Provider choices remain backed by the canonical English `administeringBody` values sent to the server, but display a maintained Hindi mapping for the full current scholarship-provider directory. Scholarship cards also use their shipped Hindi names, benefit summaries, categories, scheme levels, source labels, and official-action labels. A provider without a reviewed translation intentionally falls back to its official English name rather than showing an inaccurate translation.
+
+The administrator-only conversion funnel now accepts optional local-calendar **From** and **To** dates. The server applies those bounds independently to visit, feedback, and signup event creation timestamps, returning only per-cohort aggregate counts and corresponding rates for that range. This avoids the previous lifetime feedback counter being mixed into a period report. An inverted range is rejected before aggregation. The **All time** action removes both bounds.
+
+| Report field | Period rule | Privacy and export behavior |
+| --- | --- | --- |
+| Link visits | Anonymous visit markers created inside the chosen date range | Only aggregate count is returned; raw browser tokens and hashes stay private. |
+| Feedback submissions | Public pilot submissions created inside the chosen date range | The report does not include response text, contact email, or any individual submission. |
+| Account signups | First-touch cohort attribution records created inside the chosen date range | The report never includes account ID, name, email, or profile data. |
+| CSV export | Current aggregate table and current date bounds | Browser-local download with quoted cells and formula-leading values prefixed to reduce spreadsheet formula interpretation. |
+
+`/admin/pilot` exposes the range controls beside the conversion funnel and downloads a cohort-wise CSV including cohort name/type/status, visits, feedback, feedback rate, signups, and visit-to-signup rate. Focused coverage validates Hindi provider/filter terminology, provider fallback, report range forwarding and invalid-range rejection, and formula-safe CSV encoding. The full suite now contains **91 tests** across 31 files; TypeScript validation, production build, Hindi desktop/mobile discovery rendering, and runtime-log review passed. The admin visual capture remains behind the existing sign-in boundary, and no real administrator login, report download, cohort activity, or publishing was performed during development verification.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

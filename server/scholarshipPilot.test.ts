@@ -93,8 +93,8 @@ describe("scholarship pilot", () => {
     expect(inbox).toContain("trpc.admin.pilot.cohorts.conversionStats");
     expect(attribution).toContain("trpc.pilot.recordCohortSignup");
     expect(attribution).toContain("sessionStorage.removeItem");
-    expect(discover).toContain("Provider area");
-    expect(discover).toContain("Source status");
+    expect(discover).toContain('discoverLabel("providerArea", language)');
+    expect(discover).toContain('discoverLabel("sourceStatus", language)');
     expect(discover).toContain("value=\"provider\"");
   });
 });

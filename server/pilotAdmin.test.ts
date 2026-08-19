@@ -108,7 +108,8 @@ describe("admin pilot inbox and cohort invites", () => {
 
     const admin = appRouter.createCaller(context("admin"));
     const user = appRouter.createCaller(context("user"));
-    const stats = await admin.admin.pilot.cohorts.conversionStats();
+    const range = { startAt: 1_700_000_000_000, endAt: 1_700_086_400_000 };
+    const stats = await admin.admin.pilot.cohorts.conversionStats(range);
     await user.pilot.trackCohortVisit({
       code: "COHORT88",
       visitorToken: "0f8434ec-b7ee-4f49-9408-60b2266c4f70",
@@ -121,7 +122,7 @@ describe("admin pilot inbox and cohort invites", () => {
         accountSignups: 4,
       }),
     ]);
-    expect(mocks.listPilotCohortConversionStats).toHaveBeenCalledTimes(1);
+    expect(mocks.listPilotCohortConversionStats).toHaveBeenCalledWith(range);
     expect(mocks.recordPilotCohortVisit).toHaveBeenCalledWith(
       "COHORT88",
       "0f8434ec-b7ee-4f49-9408-60b2266c4f70"
@@ -137,5 +138,15 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.feedback.list()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.list()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.conversionStats()).rejects.toThrow();
+  });
+
+  it("rejects an invalid cohort report date range before it reaches aggregation", async () => {
+    const caller = appRouter.createCaller(context("admin"));
+    await expect(
+      caller.admin.pilot.cohorts.conversionStats({
+        startAt: 1_700_086_400_000,
+        endAt: 1_700_000_000_000,
+      })
+    ).rejects.toThrow("Report start date must be before the end date.");
   });
 });

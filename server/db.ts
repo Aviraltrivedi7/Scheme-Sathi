@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
@@ -184,6 +184,10 @@ export type PilotCohortInviteInput = {
   maxUses: number;
   expiresAt?: number | null;
 };
+export type PilotCohortConversionRange = {
+  startAt?: number;
+  endAt?: number;
+};
 
 function isActivePilotCohortInvite(invite: typeof pilotCohortInvites.$inferSelect) {
   return (
@@ -262,25 +266,42 @@ export async function recordPilotCohortSignup(userId: number, code: string) {
 }
 
 /** Returns aggregate cohort funnel counts only; individual visit and account identities are never returned. */
-export async function listPilotCohortConversionStats() {
+export async function listPilotCohortConversionStats(range?: PilotCohortConversionRange) {
   const db = await getDb();
   if (!db) databaseUnavailable();
-  const [invites, visits, signups] = await Promise.all([
+  const [invites, visits, signups, feedback] = await Promise.all([
     listPilotCohortInvites(),
     db
       .select({ cohortInviteId: pilotCohortVisits.cohortInviteId, total: count() })
       .from(pilotCohortVisits)
+      .where(and(
+        range?.startAt ? gte(pilotCohortVisits.createdAt, new Date(range.startAt)) : undefined,
+        range?.endAt ? lte(pilotCohortVisits.createdAt, new Date(range.endAt)) : undefined
+      ))
       .groupBy(pilotCohortVisits.cohortInviteId),
     db
       .select({ cohortInviteId: pilotCohortSignups.cohortInviteId, total: count() })
       .from(pilotCohortSignups)
+      .where(and(
+        range?.startAt ? gte(pilotCohortSignups.createdAt, new Date(range.startAt)) : undefined,
+        range?.endAt ? lte(pilotCohortSignups.createdAt, new Date(range.endAt)) : undefined
+      ))
       .groupBy(pilotCohortSignups.cohortInviteId),
+    db
+      .select({ cohortInviteId: pilotFeedbackSubmissions.cohortInviteId, total: count() })
+      .from(pilotFeedbackSubmissions)
+      .where(and(
+        range?.startAt ? gte(pilotFeedbackSubmissions.createdAt, new Date(range.startAt)) : undefined,
+        range?.endAt ? lte(pilotFeedbackSubmissions.createdAt, new Date(range.endAt)) : undefined
+      ))
+      .groupBy(pilotFeedbackSubmissions.cohortInviteId),
   ]);
   const visitsByInvite = new Map(visits.map(row => [row.cohortInviteId, Number(row.total)]));
   const signupsByInvite = new Map(signups.map(row => [row.cohortInviteId, Number(row.total)]));
+  const feedbackByInvite = new Map(feedback.map(row => [row.cohortInviteId, Number(row.total)]));
   return invites.map(invite => {
     const linkVisits = visitsByInvite.get(invite.id) ?? 0;
-    const feedbackSubmissions = invite.usedCount;
+    const feedbackSubmissions = feedbackByInvite.get(invite.id) ?? 0;
     const accountSignups = signupsByInvite.get(invite.id) ?? 0;
     return {
       inviteId: invite.id,

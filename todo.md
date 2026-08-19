@@ -350,3 +350,12 @@
 - [x] Build admin cohort conversion view plus responsive scholarship filters and sort controls.
 - [x] Test cohort attribution/privacy, admin analytics, catalog filter/sort boundaries, and responsive journeys.
 - [x] Document and checkpoint the development-only pilot analytics upgrade without publishing.
+
+## Hindi scholarship navigation and cohort conversion reports
+
+- [x] Review bilingual discovery UI, cohort analytics data, and report export boundaries.
+- [x] Define Hindi provider/filter labels, date-range report metrics, export format, and privacy rules.
+- [x] Add localized filter metadata and admin-only cohort date-range reporting APIs.
+- [x] Build Hindi scholarship discovery controls and cohort report date-range/export interface.
+- [x] Test localization, report aggregation, CSV export safety, and responsive journeys.
+- [x] Document and checkpoint the development-only accessibility and reporting upgrade without publishing.

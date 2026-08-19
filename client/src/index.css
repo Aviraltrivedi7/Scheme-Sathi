@@ -3009,6 +3009,26 @@ h3 {
   font-size: 10px;
   font-weight: 800;
 }
+.discover-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+}
+.discover-header .discover-language-toggle {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink);
+  letter-spacing: 0;
+  transition: transform 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)), border-color 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+.discover-header .discover-language-toggle:hover {
+  border-color: var(--saffron-deep);
+}
+.discover-header .discover-language-toggle:active {
+  transform: scale(0.97);
+}
 .discover-intro {
   display: flex;
   justify-content: space-between;
@@ -3182,12 +3202,24 @@ h3 {
   .discover-page {
     padding: 18px 16px 50px;
   }
+  .discover-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .discover-header-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 7px;
+  }
   .discover-workspace {
     grid-template-columns: 1fr;
   }
   .discover-filters {
     position: static;
     grid-template-columns: 1fr 1fr;
+  }
+  .discover-filters select {
+    text-overflow: ellipsis;
   }
   .discover-filter-heading,
   .discover-filters label:first-of-type {

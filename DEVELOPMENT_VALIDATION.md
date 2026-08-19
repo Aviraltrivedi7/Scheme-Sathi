@@ -8,4 +8,8 @@ The warm Discover recheck completed successfully. It rendered **42** catalog rec
 
 The sandbox browser correctly stopped at the existing **Sign in to continue** boundary for `/admin/pilot`; no account login was performed for visual inspection. The admin funnel is nevertheless covered by protected router tests, and the page compiles in the production build. The mobile Discover recheck rendered the complete new filter stack and all result cards without a runtime error. It preserves the existing single-column mobile discovery flow, with controls preceding the results.
 
+## Hindi discovery and cohort reporting — 19 August 2026
+
+The warm Discover recheck rendered the Hindi-first scholarship discovery screen and all **42** catalog records. Provider-area filter options, category/filter labels, source-status labels, scholarship cards, and official actions display Hindi labels while retaining the canonical English values for server filtering. The visible language control restores the English interface on demand. The administrator report screen remains behind the existing sign-in boundary in the sandbox browser, so its aggregate date-range query and CSV export are validated through protected router contracts and focused export tests rather than a real administrator login.
+
 The completed non-visual checks at this point are the focused cohort/catalog tests, the full 88-test suite, TypeScript validation, and the production build.

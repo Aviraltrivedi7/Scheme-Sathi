@@ -1105,9 +1105,22 @@ export const appRouter = router({
         list: adminProcedure.query(async () => ({
           invites: await listPilotCohortInvites(),
         })),
-        conversionStats: adminProcedure.query(async () => ({
-          cohorts: await listPilotCohortConversionStats(),
-        })),
+        conversionStats: adminProcedure
+          .input(
+            z
+              .object({
+                startAt: z.number().int().positive().optional(),
+                endAt: z.number().int().positive().optional(),
+              })
+              .optional()
+              .refine(
+                input => !input?.startAt || !input?.endAt || input.startAt <= input.endAt,
+                { message: "Report start date must be before the end date." }
+              )
+          )
+          .query(async ({ input }) => ({
+            cohorts: await listPilotCohortConversionStats(input),
+          })),
         create: adminProcedure
           .input(
             z
