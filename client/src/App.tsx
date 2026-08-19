@@ -9,9 +9,10 @@ import PilotLanding from "@/pages/PilotLanding";
 import SchemeDetail from "@/pages/SchemeDetail";
 import ScholarshipChecker from "@/pages/ScholarshipChecker";
 import { Route, Switch } from "wouter";
+import CohortSignupAttribution from "./components/CohortSignupAttribution";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Home from "./pages/Home";
 
 export default function App() {
-  return <ErrorBoundary><Toaster position="top-right" /><Switch><Route path="/" component={Home} /><Route path="/discover" component={Discover} /><Route path="/scholarships" component={ScholarshipChecker} /><Route path="/pilot" component={PilotLanding} /><Route path="/scheme/:schemeId" component={SchemeDetail} /><Route path="/dashboard" component={Dashboard} /><Route path="/admin/schemes" component={AdminSchemes} /><Route path="/admin/pilot" component={PilotAdmin} /><Route component={Home} /></Switch></ErrorBoundary>;
+  return <ErrorBoundary><Toaster position="top-right" /><CohortSignupAttribution /><Switch><Route path="/" component={Home} /><Route path="/discover" component={Discover} /><Route path="/scholarships" component={ScholarshipChecker} /><Route path="/pilot" component={PilotLanding} /><Route path="/scheme/:schemeId" component={SchemeDetail} /><Route path="/dashboard" component={Dashboard} /><Route path="/admin/schemes" component={AdminSchemes} /><Route path="/admin/pilot" component={PilotAdmin} /><Route component={Home} /></Switch></ErrorBoundary>;
 }

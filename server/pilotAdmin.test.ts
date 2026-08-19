@@ -5,8 +5,11 @@ const mocks = vi.hoisted(() => ({
   listPilotFeedbackForAdmin: vi.fn(),
   updatePilotFeedbackForAdmin: vi.fn(),
   listPilotCohortInvites: vi.fn(),
+  listPilotCohortConversionStats: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
+  recordPilotCohortSignup: vi.fn(),
+  recordPilotCohortVisit: vi.fn(),
 }));
 
 vi.mock("./db", () => mocks);
@@ -85,9 +88,54 @@ describe("admin pilot inbox and cohort invites", () => {
     expect(mocks.revokePilotCohortInvite).toHaveBeenCalledWith(8);
   });
 
+  it("keeps conversion reporting aggregate-only and attributes an account through the protected caller", async () => {
+    mocks.listPilotCohortConversionStats.mockResolvedValue([
+      {
+        inviteId: 8,
+        cohortName: "Pune College Cell",
+        linkVisits: 20,
+        feedbackSubmissions: 7,
+        accountSignups: 4,
+        signupRate: 20,
+      },
+    ]);
+    mocks.recordPilotCohortVisit.mockResolvedValue({ recorded: true, reason: null });
+    mocks.recordPilotCohortSignup.mockResolvedValue({
+      attributed: true,
+      reason: null,
+      cohortName: "Pune College Cell",
+    });
+
+    const admin = appRouter.createCaller(context("admin"));
+    const user = appRouter.createCaller(context("user"));
+    const stats = await admin.admin.pilot.cohorts.conversionStats();
+    await user.pilot.trackCohortVisit({
+      code: "COHORT88",
+      visitorToken: "0f8434ec-b7ee-4f49-9408-60b2266c4f70",
+    });
+    const attribution = await user.pilot.recordCohortSignup({ code: "COHORT88" });
+
+    expect(stats.cohorts).toEqual([
+      expect.objectContaining({
+        cohortName: "Pune College Cell",
+        accountSignups: 4,
+      }),
+    ]);
+    expect(mocks.listPilotCohortConversionStats).toHaveBeenCalledTimes(1);
+    expect(mocks.recordPilotCohortVisit).toHaveBeenCalledWith(
+      "COHORT88",
+      "0f8434ec-b7ee-4f49-9408-60b2266c4f70"
+    );
+    expect(mocks.recordPilotCohortSignup).toHaveBeenCalledWith(9, "COHORT88");
+    expect(attribution).toEqual(
+      expect.objectContaining({ attributed: true, cohortName: "Pune College Cell" })
+    );
+  });
+
   it("does not expose pilot operations to ordinary users", async () => {
     const caller = appRouter.createCaller(context("user"));
     await expect(caller.admin.pilot.feedback.list()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.list()).rejects.toThrow();
+    await expect(caller.admin.pilot.cohorts.conversionStats()).rejects.toThrow();
   });
 });

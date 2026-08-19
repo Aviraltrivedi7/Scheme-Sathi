@@ -148,6 +148,13 @@
       "when": 1787156985806,
       "tag": "0020_lumpy_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1787159228636,
+      "tag": "0021_odd_professor_monster",
+      "breakpoints": true
     }
   ]
 }

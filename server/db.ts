@@ -1,5 +1,5 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
-import { randomBytes } from "node:crypto";
+import { and, count, desc, eq, ne, sql } from "drizzle-orm";
+import { createHash, randomBytes } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   applicationDocuments,
@@ -19,6 +19,8 @@ import {
   comparisonExportPresets,
   ocrPolicySettings,
   pilotCohortInvites,
+  pilotCohortSignups,
+  pilotCohortVisits,
   pilotFeedbackSubmissions,
   schemeNotes,
   savedSchemes,
@@ -65,6 +67,10 @@ import type {
   VerificationHistoryFilterPresetInput,
   VerificationHistoryFilterShareRecipient,
 } from "@shared/verificationHistoryFilters";
+import {
+  filterSchemeCatalog,
+  type SchemeCatalogListFilters,
+} from "./schemeCatalogQuery";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -199,6 +205,95 @@ export async function getPublicPilotCohortInvite(code: string) {
   )[0];
   if (!invite || !isActivePilotCohortInvite(invite)) return null;
   return { cohortName: invite.cohortName, cohortType: invite.cohortType };
+}
+
+async function getActivePilotCohortInviteForAttribution(code: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const invite = (
+    await db
+      .select()
+      .from(pilotCohortInvites)
+      .where(eq(pilotCohortInvites.code, code.trim().toUpperCase()))
+      .limit(1)
+  )[0];
+  return invite && isActivePilotCohortInvite(invite) ? { db, invite } : null;
+}
+
+/**
+ * Records one anonymous link visit per locally generated browser token.
+ * Only its SHA-256 digest is stored; no IP address, device data, or user account is attached.
+ */
+export async function recordPilotCohortVisit(code: string, visitorToken: string) {
+  const attribution = await getActivePilotCohortInviteForAttribution(code);
+  if (!attribution) return { recorded: false, reason: "inactiveInvite" as const };
+  const visitorHash = createHash("sha256").update(visitorToken).digest("hex");
+  await attribution.db
+    .insert(pilotCohortVisits)
+    .values({ cohortInviteId: attribution.invite.id, visitorHash })
+    .onDuplicateKeyUpdate({
+      set: { visitorHash: sql`${pilotCohortVisits.visitorHash}` },
+    });
+  return { recorded: true, reason: null };
+}
+
+/**
+ * Assigns a signed-in account to the first active cohort link seen in this browser session.
+ * The unique user constraint ensures the analytics table stays aggregate-only and never double-counts an account.
+ */
+export async function recordPilotCohortSignup(userId: number, code: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const existing = await db
+    .select({ id: pilotCohortSignups.id })
+    .from(pilotCohortSignups)
+    .where(eq(pilotCohortSignups.userId, userId))
+    .limit(1);
+  if (existing[0]) return { attributed: false, reason: "alreadyAttributed" as const };
+  const attribution = await getActivePilotCohortInviteForAttribution(code);
+  if (!attribution) return { attributed: false, reason: "inactiveInvite" as const };
+  await attribution.db
+    .insert(pilotCohortSignups)
+    .values({ cohortInviteId: attribution.invite.id, userId })
+    .onDuplicateKeyUpdate({
+      set: { userId: sql`${pilotCohortSignups.userId}` },
+    });
+  return { attributed: true, reason: null, cohortName: attribution.invite.cohortName };
+}
+
+/** Returns aggregate cohort funnel counts only; individual visit and account identities are never returned. */
+export async function listPilotCohortConversionStats() {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const [invites, visits, signups] = await Promise.all([
+    listPilotCohortInvites(),
+    db
+      .select({ cohortInviteId: pilotCohortVisits.cohortInviteId, total: count() })
+      .from(pilotCohortVisits)
+      .groupBy(pilotCohortVisits.cohortInviteId),
+    db
+      .select({ cohortInviteId: pilotCohortSignups.cohortInviteId, total: count() })
+      .from(pilotCohortSignups)
+      .groupBy(pilotCohortSignups.cohortInviteId),
+  ]);
+  const visitsByInvite = new Map(visits.map(row => [row.cohortInviteId, Number(row.total)]));
+  const signupsByInvite = new Map(signups.map(row => [row.cohortInviteId, Number(row.total)]));
+  return invites.map(invite => {
+    const linkVisits = visitsByInvite.get(invite.id) ?? 0;
+    const feedbackSubmissions = invite.usedCount;
+    const accountSignups = signupsByInvite.get(invite.id) ?? 0;
+    return {
+      inviteId: invite.id,
+      cohortName: invite.cohortName,
+      cohortType: invite.cohortType,
+      active: invite.active,
+      linkVisits,
+      feedbackSubmissions,
+      accountSignups,
+      feedbackRate: linkVisits ? Math.round((feedbackSubmissions / linkVisits) * 1000) / 10 : 0,
+      signupRate: linkVisits ? Math.round((accountSignups / linkVisits) * 1000) / 10 : 0,
+    };
+  });
 }
 
 /** Persists only the structured pilot-interview answers and an explicitly consented contact address. */
@@ -390,66 +485,22 @@ export async function ensureSchemeCatalog() {
   return db;
 }
 
-export async function listSchemeCatalog(filters?: {
-  category?: string;
-  level?: "Central" | "State";
-  state?: string;
-  deadline?: "announced" | "closingSoon" | "openEnded";
-  sort?: "name" | "category" | "deadline" | "reviewed";
-  query?: string;
-}) {
+export async function listSchemeCatalog(filters?: SchemeCatalogListFilters) {
   const db = await ensureSchemeCatalog();
   const rows = await db.select().from(schemeCatalog);
-  const query = filters?.query?.trim().toLowerCase();
-  const today = Date.now();
-  const closingSoon = today + 90 * 24 * 60 * 60 * 1000;
-  const filtered = rows.map(mapScheme).filter(scheme => {
-    const matchesCategory =
-      !filters?.category ||
-      filters.category === "all" ||
-      scheme.category === filters.category;
-    const matchesLevel = !filters?.level || scheme.level === filters.level;
-    const stateRule = scheme.eligibility.states;
-    const matchesState =
-      !filters?.state ||
-      filters.state === "all" ||
-      stateRule === undefined ||
-      stateRule === "all" ||
-      stateRule.includes(filters.state);
-    const matchesDeadline =
-      !filters?.deadline ||
-      (filters.deadline === "announced" && !!scheme.applicationDeadline) ||
-      (filters.deadline === "openEnded" && !scheme.applicationDeadline) ||
-      (filters.deadline === "closingSoon" &&
-        !!scheme.applicationDeadline &&
-        scheme.applicationDeadline >= today &&
-        scheme.applicationDeadline <= closingSoon);
-    const searchable =
-      `${scheme.name} ${scheme.nameHindi} ${scheme.benefits} ${scheme.category}`.toLowerCase();
-    return (
-      matchesCategory &&
-      matchesLevel &&
-      matchesState &&
-      matchesDeadline &&
-      (!query || searchable.includes(query))
-    );
-  });
-  if (filters?.sort === "name")
-    return filtered.sort((a, b) => a.name.localeCompare(b.name));
-  if (filters?.sort === "category")
-    return filtered.sort(
-      (a, b) =>
-        a.category.localeCompare(b.category) || a.name.localeCompare(b.name)
-    );
-  if (filters?.sort === "deadline")
-    return filtered.sort(
-      (a, b) =>
-        (a.applicationDeadline ?? Number.MAX_SAFE_INTEGER) -
-        (b.applicationDeadline ?? Number.MAX_SAFE_INTEGER)
-    );
-  if (filters?.sort === "reviewed")
-    return filtered.sort((a, b) => b.reviewed.localeCompare(a.reviewed));
-  return filtered;
+  return filterSchemeCatalog(rows.map(mapScheme), filters);
+}
+
+export async function getSchemeCatalogFilterOptions() {
+  const db = await ensureSchemeCatalog();
+  const rows = await db
+    .select({ administeringBody: schemeCatalog.administeringBody })
+    .from(schemeCatalog);
+  return {
+    administeringBodies: Array.from(
+      new Set(rows.map(row => row.administeringBody).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b)),
+  };
 }
 
 export async function getSchemeById(schemeId: string) {

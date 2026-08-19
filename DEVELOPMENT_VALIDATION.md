@@ -1,0 +1,11 @@
+# Development Validation Notes
+
+## Cohort conversion and scholarship navigation — 19 August 2026
+
+The first desktop visual capture confirmed that the expanded Discover filter stack is present with **Scheme level**, **Provider area**, **Source status**, deadline, and sorting controls. The capture occurred before the client query cycle completed, so it displayed the intended loading state with a zero-count placeholder rather than rendered catalog rows. The authenticated `/admin/pilot` capture did not complete its page body in the same initial capture window.
+
+The warm Discover recheck completed successfully. It rendered **42** catalog records and populated the Provider area menu from the catalog, including the scholarship providers. The page also rendered the source-status labels on records and showed the new provider-area sort option. The admin conversion screen still needs a warm authenticated visual recheck before the feature checkpoint.
+
+The sandbox browser correctly stopped at the existing **Sign in to continue** boundary for `/admin/pilot`; no account login was performed for visual inspection. The admin funnel is nevertheless covered by protected router tests, and the page compiles in the production build. The mobile Discover recheck rendered the complete new filter stack and all result cards without a runtime error. It preserves the existing single-column mobile discovery flow, with controls preceding the results.
+
+The completed non-visual checks at this point are the focused cohort/catalog tests, the full 88-test suite, TypeScript validation, and the production build.

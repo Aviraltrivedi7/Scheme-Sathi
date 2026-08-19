@@ -207,6 +207,49 @@ export const pilotCohortInvites = mysqlTable(
   ]
 );
 
+/** Anonymous, privacy-minimised cohort-link visit markers. The raw browser token never reaches the database. */
+export const pilotCohortVisits = mysqlTable(
+  "pilot_cohort_visits",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    cohortInviteId: int("cohortInviteId")
+      .notNull()
+      .references(() => pilotCohortInvites.id, { onDelete: "cascade" }),
+    visitorHash: varchar("visitorHash", { length: 64 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("pilot_cohort_visit_invite_visitor_unique").on(
+      table.cohortInviteId,
+      table.visitorHash
+    ),
+    index("pilot_cohort_visit_invite_idx").on(table.cohortInviteId),
+  ]
+);
+
+/** One first-touch cohort attribution per account, used only for aggregate pilot conversion reporting. */
+export const pilotCohortSignups = mysqlTable(
+  "pilot_cohort_signups",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    cohortInviteId: int("cohortInviteId")
+      .notNull()
+      .references(() => pilotCohortInvites.id, { onDelete: "cascade" }),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("pilot_cohort_signup_user_unique").on(table.userId),
+    uniqueIndex("pilot_cohort_signup_invite_user_unique").on(
+      table.cohortInviteId,
+      table.userId
+    ),
+    index("pilot_cohort_signup_invite_idx").on(table.cohortInviteId),
+  ]
+);
+
 /** Minimal, public pilot interview feedback. It intentionally excludes profiles, documents, identity numbers, and user accounts. */
 export const pilotFeedbackSubmissions = mysqlTable(
   "pilot_feedback_submissions",

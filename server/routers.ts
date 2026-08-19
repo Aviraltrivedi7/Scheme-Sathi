@@ -27,6 +27,7 @@ import {
   getMyDocumentReviewWorkload,
   getOcrPolicy,
   getPublicPilotCohortInvite,
+  getSchemeCatalogFilterOptions,
   getSchemeById,
   getSchemeNote,
   getUserSchemeProfile,
@@ -42,6 +43,7 @@ import {
   listMyDocumentReviewAssignments,
   listOwnerOverdueDocumentReviews,
   listPilotCohortInvites,
+  listPilotCohortConversionStats,
   listPilotFeedbackForAdmin,
   listReceivedVerificationHistoryFilterInvites,
   listReceivedVerificationHistoryFilters,
@@ -60,6 +62,8 @@ import {
   revokeDocumentReviewer,
   revokePilotCohortInvite,
   revokeVerificationHistoryFilterShare,
+  recordPilotCohortSignup,
+  recordPilotCohortVisit,
   runApplicationDocumentOcr,
   runBatchDocumentOcr,
   saveComparisonExportPreset,
@@ -278,8 +282,12 @@ export const appRouter = router({
             deadline: z
               .enum(["announced", "closingSoon", "openEnded"])
               .optional(),
+            administeringBody: z.string().trim().min(1).max(255).optional(),
+            verificationStatus: z
+              .enum(["officialDirectory", "eligibilityVerified"])
+              .optional(),
             sort: z
-              .enum(["name", "category", "deadline", "reviewed"])
+              .enum(["name", "category", "deadline", "reviewed", "provider"])
               .optional(),
             query: z.string().max(120).optional(),
           })
@@ -288,6 +296,9 @@ export const appRouter = router({
       .query(async ({ input }) => ({
         schemes: await listSchemeCatalog(input),
       })),
+    filterOptions: publicProcedure.query(async () =>
+      getSchemeCatalogFilterOptions()
+    ),
     byId: publicProcedure
       .input(z.object({ schemeId: z.string().min(1).max(96) }))
       .query(async ({ input }) => ({
@@ -325,6 +336,21 @@ export const appRouter = router({
       .query(async ({ input }) => ({
         invite: await getPublicPilotCohortInvite(input.code),
       })),
+    trackCohortVisit: publicProcedure
+      .input(
+        z.object({
+          code: z.string().trim().min(8).max(32),
+          visitorToken: z.string().uuid(),
+        })
+      )
+      .mutation(async ({ input }) =>
+        recordPilotCohortVisit(input.code, input.visitorToken)
+      ),
+    recordCohortSignup: protectedProcedure
+      .input(z.object({ code: z.string().trim().min(8).max(32) }))
+      .mutation(async ({ ctx, input }) =>
+        recordPilotCohortSignup(ctx.user.id, input.code)
+      ),
     submitFeedback: publicProcedure
       .input(pilotFeedbackInput)
       .mutation(async ({ ctx, input }) => {
@@ -1078,6 +1104,9 @@ export const appRouter = router({
       cohorts: router({
         list: adminProcedure.query(async () => ({
           invites: await listPilotCohortInvites(),
+        })),
+        conversionStats: adminProcedure.query(async () => ({
+          cohorts: await listPilotCohortConversionStats(),
         })),
         create: adminProcedure
           .input(

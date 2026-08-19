@@ -342,3 +342,11 @@
 - [x] Build responsive admin feedback analytics/inbox and custom cohort invite management with invite-aware pilot landing copy.
 - [x] Test scholarship source coverage, admin-only inbox access, feedback management, invite lifecycle, and responsive flows.
 - [x] Document and checkpoint the development-only pilot scale-up without publishing.
+
+## Cohort conversion tracking and scholarship catalog navigation
+- [x] Review invite lifecycle, authentication hooks, attribution/privacy boundaries, and expanded scholarship catalog interfaces.
+- [x] Define cohort funnel events, anonymous-to-account conversion attribution, catalog filters, and sort behavior.
+- [x] Add protected conversion tracking/analytics APIs and enriched scholarship catalog query support.
+- [x] Build admin cohort conversion view plus responsive scholarship filters and sort controls.
+- [x] Test cohort attribution/privacy, admin analytics, catalog filter/sort boundaries, and responsive journeys.
+- [x] Document and checkpoint the development-only pilot analytics upgrade without publishing.

@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import { ArrowRight, CheckCircle2, ClipboardPenLine, Loader2, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import {
+  getOrCreatePilotVisitorToken,
+  pendingPilotCohortKey,
+} from "@/lib/pilotCohortAttribution";
 import "./PilotLanding.css";
 
 type PilotForm = {
@@ -27,6 +31,7 @@ const initialForm: PilotForm = {
 export default function PilotLanding() {
   const cohortCode = new URLSearchParams(window.location.search).get("cohort")?.trim() ?? "";
   const cohort = trpc.pilot.cohort.useQuery({ code: cohortCode }, { enabled: Boolean(cohortCode) });
+  const trackCohortVisit = trpc.pilot.trackCohortVisit.useMutation();
   const [form, setForm] = useState<PilotForm>(initialForm);
   const feedback = trpc.pilot.submitFeedback.useMutation({
     onSuccess: () => setForm(initialForm),
@@ -34,7 +39,20 @@ export default function PilotLanding() {
   const set = <K extends keyof PilotForm>(key: K, value: PilotForm[K]) =>
     setForm(current => ({ ...current, [key]: value }));
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!cohort.data?.invite || !cohortCode) return;
+    const normalizedCode = cohortCode.toUpperCase();
+    sessionStorage.setItem(pendingPilotCohortKey, normalizedCode);
+    const visitKey = `scheme-sathi:pilot-cohort-visit:${normalizedCode}`;
+    if (sessionStorage.getItem(visitKey)) return;
+    sessionStorage.setItem(visitKey, "tracked");
+    trackCohortVisit.mutate({
+      code: normalizedCode,
+      visitorToken: getOrCreatePilotVisitorToken(),
+    });
+  }, [cohort.data?.invite, cohortCode, trackCohortVisit]);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     feedback.mutate({
       ...form,

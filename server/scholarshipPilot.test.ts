@@ -73,12 +73,28 @@ describe("scholarship pilot", () => {
       new URL("../client/src/pages/PilotAdmin.tsx", import.meta.url),
       "utf8"
     );
+    const discover = readFileSync(
+      new URL("../client/src/pages/Discover.tsx", import.meta.url),
+      "utf8"
+    );
+    const attribution = readFileSync(
+      new URL("../client/src/components/CohortSignupAttribution.tsx", import.meta.url),
+      "utf8"
+    );
     expect(router).toContain("contactConsent");
     expect(router).toContain("submitFeedback");
     expect(checker).toContain("trpc.scholarships.checkEligibility");
     expect(pilot).toContain("trpc.pilot.submitFeedback");
     expect(pilot).toContain("trpc.pilot.cohort");
+    expect(pilot).toContain("trpc.pilot.trackCohortVisit");
+    expect(pilot).toContain("pendingPilotCohortKey");
     expect(inbox).toContain("trpc.admin.pilot.feedback.list");
     expect(inbox).toContain("trpc.admin.pilot.cohorts.create");
+    expect(inbox).toContain("trpc.admin.pilot.cohorts.conversionStats");
+    expect(attribution).toContain("trpc.pilot.recordCohortSignup");
+    expect(attribution).toContain("sessionStorage.removeItem");
+    expect(discover).toContain("Provider area");
+    expect(discover).toContain("Source status");
+    expect(discover).toContain("value=\"provider\"");
   });
 });

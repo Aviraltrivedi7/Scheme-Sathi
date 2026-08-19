@@ -28,6 +28,7 @@ export default function PilotAdmin() {
   const feedbackQuery = trpc.admin.pilot.feedback.list.useQuery(feedbackInput, { enabled: user?.role === "admin" });
   const feedbackSummaryQuery = trpc.admin.pilot.feedback.list.useQuery(undefined, { enabled: user?.role === "admin" });
   const inviteQuery = trpc.admin.pilot.cohorts.list.useQuery(undefined, { enabled: user?.role === "admin" });
+  const conversionQuery = trpc.admin.pilot.cohorts.conversionStats.useQuery(undefined, { enabled: user?.role === "admin" });
   const [inviteDraft, setInviteDraft] = useState({ cohortName: "", cohortType: "college" as "college" | "ngo", maxUses: "50", expiresAt: "" });
   const [noteDraft, setNoteDraft] = useState("");
   const selected = feedbackQuery.data?.feedback.find(item => item.id === selectedId) ?? feedbackQuery.data?.feedback[0] ?? null;
@@ -40,6 +41,7 @@ export default function PilotAdmin() {
   const createInvite = trpc.admin.pilot.cohorts.create.useMutation({
     onSuccess: async () => {
       await utils.admin.pilot.cohorts.list.invalidate();
+      await utils.admin.pilot.cohorts.conversionStats.invalidate();
       setInviteDraft({ cohortName: "", cohortType: "college", maxUses: "50", expiresAt: "" });
       toast.success("Cohort invite created.");
     },
@@ -48,6 +50,7 @@ export default function PilotAdmin() {
   const revokeInvite = trpc.admin.pilot.cohorts.revoke.useMutation({
     onSuccess: async () => {
       await utils.admin.pilot.cohorts.list.invalidate();
+      await utils.admin.pilot.cohorts.conversionStats.invalidate();
       toast.success("Invite revoked.");
     },
     onError: error => toast.error(error.message),
@@ -73,6 +76,7 @@ export default function PilotAdmin() {
   const allFeedback = feedbackSummaryQuery.data?.feedback ?? [];
   const metrics = (Object.keys(statusLabel) as FeedbackStatus[]).map(key => ({ key, value: allFeedback.filter(item => item.status === key).length }));
   const journeyCounts = allFeedback.reduce<Record<string, number>>((counts, item) => ({ ...counts, [item.journeyStage]: (counts[item.journeyStage] ?? 0) + 1 }), {});
+  const conversions = conversionQuery.data?.cohorts ?? [];
 
   if (user?.role !== "admin") {
     return <DashboardLayout><div className="pilot-admin-denied"><ShieldCheck size={30} /><h1>Administrator access required</h1><p>This workspace is only available to Scheme Sathi administrators.</p></div></DashboardLayout>;
@@ -101,6 +105,11 @@ export default function PilotAdmin() {
           <aside className="pilot-detail-card">
             {selected ? <><div className="pilot-card-heading"><div><p className="desk-kicker">RESPONSE DETAIL</p><h2>{selected.cohortName ?? "Public pilot"}</h2></div><span className={`pilot-status status-${selected.status}`}>{statusLabel[selected.status]}</span></div><dl className="pilot-detail-list"><div><dt>Role</dt><dd>{selected.role.replace(/([A-Z])/g, " $1")}</dd></div><div><dt>State / UT</dt><dd>{selected.state}</dd></div><div><dt>Journey</dt><dd>{selected.journeyStage.replace(/([A-Z])/g, " $1")}</dd></div><div className="full"><dt>Biggest blocker</dt><dd>{selected.biggestBlocker}</dd></div><div className="full"><dt>Would help today</dt><dd>{selected.helpfulToday}</dd></div></dl><label className="pilot-admin-field">Status<select value={selected.status} onChange={event => updateFeedback.mutate({ feedbackId: selected.id, status: event.target.value as FeedbackStatus, adminNote: noteDraft || null })}>{(Object.keys(statusLabel) as FeedbackStatus[]).map(item => <option key={item} value={item}>{statusLabel[item]}</option>)}</select></label><label className="pilot-admin-field">Internal follow-up note<textarea value={noteDraft} maxLength={1000} onChange={event => setNoteDraft(event.target.value)} placeholder="Visible only to administrators" /></label><button className="desk-primary" disabled={updateFeedback.isPending} onClick={() => updateFeedback.mutate({ feedbackId: selected.id, status: selected.status, adminNote: noteDraft || null })}>{updateFeedback.isPending ? <Loader2 className="spin" size={15} /> : <CheckCircle2 size={15} />} Save response review</button></> : <div className="pilot-empty"><Inbox size={25} /><h3>Select a response</h3><p>Open a feedback item to assign status or record an internal note.</p></div>}
           </aside>
+        </section>
+
+        <section className="pilot-conversion-card" aria-label="Cohort conversion funnel">
+          <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div></div>
+          {conversionQuery.isLoading ? <div className="pilot-empty"><Loader2 className="spin" size={20} /> Loading cohort conversion…</div> : conversions.length ? <div className="pilot-funnel-table-wrap"><table className="pilot-funnel-table"><thead><tr><th>Cohort</th><th>Link visits</th><th>Feedback</th><th>Signed up</th><th>Visit → signup</th><th>Status</th></tr></thead><tbody>{conversions.map(cohort => <tr key={cohort.inviteId}><td><strong>{cohort.cohortName}</strong><small>{cohort.cohortType}</small></td><td>{cohort.linkVisits}</td><td>{cohort.feedbackSubmissions}<small>{cohort.feedbackRate}% of visits</small></td><td>{cohort.accountSignups}</td><td><span className="pilot-conversion-rate">{cohort.signupRate}%</span></td><td><span className={cohort.active ? "pilot-funnel-status active" : "pilot-funnel-status"}>{cohort.active ? "Active" : "Closed"}</span></td></tr>)}</tbody></table></div> : <div className="pilot-empty"><BarChart3 size={24} /><h3>No cohort funnel data yet</h3><p>Create and share a cohort link to begin aggregate conversion measurement. No visitor or account details will appear here.</p></div>}
         </section>
 
         <section className="pilot-cohorts-card">
