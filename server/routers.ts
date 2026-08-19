@@ -1,6 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { applicationStatuses } from "@shared/applicationTracker";
 import { parse as parseCookie } from "cookie";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   approveApplicationDocumentOcr,
@@ -12,6 +13,7 @@ import {
   cancelApplicationReminder,
   cancelDocumentReviewDueReminder,
   createApplicationReminder,
+  createPilotFeedbackSubmission,
   deleteComparisonExportPreset,
   deleteDocumentPdfAnnotation,
   deleteDocumentReviewEscalationTemplate,
@@ -88,7 +90,8 @@ import {
   publicProcedure,
   router,
 } from "./_core/trpc";
-import { rankSchemes } from "./schemeMatching";
+import { consumePilotFeedbackQuota } from "./pilotFeedback";
+import { rankScholarshipSchemes, rankSchemes } from "./schemeMatching";
 
 const profileInput = z.object({
   age: z.number().int().min(0).max(120),
@@ -101,6 +104,36 @@ const profileInput = z.object({
   isFarmer: z.boolean(),
   isDisabled: z.boolean(),
 });
+const scholarshipProfileInput = z.object({
+  age: z.number().int().min(10).max(45),
+  state: z.string().trim().min(1).max(96),
+  caste: z.string().trim().min(1).max(64),
+  annualIncome: z.number().int().min(0).max(100000000),
+  gender: z.string().trim().min(1).max(32),
+  isDisabled: z.boolean(),
+});
+const pilotFeedbackInput = z
+  .object({
+    role: z.enum(["student", "parent", "collegeStaff", "ngoStaff", "other"]),
+    state: z.string().trim().min(2).max(96),
+    journeyStage: z.enum([
+      "searching",
+      "preparing",
+      "applying",
+      "missedDeadline",
+      "other",
+    ]),
+    biggestBlocker: z.string().trim().min(4).max(500),
+    helpfulToday: z.string().trim().min(4).max(500),
+    contactEmail: z.string().trim().email().max(320).optional(),
+    contactConsent: z.boolean(),
+  })
+  .refine(input => !input.contactConsent || Boolean(input.contactEmail), {
+    message: "Add an email only if you want pilot follow-up.",
+  })
+  .refine(input => input.contactConsent || !input.contactEmail, {
+    message: "Confirm permission before sharing an email address.",
+  });
 const timelineFilters = z
   .object({
     startAt: z.number().int().positive().optional(),
@@ -259,6 +292,40 @@ export const appRouter = router({
       const catalog = await listSchemeCatalog();
       return { matches: rankSchemes(input, catalog), generatedAt: Date.now() };
     }),
+  }),
+  scholarships: router({
+    checkEligibility: publicProcedure
+      .input(scholarshipProfileInput)
+      .mutation(async ({ input }) => {
+        const catalog = await listSchemeCatalog({ category: "Education" });
+        const profile = {
+          ...input,
+          occupation: "Student",
+          isStudent: true,
+          isFarmer: false,
+        };
+        return {
+          matches: rankScholarshipSchemes(profile, catalog),
+          checkedAt: Date.now(),
+          disclaimer:
+            "Potential matches only. Verify current eligibility, documents, and deadlines on the official portal before applying.",
+        };
+      }),
+  }),
+  pilot: router({
+    submitFeedback: publicProcedure
+      .input(pilotFeedbackInput)
+      .mutation(async ({ ctx, input }) => {
+        if (!consumePilotFeedbackQuota(ctx.req.ip || "unknown")) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "Thanks — please wait a few minutes before sending another response.",
+          });
+        }
+        return {
+          submission: await createPilotFeedbackSubmission(input),
+        };
+      }),
   }),
   profile: router({
     mine: protectedProcedure.query(async ({ ctx }) => ({

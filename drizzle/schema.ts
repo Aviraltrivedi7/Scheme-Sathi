@@ -176,6 +176,38 @@ export const comparisonExportPresets = mysqlTable(
   ]
 );
 
+/** Minimal, public pilot interview feedback. It intentionally excludes profiles, documents, identity numbers, and user accounts. */
+export const pilotFeedbackSubmissions = mysqlTable(
+  "pilot_feedback_submissions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    role: mysqlEnum("role", [
+      "student",
+      "parent",
+      "collegeStaff",
+      "ngoStaff",
+      "other",
+    ]).notNull(),
+    state: varchar("state", { length: 96 }).notNull(),
+    journeyStage: mysqlEnum("journeyStage", [
+      "searching",
+      "preparing",
+      "applying",
+      "missedDeadline",
+      "other",
+    ]).notNull(),
+    biggestBlocker: varchar("biggestBlocker", { length: 500 }).notNull(),
+    helpfulToday: varchar("helpfulToday", { length: 500 }).notNull(),
+    contactEmail: varchar("contactEmail", { length: 320 }),
+    contactConsent: boolean("contactConsent").default(false).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("pilot_feedback_created_idx").on(table.createdAt),
+    index("pilot_feedback_stage_idx").on(table.journeyStage),
+  ]
+);
+
 /** Private application desk entries. A user may track each catalog scheme once. */
 export const trackedApplications = mysqlTable(
   "tracked_applications",

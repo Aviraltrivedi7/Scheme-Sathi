@@ -324,3 +324,12 @@
 - [x] Research official scheme-discovery infrastructure, user-access barriers, and relevant trust/compliance constraints.
 - [x] Define target segments, startup positioning, monetization options, and a focused go-to-market wedge.
 - [x] Produce a phased product roadmap, KPI scorecard, risk register, and practical next actions.
+
+## Scholarship eligibility checker and pilot feedback landing
+
+- [x] Review scholarship data, matching rules, routes, and existing public feedback/data patterns.
+- [x] Define clear non-guarantee eligibility output, low-data interview form, consent, and retention semantics.
+- [x] Add scholarship-only eligibility result and public pilot-feedback persistence APIs.
+- [x] Build responsive scholarship checker and pilot landing page with structured feedback form.
+- [x] Test matching boundaries, feedback validation/rate boundaries, bilingual copy, and mobile journey.
+- [x] Document and checkpoint the development-only pilot upgrade without publishing.

@@ -17,6 +17,7 @@ import {
   InsertUser,
   comparisonExportPresets,
   ocrPolicySettings,
+  pilotFeedbackSubmissions,
   schemeNotes,
   savedSchemes,
   savedVerificationHistoryFilters,
@@ -155,6 +156,37 @@ export async function getUserByOpenId(openId: string) {
 
 function databaseUnavailable(): never {
   throw new Error("Database is not available. Please retry in a moment.");
+}
+
+export type PilotFeedbackSubmissionInput = {
+  role: "student" | "parent" | "collegeStaff" | "ngoStaff" | "other";
+  state: string;
+  journeyStage: "searching" | "preparing" | "applying" | "missedDeadline" | "other";
+  biggestBlocker: string;
+  helpfulToday: string;
+  contactEmail?: string;
+  contactConsent: boolean;
+};
+
+/** Persists only the structured pilot-interview answers and an explicitly consented contact address. */
+export async function createPilotFeedbackSubmission(
+  input: PilotFeedbackSubmissionInput
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const created = await db.insert(pilotFeedbackSubmissions).values({
+    role: input.role,
+    state: input.state.trim(),
+    journeyStage: input.journeyStage,
+    biggestBlocker: input.biggestBlocker.trim(),
+    helpfulToday: input.helpfulToday.trim(),
+    contactConsent: input.contactConsent,
+    contactEmail:
+      input.contactConsent && input.contactEmail
+        ? input.contactEmail.trim().toLowerCase()
+        : null,
+  });
+  return { id: Number(created[0].insertId) };
 }
 
 function mapScheme(row: typeof schemeCatalog.$inferSelect): SchemeCatalogItem {

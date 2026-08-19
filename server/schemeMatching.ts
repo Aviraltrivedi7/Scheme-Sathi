@@ -37,3 +37,18 @@ export function scoreScheme(profile: SchemeProfileInput, scheme: SchemeCatalogIt
 export function rankSchemes(profile: SchemeProfileInput, catalog: SchemeCatalogItem[]): MatchedScheme[] {
   return catalog.filter((scheme) => meetsRequiredEligibility(profile, scheme)).map((scheme) => ({ ...scheme, ...scoreScheme(profile, scheme) })).filter((scheme) => scheme.score >= 45).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 }
+
+/** Scholarship checker intentionally considers only education entries that require a student profile. */
+export function rankScholarshipSchemes(
+  profile: SchemeProfileInput,
+  catalog: SchemeCatalogItem[]
+): MatchedScheme[] {
+  return rankSchemes(
+    { ...profile, isStudent: true, occupation: "Student" },
+    catalog.filter(
+      scheme =>
+        scheme.category === "Education" ||
+        scheme.eligibility.requiresStudent === true
+    )
+  );
+}
