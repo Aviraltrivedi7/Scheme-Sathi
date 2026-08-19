@@ -386,3 +386,12 @@
 - [x] Build shared cohort segment controls and monthly/quarterly trend visualization toggle.
 - [x] Test filtered funnel data, quarterly rate aggregation, toggle behavior, and responsive journeys.
 - [x] Document and checkpoint the development-only cohort analytics upgrade without publishing.
+
+## Dashboard insight badges, segment totals, and shareable filters
+
+- [x] Review trend data, funnel totals, dashboard filter state, and URL routing contracts.
+- [x] Define change badge calculations, aggregate total semantics, shareable URL parameters, and privacy boundaries.
+- [x] Add trend change calculations, funnel totals, and validated dashboard URL state synchronization.
+- [x] Build change badges, funnel summary row, and shareable filter controls in the admin dashboard.
+- [x] Test analytics calculations, URL state validation, sharing behavior, and responsive display.
+- [x] Document and checkpoint the development-only dashboard insight upgrade without publishing.

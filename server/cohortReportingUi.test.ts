@@ -63,5 +63,10 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain('option value="ngo"');
     expect(pilotAdmin).toContain('setTrendPeriod("quarter")');
     expect(pilotAdmin).toContain("trendPeriodLabel");
+    expect(pilotAdmin).toContain("getQuarterOverQuarterChange");
+    expect(pilotAdmin).toContain("pilot-qoq-badges");
+    expect(pilotAdmin).toContain("Segment total");
+    expect(pilotAdmin).toContain("copyDashboardView");
+    expect(pilotAdmin).toContain("createPilotDashboardSearch");
   });
 });

@@ -364,6 +364,22 @@ The trend card has an accessible **Monthly / Quarterly** toggle. Quarterly data 
 
 Public pilot feedback without a cohort invite remains excluded from both views and all segment filters. Added pure quarterly-rollup coverage plus segment-aware router and UI contract assertions. The full suite now contains **95 tests** across 32 files; TypeScript, production build, and runtime logs passed with no current client error or failed request. No real admin login, report download, cohort action, personal data processing, publishing, or external action occurred.
 
+## QoQ Change Badges, Funnel Segment Totals, and Shareable Views
+
+When the dashboard is in **Quarterly** mode and at least two reported quarters exist, the trend card shows separate feedback and signup change badges. Each badge is a **percentage-point** difference between the most recent returned quarter and the prior reported quarter. A gain, decline, or unchanged result receives a distinct visual treatment. The calculation is based on rates already derived from aggregate quarterly counts; it does not imply a statistical forecast and does not expose individual cohort members.
+
+The conversion funnel table now ends with a **Segment total** row for the selected all/college/NGO cohort filter and date range. It sums visits, feedback submissions, and signup attributions across visible cohort rows, then recalculates feedback and signup rates using summed event counts. This avoids the common error of adding or averaging row-level rates.
+
+Selected date bounds, segment, and trend view now persist in a shareable `/admin/pilot` query string. Only four non-sensitive filter parameters are serialized: `from`, `to`, `segment`, and `view`. Invalid dates, inverted date ranges, unknown segments, and unsupported views safely fall back to default values. The **Share view** action copies the current URL; opening it restores the same scoped dashboard view, while administrator authorization remains required to see its data.
+
+| Enhancement | Calculation or URL scope | Privacy boundary |
+| --- | --- | --- |
+| QoQ badges | Latest quarterly rate minus prior reported quarterly rate, in percentage points | Aggregate rate only; no visitor, user, contact, or feedback content. |
+| Segment total | Sum counts across visible cohort rows, then recompute rates | Matches the selected date/segment scope and retains aggregate-only output. |
+| Shareable view | Optional `from`, `to`, `segment`, `view` query parameters | Shares filter choices only; the recipient still needs admin access. |
+
+Focused tests validate total-rate math, QoQ percentage-point changes, default/no-prior handling, shareable URL round trips, invalid URL normalization, and client wiring. The full suite now contains **98 tests** across 33 files; TypeScript, production build, and current runtime logs pass. No live user data, personal identifiers in the URL, admin action, report download, publishing, or external operation occurred.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

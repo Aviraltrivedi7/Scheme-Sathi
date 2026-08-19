@@ -2,6 +2,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { downloadTextFile } from "@/lib/schemeExports";
 import { createCohortConversionReportCsv } from "@/lib/pilotCohortReports";
+import { getQuarterOverQuarterChange, summariseFunnelSegment } from "@/lib/pilotDashboardInsights";
+import { createPilotDashboardSearch, parsePilotDashboardFilters } from "@/lib/pilotDashboardView";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -26,6 +28,14 @@ function trendPeriodLabel(value: string, period: "month" | "quarter") {
   return match ? `तिमाही ${match[2]}, ${match[1]}` : value;
 }
 
+function pointChangeLabel(value: number) {
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)} pp`;
+}
+
+function pointChangeTone(value: number) {
+  return value > 0 ? "up" : value < 0 ? "down" : "flat";
+}
+
 const statusLabel: Record<FeedbackStatus, string> = {
   new: "New",
   reviewed: "Reviewed",
@@ -39,10 +49,11 @@ export default function PilotAdmin() {
   const [status, setStatus] = useState<FeedbackStatus | "all">("all");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [reportStartDate, setReportStartDate] = useState("");
-  const [reportEndDate, setReportEndDate] = useState("");
-  const [trendCohortType, setTrendCohortType] = useState<"all" | "college" | "ngo">("all");
-  const [trendPeriod, setTrendPeriod] = useState<"month" | "quarter">("month");
+  const [initialDashboardFilters] = useState(() => parsePilotDashboardFilters(window.location.search));
+  const [reportStartDate, setReportStartDate] = useState(initialDashboardFilters.from);
+  const [reportEndDate, setReportEndDate] = useState(initialDashboardFilters.to);
+  const [trendCohortType, setTrendCohortType] = useState<"all" | "college" | "ngo">(initialDashboardFilters.segment);
+  const [trendPeriod, setTrendPeriod] = useState<"month" | "quarter">(initialDashboardFilters.view);
   const feedbackInput = useMemo(
     () => ({ status: status === "all" ? undefined : status, query: query.trim() || undefined }),
     [status, query]
@@ -67,6 +78,11 @@ export default function PilotAdmin() {
     setSelectedId(selected?.id ?? null);
     setNoteDraft(selected?.adminNote ?? "");
   }, [selected?.id]);
+
+  useEffect(() => {
+    const search = createPilotDashboardSearch({ from: reportStartDate, to: reportEndDate, segment: trendCohortType, view: trendPeriod });
+    if (window.location.search !== search) window.history.replaceState(null, "", `${window.location.pathname}${search}`);
+  }, [reportEndDate, reportStartDate, trendCohortType, trendPeriod]);
 
   const createInvite = trpc.admin.pilot.cohorts.create.useMutation({
     onSuccess: async () => {
@@ -111,6 +127,8 @@ export default function PilotAdmin() {
   const conversions = conversionQuery.data?.cohorts ?? [];
   const monthlyTrend = monthlyTrendQuery.data?.months ?? [];
   const trendScopeLabel = trendCohortType === "college" ? "College cohorts" : trendCohortType === "ngo" ? "NGO cohorts" : "All cohorts combined";
+  const funnelSummary = summariseFunnelSegment(conversions);
+  const quarterChange = trendPeriod === "quarter" ? getQuarterOverQuarterChange(monthlyTrend) : null;
   const exportCohortReport = () => {
     if (!conversions.length) {
       toast.error("There is no cohort data in this date range to export.");
@@ -119,6 +137,15 @@ export default function PilotAdmin() {
     const report = createCohortConversionReportCsv(conversions, reportRange, { cohortType: trendCohortType, period: trendPeriod, months: monthlyTrend });
     downloadTextFile(report.contents, report.fileName, "text/csv;charset=utf-8");
     toast.success("Cohort conversion report downloaded.");
+  };
+  const copyDashboardView = async () => {
+    const search = createPilotDashboardSearch({ from: reportStartDate, to: reportEndDate, segment: trendCohortType, view: trendPeriod });
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}${search}`);
+      toast.success("Dashboard view link copied.");
+    } catch {
+      toast.error("Copy failed. Please copy the browser address bar URL.");
+    }
   };
 
   if (user?.role !== "admin") {
@@ -151,14 +178,14 @@ export default function PilotAdmin() {
         </section>
 
         <section className="pilot-conversion-card" aria-label="Cohort conversion funnel">
-          <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>{trendScopeLabel}. Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div><button type="button" className="pilot-export-report" disabled={!conversions.length || reportRangeInvalid || conversionQuery.isLoading || monthlyTrendQuery.isLoading} onClick={exportCohortReport}><Download size={15} /> Export CSV report</button></div>
+          <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>{trendScopeLabel}. Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div><div className="pilot-report-actions"><button type="button" className="pilot-export-report" onClick={copyDashboardView}><Copy size={15} /> Share view</button><button type="button" className="pilot-export-report" disabled={!conversions.length || reportRangeInvalid || conversionQuery.isLoading || monthlyTrendQuery.isLoading} onClick={exportCohortReport}><Download size={15} /> Export CSV report</button></div></div>
           <div className="pilot-report-controls" aria-label="Cohort report date range"><div className="pilot-report-title"><CalendarRange size={17} /><span><strong>Report date range</strong><small>Only funnel events created inside this range are included.</small></span></div><label>From<input type="date" value={reportStartDate} onChange={event => setReportStartDate(event.target.value)} /></label><label>To<input type="date" value={reportEndDate} onChange={event => setReportEndDate(event.target.value)} /></label><button type="button" className="pilot-clear-report" onClick={() => { setReportStartDate(""); setReportEndDate(""); }} disabled={!reportStartDate && !reportEndDate}><RotateCcw size={14} /> All time</button></div>
           {reportRangeInvalid && <p className="pilot-report-error">Choose a start date that is on or before the end date.</p>}
-          {conversionQuery.isLoading ? <div className="pilot-empty"><Loader2 className="spin" size={20} /> Loading cohort conversion…</div> : conversions.length ? <div className="pilot-funnel-table-wrap"><table className="pilot-funnel-table"><thead><tr><th>Cohort</th><th>Link visits</th><th>Feedback</th><th>Signed up</th><th>Visit → signup</th><th>Status</th></tr></thead><tbody>{conversions.map(cohort => <tr key={cohort.inviteId}><td><strong>{cohort.cohortName}</strong><small>{cohort.cohortType}</small></td><td>{cohort.linkVisits}</td><td>{cohort.feedbackSubmissions}<small>{cohort.feedbackRate}% of visits</small></td><td>{cohort.accountSignups}</td><td><span className="pilot-conversion-rate">{cohort.signupRate}%</span></td><td><span className={cohort.active ? "pilot-funnel-status active" : "pilot-funnel-status"}>{cohort.active ? "Active" : "Closed"}</span></td></tr>)}</tbody></table></div> : <div className="pilot-empty"><BarChart3 size={24} /><h3>No cohort funnel data yet</h3><p>Create and share a cohort link to begin aggregate conversion measurement. No visitor or account details will appear here.</p></div>}
+          {conversionQuery.isLoading ? <div className="pilot-empty"><Loader2 className="spin" size={20} /> Loading cohort conversion…</div> : conversions.length ? <div className="pilot-funnel-table-wrap"><table className="pilot-funnel-table"><thead><tr><th>Cohort</th><th>Link visits</th><th>Feedback</th><th>Signed up</th><th>Visit → signup</th><th>Status</th></tr></thead><tbody>{conversions.map(cohort => <tr key={cohort.inviteId}><td><strong>{cohort.cohortName}</strong><small>{cohort.cohortType}</small></td><td>{cohort.linkVisits}</td><td>{cohort.feedbackSubmissions}<small>{cohort.feedbackRate}% of visits</small></td><td>{cohort.accountSignups}</td><td><span className="pilot-conversion-rate">{cohort.signupRate}%</span></td><td><span className={cohort.active ? "pilot-funnel-status active" : "pilot-funnel-status"}>{cohort.active ? "Active" : "Closed"}</span></td></tr>)}</tbody><tfoot><tr className="pilot-funnel-total"><td><strong>Segment total</strong><small>{trendScopeLabel}</small></td><td>{funnelSummary.linkVisits}</td><td>{funnelSummary.feedbackSubmissions}<small>{funnelSummary.feedbackRate}% of visits</small></td><td>{funnelSummary.accountSignups}</td><td><span className="pilot-conversion-rate">{funnelSummary.signupRate}%</span></td><td><span className="pilot-funnel-status active">Aggregate</span></td></tr></tfoot></table></div> : <div className="pilot-empty"><BarChart3 size={24} /><h3>No cohort funnel data yet</h3><p>Create and share a cohort link to begin aggregate conversion measurement. No visitor or account details will appear here.</p></div>}
         </section>
 
         <section className="pilot-trend-card" aria-label={`${trendPeriod === "month" ? "Monthly" : "Quarterly"} cohort conversion trend`}>
-          <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> {trendPeriod === "month" ? "MONTHLY" : "QUARTERLY"} TREND</p><h2>How cohort conversion changes over time</h2><p>{trendScopeLabel}. {trendPeriod === "month" ? "Monthly" : "Quarterly"} rates use events created inside the selected report range and never expose individual visitor, response, or account data.</p></div><div className="pilot-trend-actions"><label className="pilot-trend-filter">Cohort segment<select value={trendCohortType} onChange={event => setTrendCohortType(event.target.value as typeof trendCohortType)}><option value="all">All cohorts</option><option value="college">College cohorts</option><option value="ngo">NGO cohorts</option></select></label><div className="pilot-period-toggle" role="group" aria-label="Trend view"><button type="button" className={trendPeriod === "month" ? "active" : ""} aria-pressed={trendPeriod === "month"} onClick={() => setTrendPeriod("month")}>Monthly</button><button type="button" className={trendPeriod === "quarter" ? "active" : ""} aria-pressed={trendPeriod === "quarter"} onClick={() => setTrendPeriod("quarter")}>Quarterly</button></div></div></div>
+          <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> {trendPeriod === "month" ? "MONTHLY" : "QUARTERLY"} TREND</p><h2>How cohort conversion changes over time</h2><p>{trendScopeLabel}. {trendPeriod === "month" ? "Monthly" : "Quarterly"} rates use events created inside the selected report range and never expose individual visitor, response, or account data.</p>{quarterChange && <div className="pilot-qoq-badges" aria-label="Quarter-over-quarter conversion change"><span className={`pilot-qoq-badge ${pointChangeTone(quarterChange.feedbackPoints)}`}>Feedback {pointChangeLabel(quarterChange.feedbackPoints)}</span><span className={`pilot-qoq-badge ${pointChangeTone(quarterChange.signupPoints)}`}>Signup {pointChangeLabel(quarterChange.signupPoints)}</span><small>vs prior reported quarter</small></div>}</div><div className="pilot-trend-actions"><label className="pilot-trend-filter">Cohort segment<select value={trendCohortType} onChange={event => setTrendCohortType(event.target.value as typeof trendCohortType)}><option value="all">All cohorts</option><option value="college">College cohorts</option><option value="ngo">NGO cohorts</option></select></label><div className="pilot-period-toggle" role="group" aria-label="Trend view"><button type="button" className={trendPeriod === "month" ? "active" : ""} aria-pressed={trendPeriod === "month"} onClick={() => setTrendPeriod("month")}>Monthly</button><button type="button" className={trendPeriod === "quarter" ? "active" : ""} aria-pressed={trendPeriod === "quarter"} onClick={() => setTrendPeriod("quarter")}>Quarterly</button></div></div></div>
           {monthlyTrendQuery.isLoading ? <div className="pilot-empty"><Loader2 className="spin" size={20} /> Loading {trendPeriod === "month" ? "monthly" : "quarterly"} trend…</div> : monthlyTrend.length ? <div className="pilot-trend-chart"><ResponsiveContainer width="100%" height={290}><LineChart data={monthlyTrend} margin={{ top: 12, right: 22, left: -16, bottom: 4 }}><CartesianGrid stroke="#e7e0d5" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="month" tickFormatter={value => trendPeriodLabel(String(value), trendPeriod)} tick={{ fill: "#6d6b65", fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis unit="%" domain={[0, 100]} tick={{ fill: "#6d6b65", fontSize: 10 }} axisLine={false} tickLine={false} width={35} /><Tooltip labelFormatter={value => trendPeriodLabel(String(value), trendPeriod)} formatter={(value: unknown) => `${Array.isArray(value) ? value.join("–") : String(value ?? 0)}%`} contentStyle={{ border: "1px solid #d8d0c3", borderRadius: 0, fontSize: 11 }} /><Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} /><Line type="monotone" dataKey="feedbackRate" name="Visit → feedback" stroke="#19845e" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} /><Line type="monotone" dataKey="signupRate" name="Visit → signup" stroke="#c66a21" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} /></LineChart></ResponsiveContainer></div> : <div className="pilot-empty"><BarChart3 size={24} /><h3>No {trendPeriod === "month" ? "monthly" : "quarterly"} trend yet</h3><p>Share a cohort link and collect activity in a calendar {trendPeriod === "month" ? "month" : "quarter"} to view aggregate conversion rates here.</p></div>}
         </section>
 
