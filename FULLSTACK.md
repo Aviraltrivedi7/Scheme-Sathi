@@ -350,6 +350,20 @@ All chart X-axis and tooltip month labels use the `hi-IN` locale. The visible mo
 
 The invite create/revoke flows invalidate the segment-aware trend cache. Focused tests validate the typed routing input, Hindi chart formatter and selector wiring, the monthly CSV section, formula escaping, and the preserved aggregate rate calculations. The full suite remains **94 tests** across 32 files; TypeScript, production build, and runtime log review passed. The administrator dashboard still requires an existing admin session for live visual inspection; no real login, download, cohort event, or publishing occurred.
 
+## Quarterly Trend View and Shared Funnel Segment Filter
+
+The conversion funnel table and visual trend chart now share the same **Cohort segment** filter and date range. Selecting **All cohorts**, **College cohorts**, or **NGO cohorts** applies the same canonical input to both protected queries, so the named cohorts, per-cohort counts, and trend calculations remain in one analytical context. The segment is also retained in the CSV export; its funnel rows match the selected segment and the trend section reflects the chosen view.
+
+The trend card has an accessible **Monthly / Quarterly** toggle. Quarterly data is calculated by first summing visits, cohort-linked feedback, and signup attributions across the three months of each calendar quarter, then recomputing rates from those quarter totals. It never averages monthly percentages. The returned period key is stable (`YYYY-Q1` through `YYYY-Q4`), while the chart displays a Hindi quarter label such as `तिमाही 1, 2026`. Monthly remains the default, keeping prior report behavior intact.
+
+| View | Aggregation rule | Chart / export behavior |
+| --- | --- | --- |
+| Monthly | Counts group by calendar month, then rates use that month's visits as the denominator. | Hindi month labels; CSV section title is **Monthly trend**. |
+| Quarterly | Counts from the three months in a calendar quarter are summed before rate calculation. | Hindi quarter labels; CSV section title changes to **Quarterly trend**. |
+| Cohort segment | Every event query joins to the associated invite and applies the selected invite type. | The funnel table, chart, and CSV share the same college/NGO/all selection. |
+
+Public pilot feedback without a cohort invite remains excluded from both views and all segment filters. Added pure quarterly-rollup coverage plus segment-aware router and UI contract assertions. The full suite now contains **95 tests** across 32 files; TypeScript, production build, and runtime logs passed with no current client error or failed request. No real admin login, report download, cohort action, personal data processing, publishing, or external action occurred.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

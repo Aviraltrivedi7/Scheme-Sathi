@@ -22,4 +22,15 @@ describe("monthly cohort conversion trend", () => {
       { month: "2026-08", linkVisits: 0, feedbackSubmissions: 1, accountSignups: 1, feedbackRate: 0, signupRate: 0 },
     ]);
   });
+
+  it("rolls monthly aggregates into quarters before calculating conversion rates", () => {
+    expect(buildMonthlyCohortConversionTrend({
+      visits: [{ month: "2026-01", total: 10 }, { month: "2026-02", total: 20 }, { month: "2026-04", total: 8 }],
+      feedback: [{ month: "2026-01", total: 3 }, { month: "2026-02", total: 9 }, { month: "2026-04", total: 4 }],
+      signups: [{ month: "2026-01", total: 2 }, { month: "2026-02", total: 6 }, { month: "2026-04", total: 2 }],
+    }, "quarter")).toEqual([
+      { month: "2026-Q1", linkVisits: 30, feedbackSubmissions: 12, accountSignups: 8, feedbackRate: 40, signupRate: 26.7 },
+      { month: "2026-Q2", linkVisits: 8, feedbackSubmissions: 4, accountSignups: 2, feedbackRate: 50, signupRate: 25 },
+    ]);
+  });
 });

@@ -20,6 +20,7 @@ export type CohortMonthlyTrendRow = {
 };
 export type CohortMonthlyTrendExport = {
   cohortType: "all" | "college" | "ngo";
+  period?: "month" | "quarter";
   months: CohortMonthlyTrendRow[];
 };
 
@@ -76,10 +77,11 @@ export function createCohortConversionReportCsv(rows: CohortConversionReportRow[
     percentage(totals.accountSignups, totals.linkVisits),
   ];
   const trendScope = monthlyTrend?.cohortType === "college" ? "college cohorts" : monthlyTrend?.cohortType === "ngo" ? "NGO cohorts" : "all cohorts";
+  const trendTitle = monthlyTrend?.period === "quarter" ? "Quarterly trend" : "Monthly trend";
   const monthlyTrendSection = monthlyTrend
     ? [
         [],
-        [`Monthly trend (${trendScope})`],
+        [`${trendTitle} (${trendScope})`],
         ["Month", "Link visits", "Feedback submissions", "Feedback rate (%)", "Account signups", "Visit to signup rate (%)"],
         ...monthlyTrend.months.map(month => [
           month.month,

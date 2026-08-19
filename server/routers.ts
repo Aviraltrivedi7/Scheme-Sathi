@@ -1112,6 +1112,7 @@ export const appRouter = router({
               .object({
                 startAt: z.number().int().positive().optional(),
                 endAt: z.number().int().positive().optional(),
+                cohortType: z.enum(["college", "ngo"]).optional(),
               })
               .optional()
               .refine(
@@ -1129,6 +1130,7 @@ export const appRouter = router({
                 startAt: z.number().int().positive().optional(),
                 endAt: z.number().int().positive().optional(),
                 cohortType: z.enum(["college", "ngo"]).optional(),
+                period: z.enum(["month", "quarter"]).optional(),
               })
               .optional()
               .refine(

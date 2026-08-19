@@ -54,11 +54,14 @@ describe("monthly cohort trend UI contract", () => {
   it("binds the protected monthly series to a visual line chart", () => {
     const pilotAdmin = readFileSync(resolve(process.cwd(), "client/src/pages/PilotAdmin.tsx"), "utf8");
     expect(pilotAdmin).toContain("trpc.admin.pilot.cohorts.monthlyTrend.useQuery");
+    expect(pilotAdmin).toContain("trpc.admin.pilot.cohorts.conversionStats.useQuery(cohortAnalyticsInput");
     expect(pilotAdmin).toContain("<LineChart data={monthlyTrend}");
     expect(pilotAdmin).toContain("All cohorts combined");
     expect(pilotAdmin).toContain('new Intl.DateTimeFormat("hi-IN"');
     expect(pilotAdmin).toContain("trendCohortType");
     expect(pilotAdmin).toContain('option value="college"');
     expect(pilotAdmin).toContain('option value="ngo"');
+    expect(pilotAdmin).toContain('setTrendPeriod("quarter")');
+    expect(pilotAdmin).toContain("trendPeriodLabel");
   });
 });

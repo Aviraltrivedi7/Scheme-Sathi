@@ -377,3 +377,12 @@
 - [x] Build cohort-type chart controls and Hindi localized trend visualization interface.
 - [x] Test filtered trend aggregation, Hindi labels, monthly CSV section, and responsive behavior.
 - [x] Document and checkpoint the development-only cohort trend refinement without publishing.
+
+## Quarterly trend view and shared cohort funnel filtering
+
+- [x] Review existing cohort segment filters, conversion funnel aggregation, and monthly trend contracts.
+- [x] Define shared segment filtering, quarterly aggregation semantics, chart view behavior, and privacy rules.
+- [x] Add segment-filtered funnel reporting and period-aware monthly or quarterly trend aggregation APIs.
+- [x] Build shared cohort segment controls and monthly/quarterly trend visualization toggle.
+- [x] Test filtered funnel data, quarterly rate aggregation, toggle behavior, and responsive journeys.
+- [x] Document and checkpoint the development-only cohort analytics upgrade without publishing.
