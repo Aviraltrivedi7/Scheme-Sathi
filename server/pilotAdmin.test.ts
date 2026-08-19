@@ -113,8 +113,9 @@ describe("admin pilot inbox and cohort invites", () => {
     const admin = appRouter.createCaller(context("admin"));
     const user = appRouter.createCaller(context("user"));
     const range = { startAt: 1_700_000_000_000, endAt: 1_700_086_400_000 };
+    const trendInput = { ...range, cohortType: "college" as const };
     const stats = await admin.admin.pilot.cohorts.conversionStats(range);
-    const trend = await admin.admin.pilot.cohorts.monthlyTrend(range);
+    const trend = await admin.admin.pilot.cohorts.monthlyTrend(trendInput);
     await user.pilot.trackCohortVisit({
       code: "COHORT88",
       visitorToken: "0f8434ec-b7ee-4f49-9408-60b2266c4f70",
@@ -128,7 +129,7 @@ describe("admin pilot inbox and cohort invites", () => {
       }),
     ]);
     expect(mocks.listPilotCohortConversionStats).toHaveBeenCalledWith(range);
-    expect(mocks.listPilotCohortMonthlyConversionTrend).toHaveBeenCalledWith(range);
+    expect(mocks.listPilotCohortMonthlyConversionTrend).toHaveBeenCalledWith(trendInput);
     expect(trend.months).toEqual([
       expect.objectContaining({ month: "2026-08", signupRate: 20 }),
     ]);

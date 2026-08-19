@@ -33,7 +33,10 @@ describe("cohort conversion report CSV", () => {
         accountSignups: 4,
         signupRate: 20,
       },
-    ], { startAt: 1_700_000_000_000, endAt: 1_700_086_400_000 });
+    ], { startAt: 1_700_000_000_000, endAt: 1_700_086_400_000 }, {
+      cohortType: "college",
+      months: [{ month: "2026-08", linkVisits: 20, feedbackSubmissions: 7, feedbackRate: 35, accountSignups: 4, signupRate: 20 }],
+    });
 
     expect(report.fileName).toContain("scheme-sathi-cohort-report-2023-11-14-to-2023-11-15.csv");
     expect(report.contents).toContain("\"'=Pune, Scholarship Cell\"");
@@ -41,6 +44,9 @@ describe("cohort conversion report CSV", () => {
     expect(report.contents).toContain("\"20\"");
     expect(report.contents).toContain("\"Total (all cohorts)\"");
     expect(report.contents).toContain("\"35\"");
+    expect(report.contents).toContain("\"Monthly trend (college cohorts)\"");
+    expect(report.contents).toContain("\"Feedback submissions\"");
+    expect(report.contents).toContain("\"2026-08\"");
   });
 });
 
@@ -50,5 +56,9 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain("trpc.admin.pilot.cohorts.monthlyTrend.useQuery");
     expect(pilotAdmin).toContain("<LineChart data={monthlyTrend}");
     expect(pilotAdmin).toContain("All cohorts combined");
+    expect(pilotAdmin).toContain('new Intl.DateTimeFormat("hi-IN"');
+    expect(pilotAdmin).toContain("trendCohortType");
+    expect(pilotAdmin).toContain('option value="college"');
+    expect(pilotAdmin).toContain('option value="ngo"');
   });
 });

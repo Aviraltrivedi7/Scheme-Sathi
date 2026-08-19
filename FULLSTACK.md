@@ -336,6 +336,20 @@ The Hindi Discover state dropdown now translates every currently offered state v
 
 Focused coverage now validates monthly aggregation/rate math, no-visit safety, protected trend routing and invalid-range rejection, Hindi state names, chart wiring, CSV formula safety, and the new total row. The full suite contains **94 tests** across 32 files; TypeScript validation, production build, and a Hindi Discover browser render passed. Admin chart data remains behind the existing administrator sign-in boundary, and no real admin login, report download, cohort event, or publishing occurred.
 
+## Cohort-Type Trend Filter and Monthly CSV Detail
+
+The monthly trend card now has a **Cohort segment** selector for all cohorts, college cohorts, or NGO cohorts. It changes only the aggregate trend query; the existing cohort funnel table remains an all-cohort operational overview. The protected trend helper joins each visit, cohort-linked feedback submission, and signup attribution to its cohort invite before grouping by month, then applies the selected type. This keeps public pilot feedback—where no invite exists—outside every cohort trend segment.
+
+All chart X-axis and tooltip month labels use the `hi-IN` locale. The visible month examples therefore follow Hindi formatting while the API keeps stable `YYYY-MM` values for sorting and export. The CSV report now incorporates the currently selected trend segment as a distinct **Monthly trend** section after the cohort summary and its `Total (all cohorts)` row. It lists month, visits, feedback submissions/rate, signups, and visit-to-signup rate. The existing formula-safe browser-local CSV escaping continues to protect all fields.
+
+| Selection | Monthly chart and CSV section scope | Aggregate-only boundary |
+| --- | --- | --- |
+| All cohorts | All invite-linked college and NGO events in the chosen dates | No visitor, account, contact, or feedback-content data. |
+| College cohorts | Only events joined to an invite of type `college` | No cohort-member identity or account data. |
+| NGO cohorts | Only events joined to an invite of type `ngo` | No cohort-member identity or account data. |
+
+The invite create/revoke flows invalidate the segment-aware trend cache. Focused tests validate the typed routing input, Hindi chart formatter and selector wiring, the monthly CSV section, formula escaping, and the preserved aggregate rate calculations. The full suite remains **94 tests** across 32 files; TypeScript, production build, and runtime log review passed. The administrator dashboard still requires an existing admin session for live visual inspection; no real login, download, cohort event, or publishing occurred.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

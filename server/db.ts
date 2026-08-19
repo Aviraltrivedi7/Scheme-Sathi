@@ -189,6 +189,9 @@ export type PilotCohortConversionRange = {
   startAt?: number;
   endAt?: number;
 };
+export type PilotCohortMonthlyTrendFilters = PilotCohortConversionRange & {
+  cohortType?: "college" | "ngo";
+};
 
 function isActivePilotCohortInvite(invite: typeof pilotCohortInvites.$inferSelect) {
   return (
@@ -318,8 +321,8 @@ export async function listPilotCohortConversionStats(range?: PilotCohortConversi
   });
 }
 
-/** Returns monthly all-cohort aggregate funnel rates; no event, visitor, or account-level data leaves this helper. */
-export async function listPilotCohortMonthlyConversionTrend(range?: PilotCohortConversionRange) {
+/** Returns type-filtered monthly aggregate funnel rates; no event, visitor, or account-level data leaves this helper. */
+export async function listPilotCohortMonthlyConversionTrend(filters?: PilotCohortMonthlyTrendFilters) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   const visitMonth = sql<string>`DATE_FORMAT(${pilotCohortVisits.createdAt}, '%Y-%m')`;
@@ -329,26 +332,31 @@ export async function listPilotCohortMonthlyConversionTrend(range?: PilotCohortC
     db
       .select({ month: visitMonth, total: count() })
       .from(pilotCohortVisits)
+      .innerJoin(pilotCohortInvites, eq(pilotCohortVisits.cohortInviteId, pilotCohortInvites.id))
       .where(and(
-        range?.startAt ? gte(pilotCohortVisits.createdAt, new Date(range.startAt)) : undefined,
-        range?.endAt ? lte(pilotCohortVisits.createdAt, new Date(range.endAt)) : undefined
+        filters?.cohortType ? eq(pilotCohortInvites.cohortType, filters.cohortType) : undefined,
+        filters?.startAt ? gte(pilotCohortVisits.createdAt, new Date(filters.startAt)) : undefined,
+        filters?.endAt ? lte(pilotCohortVisits.createdAt, new Date(filters.endAt)) : undefined
       ))
       .groupBy(visitMonth),
     db
       .select({ month: feedbackMonth, total: count() })
       .from(pilotFeedbackSubmissions)
+      .innerJoin(pilotCohortInvites, eq(pilotFeedbackSubmissions.cohortInviteId, pilotCohortInvites.id))
       .where(and(
-        isNotNull(pilotFeedbackSubmissions.cohortInviteId),
-        range?.startAt ? gte(pilotFeedbackSubmissions.createdAt, new Date(range.startAt)) : undefined,
-        range?.endAt ? lte(pilotFeedbackSubmissions.createdAt, new Date(range.endAt)) : undefined
+        filters?.cohortType ? eq(pilotCohortInvites.cohortType, filters.cohortType) : undefined,
+        filters?.startAt ? gte(pilotFeedbackSubmissions.createdAt, new Date(filters.startAt)) : undefined,
+        filters?.endAt ? lte(pilotFeedbackSubmissions.createdAt, new Date(filters.endAt)) : undefined
       ))
       .groupBy(feedbackMonth),
     db
       .select({ month: signupMonth, total: count() })
       .from(pilotCohortSignups)
+      .innerJoin(pilotCohortInvites, eq(pilotCohortSignups.cohortInviteId, pilotCohortInvites.id))
       .where(and(
-        range?.startAt ? gte(pilotCohortSignups.createdAt, new Date(range.startAt)) : undefined,
-        range?.endAt ? lte(pilotCohortSignups.createdAt, new Date(range.endAt)) : undefined
+        filters?.cohortType ? eq(pilotCohortInvites.cohortType, filters.cohortType) : undefined,
+        filters?.startAt ? gte(pilotCohortSignups.createdAt, new Date(filters.startAt)) : undefined,
+        filters?.endAt ? lte(pilotCohortSignups.createdAt, new Date(filters.endAt)) : undefined
       ))
       .groupBy(signupMonth),
   ]);

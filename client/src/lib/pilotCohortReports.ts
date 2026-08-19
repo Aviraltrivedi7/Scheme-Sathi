@@ -10,6 +10,18 @@ export type CohortConversionReportRow = {
 };
 
 export type CohortReportRange = { startAt?: number; endAt?: number };
+export type CohortMonthlyTrendRow = {
+  month: string;
+  linkVisits: number;
+  feedbackSubmissions: number;
+  accountSignups: number;
+  feedbackRate: number;
+  signupRate: number;
+};
+export type CohortMonthlyTrendExport = {
+  cohortType: "all" | "college" | "ngo";
+  months: CohortMonthlyTrendRow[];
+};
 
 function escapeCsvCell(value: string | number) {
   const normalized = String(value).replace(/\r\n|\r|\n/g, " ");
@@ -32,7 +44,7 @@ function percentage(numerator: number, denominator: number) {
   return denominator ? Math.round((numerator / denominator) * 1000) / 10 : 0;
 }
 
-export function createCohortConversionReportCsv(rows: CohortConversionReportRow[], range: CohortReportRange) {
+export function createCohortConversionReportCsv(rows: CohortConversionReportRow[], range: CohortReportRange, monthlyTrend?: CohortMonthlyTrendExport) {
   const heading = ["Scheme Sathi cohort conversion report", rangeLabel(range)];
   const header = ["Cohort", "Type", "Status", "Link visits", "Feedback submissions", "Feedback rate (%)", "Account signups", "Visit to signup rate (%)"];
   const content = rows.map(row => [
@@ -63,8 +75,25 @@ export function createCohortConversionReportCsv(rows: CohortConversionReportRow[
     totals.accountSignups,
     percentage(totals.accountSignups, totals.linkVisits),
   ];
+  const trendScope = monthlyTrend?.cohortType === "college" ? "college cohorts" : monthlyTrend?.cohortType === "ngo" ? "NGO cohorts" : "all cohorts";
+  const monthlyTrendSection = monthlyTrend
+    ? [
+        [],
+        [`Monthly trend (${trendScope})`],
+        ["Month", "Link visits", "Feedback submissions", "Feedback rate (%)", "Account signups", "Visit to signup rate (%)"],
+        ...monthlyTrend.months.map(month => [
+          month.month,
+          month.linkVisits,
+          month.feedbackSubmissions,
+          month.feedbackRate,
+          month.accountSignups,
+          month.signupRate,
+        ]),
+        ...(monthlyTrend.months.length ? [] : [["No monthly cohort conversion data in this date range"]]),
+      ]
+    : [];
   return {
-    contents: [heading, header, ...content, summaryRow].map(row => row.map(escapeCsvCell).join(",")).join("\r\n").concat("\r\n"),
+    contents: [heading, header, ...content, summaryRow, ...monthlyTrendSection].map(row => row.map(escapeCsvCell).join(",")).join("\r\n").concat("\r\n"),
     fileName: `scheme-sathi-cohort-report-${fileDate(range.startAt, "all-time")}-to-${fileDate(range.endAt, "today")}.csv`,
   };
 }

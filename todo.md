@@ -368,3 +368,12 @@
 - [x] Build Hindi state dropdown and responsive monthly cohort conversion trend chart interface.
 - [x] Test state localization, monthly aggregation, chart states, CSV totals, and responsive behavior.
 - [x] Document and checkpoint the development-only localization and reporting refinement without publishing.
+
+## Cohort-type trend filtering and monthly CSV detail
+
+- [x] Review cohort trend data contracts, chart controls, Hindi date formatting, and CSV export layout.
+- [x] Define cohort-type filter semantics, localized trend labels, monthly CSV section structure, and privacy boundaries.
+- [x] Add cohort-type filtered monthly trend reporting and extended CSV monthly trend data.
+- [x] Build cohort-type chart controls and Hindi localized trend visualization interface.
+- [x] Test filtered trend aggregation, Hindi labels, monthly CSV section, and responsive behavior.
+- [x] Document and checkpoint the development-only cohort trend refinement without publishing.

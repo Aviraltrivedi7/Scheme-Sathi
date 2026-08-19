@@ -16,4 +16,8 @@ The warm Discover recheck rendered the Hindi-first scholarship discovery screen 
 
 The settled Discover browser render showed all currently offered state choices in Hindi, including **आंध्र प्रदेश**, **बिहार**, **दिल्ली**, **मध्य प्रदेश**, **महाराष्ट्र**, **तमिलनाडु**, **उत्तर प्रदेश**, and **पश्चिम बंगाल**, while returning the seeded 42-record catalog. The protected administrator chart cannot be rendered without an administrator session in the sandbox; its aggregate-only monthly query, date-range validation, no-visit handling, chart binding, and responsive CSS are covered by server and UI-contract tests. The CSV summary row is validated through its browser-local export helper and includes recalculated totals/rates rather than summing per-cohort rounded rates.
 
+## Cohort segment trend filter and monthly CSV detail — 19 August 2026
+
+The development implementation adds a segment selector to the protected monthly chart for all, college, or NGO cohorts; it passes only an optional enumerated type plus the existing date bounds to the admin API. The server joins cohort events to their invite before aggregating, retaining the existing exclusion of public feedback without an invite. The chart formatter uses `hi-IN` for visual months while the export preserves machine-sortable `YYYY-MM` data in a separate monthly trend section. Focused tests and the full regression suite validate the selector, Hindi formatter, server contract, date-range behavior, CSV monthly rows, totals, and formula escaping. Recent runtime logs show HMR updates only and no current client errors or failed API requests.
+
 The completed non-visual checks at this point are the focused cohort/catalog tests, the full 88-test suite, TypeScript validation, and the production build.
