@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   updatePilotFeedbackForAdmin: vi.fn(),
   listPilotCohortInvites: vi.fn(),
   listPilotCohortConversionStats: vi.fn(),
+  listPilotCohortMonthlyConversionTrend: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -99,6 +100,9 @@ describe("admin pilot inbox and cohort invites", () => {
         signupRate: 20,
       },
     ]);
+    mocks.listPilotCohortMonthlyConversionTrend.mockResolvedValue([
+      { month: "2026-08", linkVisits: 20, feedbackRate: 35, signupRate: 20 },
+    ]);
     mocks.recordPilotCohortVisit.mockResolvedValue({ recorded: true, reason: null });
     mocks.recordPilotCohortSignup.mockResolvedValue({
       attributed: true,
@@ -110,6 +114,7 @@ describe("admin pilot inbox and cohort invites", () => {
     const user = appRouter.createCaller(context("user"));
     const range = { startAt: 1_700_000_000_000, endAt: 1_700_086_400_000 };
     const stats = await admin.admin.pilot.cohorts.conversionStats(range);
+    const trend = await admin.admin.pilot.cohorts.monthlyTrend(range);
     await user.pilot.trackCohortVisit({
       code: "COHORT88",
       visitorToken: "0f8434ec-b7ee-4f49-9408-60b2266c4f70",
@@ -123,6 +128,10 @@ describe("admin pilot inbox and cohort invites", () => {
       }),
     ]);
     expect(mocks.listPilotCohortConversionStats).toHaveBeenCalledWith(range);
+    expect(mocks.listPilotCohortMonthlyConversionTrend).toHaveBeenCalledWith(range);
+    expect(trend.months).toEqual([
+      expect.objectContaining({ month: "2026-08", signupRate: 20 }),
+    ]);
     expect(mocks.recordPilotCohortVisit).toHaveBeenCalledWith(
       "COHORT88",
       "0f8434ec-b7ee-4f49-9408-60b2266c4f70"
@@ -138,12 +147,19 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.feedback.list()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.list()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.conversionStats()).rejects.toThrow();
+    await expect(caller.admin.pilot.cohorts.monthlyTrend()).rejects.toThrow();
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {
     const caller = appRouter.createCaller(context("admin"));
     await expect(
       caller.admin.pilot.cohorts.conversionStats({
+        startAt: 1_700_086_400_000,
+        endAt: 1_700_000_000_000,
+      })
+    ).rejects.toThrow("Report start date must be before the end date.");
+    await expect(
+      caller.admin.pilot.cohorts.monthlyTrend({
         startAt: 1_700_086_400_000,
         endAt: 1_700_000_000_000,
       })

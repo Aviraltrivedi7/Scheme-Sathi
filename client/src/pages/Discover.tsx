@@ -1,5 +1,5 @@
 import { categories, states } from "@/lib/schemes";
-import { discoverLabel, providerDisplayLabel, type DiscoverLanguage } from "@/lib/discoverLocalization";
+import { discoverLabel, providerDisplayLabel, stateDisplayLabel, type DiscoverLanguage } from "@/lib/discoverLocalization";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, CalendarClock, Filter, Languages, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -76,7 +76,7 @@ export default function Discover() {
         <aside className="discover-filters">
           <div className="discover-filter-heading"><Filter size={17} /><strong>{discoverLabel("refine", language)}</strong>{hasFilters && <button type="button" onClick={resetFilters}><RotateCcw size={13} /> {discoverLabel("clear", language)}</button>}</div>
           <label>{discoverLabel("search", language)}<input value={query} onChange={event => setQuery(event.target.value)} placeholder={discoverLabel("searchPlaceholder", language)} /></label>
-          <label>{discoverLabel("state", language)}<select value={state} onChange={event => setState(event.target.value)}><option value="all">{language === "hi" ? "पूरा भारत / कोई भी राज्य" : "All India / any state"}</option>{states.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+          <label>{discoverLabel("state", language)}<select value={state} onChange={event => setState(event.target.value)}><option value="all">{language === "hi" ? "पूरा भारत / कोई भी राज्य" : "All India / any state"}</option>{states.map(item => <option key={item} value={item}>{stateDisplayLabel(item, language)}</option>)}</select></label>
           <label>{discoverLabel("category", language)}<select value={category} onChange={event => setCategory(event.target.value)}>{categories.map(item => <option key={item.key} value={item.key}>{language === "hi" ? item.labelHi : item.label}</option>)}</select></label>
           <label>{discoverLabel("schemeLevel", language)}<select value={level} onChange={event => setLevel(event.target.value as typeof level)}><option value="all">{discoverLabel("allLevels", language)}</option><option value="Central">{discoverLabel("central", language)}</option><option value="State">{discoverLabel("stateLevel", language)}</option></select></label>
           <label>{discoverLabel("providerArea", language)}<select value={administeringBody} onChange={event => setAdministeringBody(event.target.value)} disabled={filterOptions.isLoading}><option value="all">{discoverLabel("allProviders", language)}</option>{filterOptions.data?.administeringBodies.map(provider => <option key={provider} value={provider}>{providerDisplayLabel(provider, language)}</option>)}</select></label>

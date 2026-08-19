@@ -28,6 +28,10 @@ function fileDate(value: number | undefined, fallback: string) {
   return value ? new Date(value).toISOString().slice(0, 10) : fallback;
 }
 
+function percentage(numerator: number, denominator: number) {
+  return denominator ? Math.round((numerator / denominator) * 1000) / 10 : 0;
+}
+
 export function createCohortConversionReportCsv(rows: CohortConversionReportRow[], range: CohortReportRange) {
   const heading = ["Scheme Sathi cohort conversion report", rangeLabel(range)];
   const header = ["Cohort", "Type", "Status", "Link visits", "Feedback submissions", "Feedback rate (%)", "Account signups", "Visit to signup rate (%)"];
@@ -41,8 +45,26 @@ export function createCohortConversionReportCsv(rows: CohortConversionReportRow[
     row.accountSignups,
     row.signupRate,
   ]);
+  const totals = rows.reduce(
+    (summary, row) => ({
+      linkVisits: summary.linkVisits + row.linkVisits,
+      feedbackSubmissions: summary.feedbackSubmissions + row.feedbackSubmissions,
+      accountSignups: summary.accountSignups + row.accountSignups,
+    }),
+    { linkVisits: 0, feedbackSubmissions: 0, accountSignups: 0 }
+  );
+  const summaryRow = [
+    "Total (all cohorts)",
+    "",
+    "",
+    totals.linkVisits,
+    totals.feedbackSubmissions,
+    percentage(totals.feedbackSubmissions, totals.linkVisits),
+    totals.accountSignups,
+    percentage(totals.accountSignups, totals.linkVisits),
+  ];
   return {
-    contents: [heading, header, ...content].map(row => row.map(escapeCsvCell).join(",")).join("\r\n").concat("\r\n"),
+    contents: [heading, header, ...content, summaryRow].map(row => row.map(escapeCsvCell).join(",")).join("\r\n").concat("\r\n"),
     fileName: `scheme-sathi-cohort-report-${fileDate(range.startAt, "all-time")}-to-${fileDate(range.endAt, "today")}.csv`,
   };
 }

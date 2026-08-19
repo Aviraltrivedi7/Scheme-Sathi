@@ -44,6 +44,7 @@ import {
   listOwnerOverdueDocumentReviews,
   listPilotCohortInvites,
   listPilotCohortConversionStats,
+  listPilotCohortMonthlyConversionTrend,
   listPilotFeedbackForAdmin,
   listReceivedVerificationHistoryFilterInvites,
   listReceivedVerificationHistoryFilters,
@@ -1120,6 +1121,22 @@ export const appRouter = router({
           )
           .query(async ({ input }) => ({
             cohorts: await listPilotCohortConversionStats(input),
+          })),
+        monthlyTrend: adminProcedure
+          .input(
+            z
+              .object({
+                startAt: z.number().int().positive().optional(),
+                endAt: z.number().int().positive().optional(),
+              })
+              .optional()
+              .refine(
+                input => !input?.startAt || !input?.endAt || input.startAt <= input.endAt,
+                { message: "Report start date must be before the end date." }
+              )
+          )
+          .query(async ({ input }) => ({
+            months: await listPilotCohortMonthlyConversionTrend(input),
           })),
         create: adminProcedure
           .input(

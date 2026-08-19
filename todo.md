@@ -359,3 +359,12 @@
 - [x] Build Hindi scholarship discovery controls and cohort report date-range/export interface.
 - [x] Test localization, report aggregation, CSV export safety, and responsive journeys.
 - [x] Document and checkpoint the development-only accessibility and reporting upgrade without publishing.
+
+## Hindi state navigation, cohort trend chart, and CSV totals
+
+- [x] Review state localization metadata, cohort event reporting, chart options, and CSV export structure.
+- [x] Define Hindi state labels, monthly conversion series semantics, chart privacy, and CSV total rules.
+- [x] Add localized state metadata, monthly aggregate reporting API, and CSV total calculations.
+- [x] Build Hindi state dropdown and responsive monthly cohort conversion trend chart interface.
+- [x] Test state localization, monthly aggregation, chart states, CSV totals, and responsive behavior.
+- [x] Document and checkpoint the development-only localization and reporting refinement without publishing.

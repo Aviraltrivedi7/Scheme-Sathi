@@ -322,6 +322,20 @@ The administrator-only conversion funnel now accepts optional local-calendar **F
 
 `/admin/pilot` exposes the range controls beside the conversion funnel and downloads a cohort-wise CSV including cohort name/type/status, visits, feedback, feedback rate, signups, and visit-to-signup rate. Focused coverage validates Hindi provider/filter terminology, provider fallback, report range forwarding and invalid-range rejection, and formula-safe CSV encoding. The full suite now contains **91 tests** across 31 files; TypeScript validation, production build, Hindi desktop/mobile discovery rendering, and runtime-log review passed. The admin visual capture remains behind the existing sign-in boundary, and no real administrator login, report download, cohort activity, or publishing was performed during development verification.
 
+## Hindi State Names, Monthly Conversion Trend, and CSV Totals
+
+The Hindi Discover state dropdown now translates every currently offered state value while continuing to submit the canonical English state identifier used by the catalog filter. The translation map covers Andhra Pradesh, Bihar, Delhi, Gujarat, Haryana, Jharkhand, Karnataka, Kerala, Madhya Pradesh, Maharashtra, Odisha, Punjab, Rajasthan, Tamil Nadu, Telangana, Uttar Pradesh, Uttarakhand, and West Bengal. An unmapped future state deliberately falls back to the official English value rather than silently changing its filter key.
+
+`/admin/pilot` now has a **Monthly trend** card that renders two all-cohort percentage lines for the same optional report date range: visit-to-feedback and visit-to-signup. The new protected `admin.pilot.cohorts.monthlyTrend` procedure aggregates only cohort-scoped events by their creation month. It explicitly excludes public pilot feedback with no cohort invite, so individual public-pilot responses cannot affect cohort conversion reporting. Empty, loading, and invalid-range states are handled in the dashboard; the report filter remains shared with the existing funnel table and CSV export.
+
+| Refinement | Calculation and scope | Privacy / safety boundary |
+| --- | --- | --- |
+| Monthly visit-to-feedback rate | Cohort-linked feedback events in a month ÷ anonymised cohort link visits in that month | No free-text feedback, contact fields, visitor hash, or individual identifiers are returned. |
+| Monthly visit-to-signup rate | First-touch cohort signup attributions in a month ÷ anonymised cohort link visits in that month | No account ID, name, email, or profile field appears in the API or chart. |
+| CSV totals row | Sum visits, feedback, and signups across the currently filtered cohorts; recompute both rates from those totals | The browser-local CSV remains quoted and formula-safe, and now ends with `Total (all cohorts)`. |
+
+Focused coverage now validates monthly aggregation/rate math, no-visit safety, protected trend routing and invalid-range rejection, Hindi state names, chart wiring, CSV formula safety, and the new total row. The full suite contains **94 tests** across 32 files; TypeScript validation, production build, and a Hindi Discover browser render passed. Admin chart data remains behind the existing administrator sign-in boundary, and no real admin login, report download, cohort event, or publishing occurred.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

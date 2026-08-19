@@ -2,14 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   discoverLabel,
   providerDisplayLabel,
+  stateDisplayLabel,
 } from "../client/src/lib/discoverLocalization";
 import { createCohortConversionReportCsv } from "../client/src/lib/pilotCohortReports";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 describe("Hindi discovery localization", () => {
   it("translates scholarship provider labels while preserving canonical filter values", () => {
     expect(providerDisplayLabel("Ministry of Education", "hi")).toBe("शिक्षा मंत्रालय");
     expect(providerDisplayLabel("Ministry of Education", "en")).toBe("Ministry of Education");
     expect(providerDisplayLabel("Unknown provider", "hi")).toBe("Unknown provider");
+    expect(stateDisplayLabel("Uttar Pradesh", "hi")).toBe("उत्तर प्रदेश");
+    expect(stateDisplayLabel("Maharashtra", "hi")).toBe("महाराष्ट्र");
     expect(discoverLabel("providerArea", "hi")).toBe("संचालक विभाग");
     expect(discoverLabel("sourceStatus", "hi")).toBe("स्रोत स्थिति");
   });
@@ -34,5 +39,16 @@ describe("cohort conversion report CSV", () => {
     expect(report.contents).toContain("\"'=Pune, Scholarship Cell\"");
     expect(report.contents).toContain("\"Visit to signup rate (%)\"");
     expect(report.contents).toContain("\"20\"");
+    expect(report.contents).toContain("\"Total (all cohorts)\"");
+    expect(report.contents).toContain("\"35\"");
+  });
+});
+
+describe("monthly cohort trend UI contract", () => {
+  it("binds the protected monthly series to a visual line chart", () => {
+    const pilotAdmin = readFileSync(resolve(process.cwd(), "client/src/pages/PilotAdmin.tsx"), "utf8");
+    expect(pilotAdmin).toContain("trpc.admin.pilot.cohorts.monthlyTrend.useQuery");
+    expect(pilotAdmin).toContain("<LineChart data={monthlyTrend}");
+    expect(pilotAdmin).toContain("All cohorts combined");
   });
 });

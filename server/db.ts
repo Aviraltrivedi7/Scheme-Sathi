@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNotNull, lte, ne, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
@@ -71,6 +71,7 @@ import {
   filterSchemeCatalog,
   type SchemeCatalogListFilters,
 } from "./schemeCatalogQuery";
+import { buildMonthlyCohortConversionTrend } from "./cohortConversionTrend";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -314,6 +315,47 @@ export async function listPilotCohortConversionStats(range?: PilotCohortConversi
       feedbackRate: linkVisits ? Math.round((feedbackSubmissions / linkVisits) * 1000) / 10 : 0,
       signupRate: linkVisits ? Math.round((accountSignups / linkVisits) * 1000) / 10 : 0,
     };
+  });
+}
+
+/** Returns monthly all-cohort aggregate funnel rates; no event, visitor, or account-level data leaves this helper. */
+export async function listPilotCohortMonthlyConversionTrend(range?: PilotCohortConversionRange) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const visitMonth = sql<string>`DATE_FORMAT(${pilotCohortVisits.createdAt}, '%Y-%m')`;
+  const feedbackMonth = sql<string>`DATE_FORMAT(${pilotFeedbackSubmissions.createdAt}, '%Y-%m')`;
+  const signupMonth = sql<string>`DATE_FORMAT(${pilotCohortSignups.createdAt}, '%Y-%m')`;
+  const [visits, feedback, signups] = await Promise.all([
+    db
+      .select({ month: visitMonth, total: count() })
+      .from(pilotCohortVisits)
+      .where(and(
+        range?.startAt ? gte(pilotCohortVisits.createdAt, new Date(range.startAt)) : undefined,
+        range?.endAt ? lte(pilotCohortVisits.createdAt, new Date(range.endAt)) : undefined
+      ))
+      .groupBy(visitMonth),
+    db
+      .select({ month: feedbackMonth, total: count() })
+      .from(pilotFeedbackSubmissions)
+      .where(and(
+        isNotNull(pilotFeedbackSubmissions.cohortInviteId),
+        range?.startAt ? gte(pilotFeedbackSubmissions.createdAt, new Date(range.startAt)) : undefined,
+        range?.endAt ? lte(pilotFeedbackSubmissions.createdAt, new Date(range.endAt)) : undefined
+      ))
+      .groupBy(feedbackMonth),
+    db
+      .select({ month: signupMonth, total: count() })
+      .from(pilotCohortSignups)
+      .where(and(
+        range?.startAt ? gte(pilotCohortSignups.createdAt, new Date(range.startAt)) : undefined,
+        range?.endAt ? lte(pilotCohortSignups.createdAt, new Date(range.endAt)) : undefined
+      ))
+      .groupBy(signupMonth),
+  ]);
+  return buildMonthlyCohortConversionTrend({
+    visits: visits.map(row => ({ month: row.month, total: Number(row.total) })),
+    feedback: feedback.map(row => ({ month: row.month, total: Number(row.total) })),
+    signups: signups.map(row => ({ month: row.month, total: Number(row.total) })),
   });
 }
 

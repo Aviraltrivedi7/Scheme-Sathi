@@ -28,6 +28,27 @@ const providerHindi: Record<string, string> = {
   "University Grants Commission": "विश्वविद्यालय अनुदान आयोग (यूजीसी)",
 };
 
+const stateHindi: Record<string, string> = {
+  "Andhra Pradesh": "आंध्र प्रदेश",
+  Bihar: "बिहार",
+  Delhi: "दिल्ली",
+  Gujarat: "गुजरात",
+  Haryana: "हरियाणा",
+  Jharkhand: "झारखंड",
+  Karnataka: "कर्नाटक",
+  Kerala: "केरल",
+  "Madhya Pradesh": "मध्य प्रदेश",
+  Maharashtra: "महाराष्ट्र",
+  Odisha: "ओडिशा",
+  Punjab: "पंजाब",
+  Rajasthan: "राजस्थान",
+  "Tamil Nadu": "तमिलनाडु",
+  Telangana: "तेलंगाना",
+  "Uttar Pradesh": "उत्तर प्रदेश",
+  Uttarakhand: "उत्तराखंड",
+  "West Bengal": "पश्चिम बंगाल",
+};
+
 const labels = {
   refine: ["Refine schemes", "योजनाएँ छाँटें"],
   clear: ["Clear", "साफ़ करें"],
@@ -64,4 +85,8 @@ export function discoverLabel(key: keyof typeof labels, language: DiscoverLangua
 
 export function providerDisplayLabel(provider: string, language: DiscoverLanguage) {
   return language === "hi" ? providerHindi[provider] ?? provider : provider;
+}
+
+export function stateDisplayLabel(state: string, language: DiscoverLanguage) {
+  return language === "hi" ? stateHindi[state] ?? state : state;
 }
