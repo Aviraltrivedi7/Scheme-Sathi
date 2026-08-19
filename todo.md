@@ -333,3 +333,12 @@
 - [x] Build responsive scholarship checker and pilot landing page with structured feedback form.
 - [x] Test matching boundaries, feedback validation/rate boundaries, bilingual copy, and mobile journey.
 - [x] Document and checkpoint the development-only pilot upgrade without publishing.
+
+## Verified scholarship catalog, feedback inbox, and cohort pilot invites
+
+- [x] Review official scholarship source coverage, existing catalog model, feedback submission lifecycle, and admin UI patterns.
+- [x] Define verified-record standard, admin feedback status/insight behavior, and revocable invite link semantics.
+- [x] Add 30–50 source-verified scholarship records plus feedback inbox and cohort invite persistence/APIs.
+- [x] Build responsive admin feedback analytics/inbox and custom cohort invite management with invite-aware pilot landing copy.
+- [x] Test scholarship source coverage, admin-only inbox access, feedback management, invite lifecycle, and responsive flows.
+- [x] Document and checkpoint the development-only pilot scale-up without publishing.

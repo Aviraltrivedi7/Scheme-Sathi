@@ -27,8 +27,22 @@ describe("scholarship pilot", () => {
       },
       schemeCatalog
     );
-    expect(matches.map(match => match.id)).toEqual(["nsp"]);
+    expect(matches.map(match => match.id)).toContain("nsp");
+    expect(matches.length).toBeGreaterThanOrEqual(20);
     expect(matches.every(match => match.category === "Education")).toBe(true);
+  });
+
+  it("adds 30 to 50 official-directory scholarship records with a traceable source", () => {
+    const officialDirectoryRecords = schemeCatalog.filter(
+      scheme => scheme.verificationStatus === "officialDirectory"
+    );
+    expect(officialDirectoryRecords.length).toBeGreaterThanOrEqual(30);
+    expect(officialDirectoryRecords.length).toBeLessThanOrEqual(50);
+    expect(
+      officialDirectoryRecords.every(
+        scheme => scheme.category === "Education" && scheme.sourceUrl === "https://scholarships.gov.in/All-Scholarships"
+      )
+    ).toBe(true);
   });
 
   it("limits the public pilot form and opens a fresh window after ten minutes", () => {
@@ -55,9 +69,16 @@ describe("scholarship pilot", () => {
       new URL("../client/src/pages/PilotLanding.tsx", import.meta.url),
       "utf8"
     );
+    const inbox = readFileSync(
+      new URL("../client/src/pages/PilotAdmin.tsx", import.meta.url),
+      "utf8"
+    );
     expect(router).toContain("contactConsent");
     expect(router).toContain("submitFeedback");
     expect(checker).toContain("trpc.scholarships.checkEligibility");
     expect(pilot).toContain("trpc.pilot.submitFeedback");
+    expect(pilot).toContain("trpc.pilot.cohort");
+    expect(inbox).toContain("trpc.admin.pilot.feedback.list");
+    expect(inbox).toContain("trpc.admin.pilot.cohorts.create");
   });
 });

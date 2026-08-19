@@ -22,7 +22,7 @@ import {
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
-import { Bell, Compass, FileText, LayoutDashboard, LogOut, Mail, PanelLeft, Settings2, Sparkles } from "lucide-react";
+import { Bell, Compass, FileText, Inbox, LayoutDashboard, LogOut, Mail, PanelLeft, Settings2, Sparkles } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -117,7 +117,7 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const visibleMenuItems = user?.role === "admin" ? [...menuItems, { icon: Settings2, label: "Manage schemes", path: "/admin/schemes" }] : menuItems;
+  const visibleMenuItems = user?.role === "admin" ? [...menuItems, { icon: Settings2, label: "Manage schemes", path: "/admin/schemes" }, { icon: Inbox, label: "Pilot inbox", path: "/admin/pilot" }] : menuItems;
   const activeMenuItem = visibleMenuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
   const familyInvitations = trpc.documents.historyFilters.notifications.useQuery(undefined, { retry: false, refetchInterval: 60_000 });

@@ -63,6 +63,13 @@ export const schemeCatalog = mysqlTable(
     steps: json("steps").$type<string[]>().notNull(),
     stepsHindi: json("stepsHindi").$type<string[]>().notNull(),
     portalUrl: varchar("portalUrl", { length: 512 }).notNull(),
+    sourceUrl: varchar("sourceUrl", { length: 512 }),
+    verificationStatus: mysqlEnum("verificationStatus", [
+      "officialDirectory",
+      "eligibilityVerified",
+    ])
+      .default("officialDirectory")
+      .notNull(),
     reviewed: varchar("reviewed", { length: 64 }).notNull(),
     accent: mysqlEnum("accent", [
       "saffron",
@@ -176,6 +183,30 @@ export const comparisonExportPresets = mysqlTable(
   ]
 );
 
+/** Admin-created, revocable cohort links for college and NGO pilot outreach. */
+export const pilotCohortInvites = mysqlTable(
+  "pilot_cohort_invites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    cohortName: varchar("cohortName", { length: 120 }).notNull(),
+    cohortType: mysqlEnum("cohortType", ["college", "ngo"]).notNull(),
+    code: varchar("code", { length: 32 }).notNull(),
+    maxUses: int("maxUses").notNull().default(100),
+    usedCount: int("usedCount").notNull().default(0),
+    createdByUserId: int("createdByUserId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expiresAt"),
+    revokedAt: timestamp("revokedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("pilot_cohort_invites_code_unique").on(table.code),
+    index("pilot_cohort_invites_active_idx").on(table.revokedAt, table.expiresAt),
+  ]
+);
+
 /** Minimal, public pilot interview feedback. It intentionally excludes profiles, documents, identity numbers, and user accounts. */
 export const pilotFeedbackSubmissions = mysqlTable(
   "pilot_feedback_submissions",
@@ -200,11 +231,21 @@ export const pilotFeedbackSubmissions = mysqlTable(
     helpfulToday: varchar("helpfulToday", { length: 500 }).notNull(),
     contactEmail: varchar("contactEmail", { length: 320 }),
     contactConsent: boolean("contactConsent").default(false).notNull(),
+    cohortInviteId: int("cohortInviteId").references(() => pilotCohortInvites.id, {
+      onDelete: "set null",
+    }),
+    status: mysqlEnum("status", ["new", "reviewed", "followUp", "archived"])
+      .default("new")
+      .notNull(),
+    adminNote: text("adminNote"),
+    reviewedAt: timestamp("reviewedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [
     index("pilot_feedback_created_idx").on(table.createdAt),
     index("pilot_feedback_stage_idx").on(table.journeyStage),
+    index("pilot_feedback_status_created_idx").on(table.status, table.createdAt),
+    index("pilot_feedback_cohort_idx").on(table.cohortInviteId),
   ]
 );
 

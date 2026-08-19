@@ -13,6 +13,7 @@ import {
   cancelApplicationReminder,
   cancelDocumentReviewDueReminder,
   createApplicationReminder,
+  createPilotCohortInvite,
   createPilotFeedbackSubmission,
   deleteComparisonExportPreset,
   deleteDocumentPdfAnnotation,
@@ -25,6 +26,7 @@ import {
   getDocumentReviewerAlertPreferences,
   getMyDocumentReviewWorkload,
   getOcrPolicy,
+  getPublicPilotCohortInvite,
   getSchemeById,
   getSchemeNote,
   getUserSchemeProfile,
@@ -39,6 +41,8 @@ import {
   listFamilyFilterInvitationNotifications,
   listMyDocumentReviewAssignments,
   listOwnerOverdueDocumentReviews,
+  listPilotCohortInvites,
+  listPilotFeedbackForAdmin,
   listReceivedVerificationHistoryFilterInvites,
   listReceivedVerificationHistoryFilters,
   listSavedSchemeIds,
@@ -54,6 +58,7 @@ import {
   removeSavedVerificationHistoryFilter,
   respondToVerificationHistoryFilterInvite,
   revokeDocumentReviewer,
+  revokePilotCohortInvite,
   revokeVerificationHistoryFilterShare,
   runApplicationDocumentOcr,
   runBatchDocumentOcr,
@@ -75,6 +80,7 @@ import {
   updateApplicationDocumentExpiry,
   updateMyDocumentReviewAssignment,
   updateOcrPolicy,
+  updatePilotFeedbackForAdmin,
   updateSchemeAdmin,
   updateTrackedApplication,
   uploadApplicationDocument,
@@ -127,6 +133,7 @@ const pilotFeedbackInput = z
     helpfulToday: z.string().trim().min(4).max(500),
     contactEmail: z.string().trim().email().max(320).optional(),
     contactConsent: z.boolean(),
+    cohortCode: z.string().trim().min(8).max(32).optional(),
   })
   .refine(input => !input.contactConsent || Boolean(input.contactEmail), {
     message: "Add an email only if you want pilot follow-up.",
@@ -313,6 +320,11 @@ export const appRouter = router({
       }),
   }),
   pilot: router({
+    cohort: publicProcedure
+      .input(z.object({ code: z.string().trim().min(8).max(32) }))
+      .query(async ({ input }) => ({
+        invite: await getPublicPilotCohortInvite(input.code),
+      })),
     submitFeedback: publicProcedure
       .input(pilotFeedbackInput)
       .mutation(async ({ ctx, input }) => {
@@ -1032,6 +1044,65 @@ export const appRouter = router({
         .mutation(async ({ ctx, input }) => ({
           policy: await updateOcrPolicy(ctx.user.id, input.minimumConfidence),
         })),
+    }),
+    pilot: router({
+      feedback: router({
+        list: adminProcedure
+          .input(
+            z
+              .object({
+                status: z
+                  .enum(["new", "reviewed", "followUp", "archived"])
+                  .optional(),
+                cohortInviteId: z.number().int().positive().optional(),
+                query: z.string().trim().max(120).optional(),
+              })
+              .optional()
+          )
+          .query(async ({ input }) => ({
+            feedback: await listPilotFeedbackForAdmin(input),
+          })),
+        update: adminProcedure
+          .input(
+            z.object({
+              feedbackId: z.number().int().positive(),
+              status: z.enum(["new", "reviewed", "followUp", "archived"]),
+              adminNote: z.string().trim().max(1000).nullable().optional(),
+            })
+          )
+          .mutation(async ({ input }) => {
+            await updatePilotFeedbackForAdmin(input.feedbackId, input);
+            return { updated: true };
+          }),
+      }),
+      cohorts: router({
+        list: adminProcedure.query(async () => ({
+          invites: await listPilotCohortInvites(),
+        })),
+        create: adminProcedure
+          .input(
+            z
+              .object({
+                cohortName: z.string().trim().min(2).max(120),
+                cohortType: z.enum(["college", "ngo"]),
+                maxUses: z.number().int().min(1).max(500),
+                expiresAt: z.number().int().positive().nullable().optional(),
+              })
+              .refine(
+                input => !input.expiresAt || input.expiresAt > Date.now() + 60_000,
+                { message: "Choose an invite expiry at least one minute in the future." }
+              )
+          )
+          .mutation(async ({ ctx, input }) => ({
+            invite: await createPilotCohortInvite(ctx.user.id, input),
+          })),
+        revoke: adminProcedure
+          .input(z.object({ inviteId: z.number().int().positive() }))
+          .mutation(async ({ input }) => {
+            await revokePilotCohortInvite(input.inviteId);
+            return { revoked: true };
+          }),
+      }),
     }),
   }),
 });

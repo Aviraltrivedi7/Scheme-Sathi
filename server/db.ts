@@ -1,4 +1,5 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   applicationDocuments,
@@ -17,6 +18,7 @@ import {
   InsertUser,
   comparisonExportPresets,
   ocrPolicySettings,
+  pilotCohortInvites,
   pilotFeedbackSubmissions,
   schemeNotes,
   savedSchemes,
@@ -166,7 +168,38 @@ export type PilotFeedbackSubmissionInput = {
   helpfulToday: string;
   contactEmail?: string;
   contactConsent: boolean;
+  cohortCode?: string;
 };
+
+export type PilotFeedbackStatus = "new" | "reviewed" | "followUp" | "archived";
+export type PilotCohortInviteInput = {
+  cohortName: string;
+  cohortType: "college" | "ngo";
+  maxUses: number;
+  expiresAt?: number | null;
+};
+
+function isActivePilotCohortInvite(invite: typeof pilotCohortInvites.$inferSelect) {
+  return (
+    !invite.revokedAt &&
+    (!invite.expiresAt || invite.expiresAt.getTime() > Date.now()) &&
+    invite.usedCount < invite.maxUses
+  );
+}
+
+export async function getPublicPilotCohortInvite(code: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const invite = (
+    await db
+      .select()
+      .from(pilotCohortInvites)
+      .where(eq(pilotCohortInvites.code, code.trim().toUpperCase()))
+      .limit(1)
+  )[0];
+  if (!invite || !isActivePilotCohortInvite(invite)) return null;
+  return { cohortName: invite.cohortName, cohortType: invite.cohortType };
+}
 
 /** Persists only the structured pilot-interview answers and an explicitly consented contact address. */
 export async function createPilotFeedbackSubmission(
@@ -174,6 +207,19 @@ export async function createPilotFeedbackSubmission(
 ) {
   const db = await getDb();
   if (!db) databaseUnavailable();
+  const normalizedCode = input.cohortCode?.trim().toUpperCase();
+  const cohortInvite = normalizedCode
+    ? (
+        await db
+          .select()
+          .from(pilotCohortInvites)
+          .where(eq(pilotCohortInvites.code, normalizedCode))
+          .limit(1)
+      )[0]
+    : undefined;
+  if (normalizedCode && (!cohortInvite || !isActivePilotCohortInvite(cohortInvite))) {
+    throw new Error("This pilot invite is no longer active. Ask the cohort organiser for a new link.");
+  }
   const created = await db.insert(pilotFeedbackSubmissions).values({
     role: input.role,
     state: input.state.trim(),
@@ -185,8 +231,108 @@ export async function createPilotFeedbackSubmission(
       input.contactConsent && input.contactEmail
         ? input.contactEmail.trim().toLowerCase()
         : null,
+    cohortInviteId: cohortInvite?.id ?? null,
   });
-  return { id: Number(created[0].insertId) };
+  if (cohortInvite) {
+    await db
+      .update(pilotCohortInvites)
+      .set({ usedCount: sql`${pilotCohortInvites.usedCount} + 1` })
+      .where(eq(pilotCohortInvites.id, cohortInvite.id));
+  }
+  return { id: Number(created[0].insertId), cohortName: cohortInvite?.cohortName ?? null };
+}
+
+export async function createPilotCohortInvite(
+  adminUserId: number,
+  input: PilotCohortInviteInput
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const code = randomBytes(7).toString("base64url").toUpperCase();
+  const created = await db.insert(pilotCohortInvites).values({
+    cohortName: input.cohortName.trim(),
+    cohortType: input.cohortType,
+    code,
+    maxUses: input.maxUses,
+    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    createdByUserId: adminUserId,
+  });
+  return { id: Number(created[0].insertId), code };
+}
+
+export async function listPilotCohortInvites() {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db
+    .select()
+    .from(pilotCohortInvites)
+    .orderBy(desc(pilotCohortInvites.createdAt));
+  return rows.map(invite => ({
+    ...invite,
+    expiresAt: invite.expiresAt?.getTime() ?? null,
+    revokedAt: invite.revokedAt?.getTime() ?? null,
+    createdAt: invite.createdAt.getTime(),
+    updatedAt: invite.updatedAt.getTime(),
+    active: isActivePilotCohortInvite(invite),
+  }));
+}
+
+export async function revokePilotCohortInvite(inviteId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db
+    .update(pilotCohortInvites)
+    .set({ revokedAt: new Date() })
+    .where(eq(pilotCohortInvites.id, inviteId));
+}
+
+export async function listPilotFeedbackForAdmin(filters?: {
+  status?: PilotFeedbackStatus;
+  cohortInviteId?: number;
+  query?: string;
+}) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db
+    .select({
+      feedback: pilotFeedbackSubmissions,
+      cohortName: pilotCohortInvites.cohortName,
+      cohortType: pilotCohortInvites.cohortType,
+    })
+    .from(pilotFeedbackSubmissions)
+    .leftJoin(
+      pilotCohortInvites,
+      eq(pilotFeedbackSubmissions.cohortInviteId, pilotCohortInvites.id)
+    )
+    .orderBy(desc(pilotFeedbackSubmissions.createdAt));
+  const query = filters?.query?.trim().toLowerCase();
+  return rows
+    .filter(({ feedback }) => !filters?.status || feedback.status === filters.status)
+    .filter(({ feedback }) => !filters?.cohortInviteId || feedback.cohortInviteId === filters.cohortInviteId)
+    .filter(({ feedback, cohortName }) => !query || `${feedback.state} ${feedback.biggestBlocker} ${feedback.helpfulToday} ${cohortName ?? ""}`.toLowerCase().includes(query))
+    .map(({ feedback, cohortName, cohortType }) => ({
+      ...feedback,
+      cohortName,
+      cohortType,
+      createdAt: feedback.createdAt.getTime(),
+      reviewedAt: feedback.reviewedAt?.getTime() ?? null,
+    }));
+}
+
+export async function updatePilotFeedbackForAdmin(
+  feedbackId: number,
+  input: { status: PilotFeedbackStatus; adminNote?: string | null }
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db
+    .update(pilotFeedbackSubmissions)
+    .set({
+      status: input.status,
+      adminNote: input.adminNote?.trim() || null,
+      reviewedAt: input.status === "new" ? null : new Date(),
+    })
+    .where(eq(pilotFeedbackSubmissions.id, feedbackId));
 }
 
 function mapScheme(row: typeof schemeCatalog.$inferSelect): SchemeCatalogItem {
@@ -206,6 +352,8 @@ function mapScheme(row: typeof schemeCatalog.$inferSelect): SchemeCatalogItem {
     steps: row.steps,
     stepsHindi: row.stepsHindi,
     portalUrl: row.portalUrl,
+    sourceUrl: row.sourceUrl ?? row.portalUrl,
+    verificationStatus: row.verificationStatus,
     reviewed: row.reviewed,
     accent: row.accent,
     artwork: row.artwork,

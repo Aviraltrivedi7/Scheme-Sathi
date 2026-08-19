@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, CheckCircle2, ClipboardPenLine, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, ClipboardPenLine, Loader2, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import "./PilotLanding.css";
 
@@ -25,6 +25,8 @@ const initialForm: PilotForm = {
 };
 
 export default function PilotLanding() {
+  const cohortCode = new URLSearchParams(window.location.search).get("cohort")?.trim() ?? "";
+  const cohort = trpc.pilot.cohort.useQuery({ code: cohortCode }, { enabled: Boolean(cohortCode) });
   const [form, setForm] = useState<PilotForm>(initialForm);
   const feedback = trpc.pilot.submitFeedback.useMutation({
     onSuccess: () => setForm(initialForm),
@@ -37,6 +39,7 @@ export default function PilotLanding() {
     feedback.mutate({
       ...form,
       contactEmail: form.contactConsent ? form.contactEmail : undefined,
+      cohortCode: cohort.data?.invite ? cohortCode : undefined,
     });
   };
 
@@ -55,6 +58,8 @@ export default function PilotLanding() {
             <span><ShieldCheck size={16} /> No profile or documents needed</span>
             <span><ClipboardPenLine size={16} /> About 2 minutes</span>
           </div>
+          {cohort.data?.invite && <div className="pilot-cohort-ribbon"><UsersRound size={15} /> Joining the {cohort.data.invite.cohortName} {cohort.data.invite.cohortType} pilot</div>}
+          {cohortCode && cohort.isSuccess && !cohort.data?.invite && <p className="pilot-invite-warning">This cohort link is no longer active. You can still share public pilot feedback below.</p>}
         </div>
         <div className="pilot-hero-panel">
           <span>01</span>
@@ -88,7 +93,7 @@ export default function PilotLanding() {
               <label><span>What would make Scheme Sathi helpful today?</span><textarea value={form.helpfulToday} maxLength={500} onChange={event => set("helpfulToday", event.target.value)} placeholder="For example: a clear checklist before I open the scholarship portal." required /></label>
               <label className="pilot-consent"><input type="checkbox" checked={form.contactConsent} onChange={event => set("contactConsent", event.target.checked)} /><span>I am happy for Scheme Sathi to contact me once about this pilot.</span></label>
               {form.contactConsent && <label><span>Email for one pilot follow-up</span><input type="email" value={form.contactEmail} maxLength={320} onChange={event => set("contactEmail", event.target.value)} placeholder="you@example.com" required /></label>}
-              <button className="button button-primary pilot-submit" disabled={feedback.isPending}>{feedback.isPending ? <><Loader2 className="spin" size={16} /> Sending…</> : <>Send pilot feedback <ArrowRight size={16} /></>}</button>
+              <button className="button button-primary pilot-submit" disabled={feedback.isPending || cohort.isLoading}>{feedback.isPending ? <><Loader2 className="spin" size={16} /> Sending…</> : cohort.isLoading ? <><Loader2 className="spin" size={16} /> Checking invite…</> : <>Send pilot feedback <ArrowRight size={16} /></>}</button>
               {feedback.error && <p className="pilot-error" role="alert">{feedback.error.message}</p>}
             </form>
           </> : <div className="pilot-success"><CheckCircle2 size={35} /><p className="section-kicker">THANK YOU</p><h2>Your feedback is in.</h2><p>We will use it to prioritise the real scholarship blockers people face. No action is required from you now.</p><Link href="/scholarships" className="button button-secondary">Try the checker <ArrowRight size={16} /></Link></div>}

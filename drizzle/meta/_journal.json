@@ -141,6 +141,13 @@
       "when": 1787156018375,
       "tag": "0019_regular_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1787156985806,
+      "tag": "0020_lumpy_wiccan",
+      "breakpoints": true
     }
   ]
 }

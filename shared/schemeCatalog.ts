@@ -31,6 +31,8 @@ export type SchemeCatalogItem = {
   steps: string[];
   stepsHindi: string[];
   portalUrl: string;
+  sourceUrl?: string | null;
+  verificationStatus?: "officialDirectory" | "eligibilityVerified";
   reviewed: string;
   accent: "saffron" | "emerald" | "coral" | "indigo";
   artwork: string;
@@ -56,6 +58,68 @@ const artwork = {
   health: "/manus-storage/scheme-sathi-health_7a34a071.png",
 };
 
+const nspDirectoryUrl = "https://scholarships.gov.in/All-Scholarships";
+const directoryDocuments = ["Official scheme specification", "Student / institution details if requested", "Portal-requested category, state or disability proof"];
+const directoryDocumentsHindi = ["आधिकारिक योजना विनिर्देश", "मांगे जाने पर छात्र / संस्थान विवरण", "पोर्टल द्वारा मांगा गया वर्ग, राज्य या दिव्यांगता प्रमाण"];
+const directorySteps = ["Open the official NSP scheme directory", "Read the current specification and application status", "Apply only after confirming every official requirement"];
+const directoryStepsHindi = ["आधिकारिक एनएसपी योजना निर्देशिका खोलें", "वर्तमान विनिर्देश और आवेदन स्थिति पढ़ें", "हर आधिकारिक शर्त की पुष्टि के बाद ही आवेदन करें"];
+
+type DirectoryScholarship = Pick<SchemeCatalogItem, "id" | "name" | "nameHindi" | "administeringBody"> & {
+  eligibility?: EligibilityRule;
+};
+
+const officialDirectoryScholarships: SchemeCatalogItem[] = ([
+  { id: "aicte-swanath-degree", name: "AICTE Swanath Scholarship Scheme (Technical Degree)", nameHindi: "एआईसीटीई स्वनाथ छात्रवृत्ति योजना (तकनीकी डिग्री)", administeringBody: "All India Council for Technical Education" },
+  { id: "pmusp-jkl", name: "PM USP Special Scholarship Scheme for Jammu Kashmir and Ladakh", nameHindi: "जम्मू, कश्मीर और लद्दाख के लिए पीएम यूएसपी विशेष छात्रवृत्ति योजना", administeringBody: "All India Council for Technical Education", eligibility: { states: ["Jammu and Kashmir", "Ladakh"] } },
+  { id: "aicte-pragati-degree", name: "AICTE Pragati Scholarship Scheme for Girl Students (Technical Degree)", nameHindi: "एआईसीटीई प्रगति छात्रवृत्ति योजना (छात्राएँ, तकनीकी डिग्री)", administeringBody: "All India Council for Technical Education", eligibility: { genders: ["Female"] } },
+  { id: "aicte-pragati-diploma", name: "AICTE Pragati Scholarship Scheme for Girl Students (Technical Diploma)", nameHindi: "एआईसीटीई प्रगति छात्रवृत्ति योजना (छात्राएँ, तकनीकी डिप्लोमा)", administeringBody: "All India Council for Technical Education", eligibility: { genders: ["Female"] } },
+  { id: "aicte-saksham-diploma", name: "AICTE Saksham Scholarship Scheme for Specially Abled Student (Technical Diploma)", nameHindi: "एआईसीटीई सक्षम छात्रवृत्ति योजना (दिव्यांग छात्र, तकनीकी डिप्लोमा)", administeringBody: "All India Council for Technical Education", eligibility: { requiresDisability: true } },
+  { id: "aicte-saksham-degree", name: "AICTE Saksham Scholarship Scheme for Specially Abled Student (Technical Degree)", nameHindi: "एआईसीटीई सक्षम छात्रवृत्ति योजना (दिव्यांग छात्र, तकनीकी डिग्री)", administeringBody: "All India Council for Technical Education", eligibility: { requiresDisability: true } },
+  { id: "aicte-swanath-diploma", name: "AICTE Swanath Scholarship Scheme (Technical Diploma)", nameHindi: "एआईसीटीई स्वनाथ छात्रवृत्ति योजना (तकनीकी डिप्लोमा)", administeringBody: "All India Council for Technical Education" },
+  { id: "ugc-postgraduate", name: "National Scholarship for Post Graduate Studies", nameHindi: "स्नातकोत्तर अध्ययन के लिए राष्ट्रीय छात्रवृत्ति", administeringBody: "University Grants Commission" },
+  { id: "ugc-ishan-uday", name: "Ishan Uday Special Scholarship Scheme for NER", nameHindi: "पूर्वोत्तर क्षेत्र के लिए ईशान उदय विशेष छात्रवृत्ति योजना", administeringBody: "University Grants Commission", eligibility: { states: ["Arunachal Pradesh", "Assam", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Sikkim", "Tripura"] } },
+  { id: "mha-police-wards", name: "Prime Minister's Scholarship Scheme for Wards of States/UTs Police Personnel Martyred During Terror/Naxal Attacks", nameHindi: "शहीद राज्य/केंद्रशासित प्रदेश पुलिसकर्मियों के आश्रितों के लिए प्रधानमंत्री छात्रवृत्ति योजना", administeringBody: "Ministry of Home Affairs" },
+  { id: "mha-capf-assam-rifles", name: "Prime Minister's Scholarship Scheme for Central Armed Police Forces and Assam Rifles", nameHindi: "केंद्रीय सशस्त्र पुलिस बल और असम राइफल्स के लिए प्रधानमंत्री छात्रवृत्ति योजना", administeringBody: "Ministry of Home Affairs" },
+  { id: "labour-beedi-postmatric", name: "Financial Assistance for Education to the Wards of Beedi/Cine/IOMC/LSDM — Post Matric", nameHindi: "बीड़ी/सिने/आईओएमसी/एलएसडीएम कर्मियों के आश्रितों के लिए शिक्षा सहायता — पोस्ट मैट्रिक", administeringBody: "Ministry of Labour & Employment" },
+  { id: "labour-beedi-prematric", name: "Financial Assistance for Education to the Wards of Beedi/Cine/IOMC/LSDM — Pre Matric", nameHindi: "बीड़ी/सिने/आईओएमसी/एलएसडीएम कर्मियों के आश्रितों के लिए शिक्षा सहायता — प्री मैट्रिक", administeringBody: "Ministry of Labour & Employment" },
+  { id: "yasasvi-school", name: "PM YASASVI Central Sector Scheme of Top Class Education in Schools for OBC, EBC and DNT Students", nameHindi: "ओबीसी, ईबीसी और डीएनटी विद्यार्थियों के लिए पीएम यशस्वी स्कूल शिक्षा छात्रवृत्ति", administeringBody: "Department of Social Justice & Empowerment (Backward Classes)" },
+  { id: "yasasvi-college", name: "PM YASASVI Central Sector Scheme of Top Class Education in College for OBC, EBC and DNT Students", nameHindi: "ओबीसी, ईबीसी और डीएनटी विद्यार्थियों के लिए पीएम यशस्वी कॉलेज शिक्षा छात्रवृत्ति", administeringBody: "Department of Social Justice & Empowerment (Backward Classes)" },
+  { id: "mnre-fellowship", name: "National Renewable Energy Fellowship Scheme", nameHindi: "राष्ट्रीय नवीकरणीय ऊर्जा फेलोशिप योजना", administeringBody: "Ministry of New and Renewable Energy" },
+  { id: "mospi-isi-stipend", name: "Stipend Scheme for Undergraduate and Postgraduate Studies in Indian Statistical Institute, Kolkata", nameHindi: "भारतीय सांख्यिकी संस्थान, कोलकाता में स्नातक और स्नातकोत्तर अध्ययन के लिए स्टाइपेंड योजना", administeringBody: "Ministry of Statistics and Programme Implementation" },
+  { id: "icar-nts-ug", name: "ICAR National Talent Scholarship (NTS-UG)", nameHindi: "आईसीएआर राष्ट्रीय प्रतिभा छात्रवृत्ति (एनटीएस-यूजी)", administeringBody: "Department of Agriculture Research and Education" },
+  { id: "icar-pgs", name: "ICAR Post Graduate Scholarship (PGS)", nameHindi: "आईसीएआर स्नातकोत्तर छात्रवृत्ति (पीजीएस)", administeringBody: "Department of Agriculture Research and Education" },
+  { id: "icar-nts-pg", name: "ICAR National Talent Scholarship (NTS-PG)", nameHindi: "आईसीएआर राष्ट्रीय प्रतिभा छात्रवृत्ति (एनटीएस-पीजी)", administeringBody: "Department of Agriculture Research and Education" },
+  { id: "icar-jrf-srf", name: "ICAR Junior Research Fellowships (JRF) and Senior Research Fellowships (SRF)", nameHindi: "आईसीएआर जूनियर और सीनियर रिसर्च फेलोशिप", administeringBody: "Department of Agriculture Research and Education" },
+  { id: "sc-top-class", name: "Central Sector Scholarship of Top Class Education for SC Students", nameHindi: "एससी विद्यार्थियों के लिए टॉप क्लास शिक्षा केंद्रीय छात्रवृत्ति", administeringBody: "Department of Social Justice & Empowerment" },
+  { id: "sc-obc-coaching", name: "Free Coaching for SCs, OBCs and Beneficiaries of PM CARES Children Scheme", nameHindi: "एससी, ओबीसी और पीएम केयर्स बाल योजना लाभार्थियों के लिए निःशुल्क कोचिंग", administeringBody: "Department of Social Justice & Empowerment" },
+  { id: "disability-prematric", name: "Pre Matric Scholarship for Students with Disabilities", nameHindi: "दिव्यांग विद्यार्थियों के लिए प्री मैट्रिक छात्रवृत्ति", administeringBody: "Department of Empowerment of Persons with Disabilities", eligibility: { requiresDisability: true } },
+  { id: "disability-postmatric", name: "Post Matric Scholarship for Students with Disabilities", nameHindi: "दिव्यांग विद्यार्थियों के लिए पोस्ट मैट्रिक छात्रवृत्ति", administeringBody: "Department of Empowerment of Persons with Disabilities", eligibility: { requiresDisability: true } },
+  { id: "disability-top-class", name: "Scholarship for Top Class Education for Students with Disabilities", nameHindi: "दिव्यांग विद्यार्थियों के लिए टॉप क्लास शिक्षा छात्रवृत्ति", administeringBody: "Department of Empowerment of Persons with Disabilities", eligibility: { requiresDisability: true } },
+  { id: "nmmss", name: "National Means Cum Merit Scholarship", nameHindi: "राष्ट्रीय साधन-सह-योग्यता छात्रवृत्ति", administeringBody: "Department of School Education & Literacy" },
+  { id: "pmusp-csss", name: "PM-USP Central Sector Scheme of Scholarship for College and University Students (CSSS)", nameHindi: "कॉलेज और विश्वविद्यालय विद्यार्थियों के लिए पीएम-यूएसपी केंद्रीय क्षेत्र छात्रवृत्ति योजना", administeringBody: "Department of Higher Education" },
+  { id: "tribal-top-class", name: "National Fellowship and Scholarship for Higher Education of ST Students — Scholarship", nameHindi: "एसटी विद्यार्थियों की उच्च शिक्षा के लिए राष्ट्रीय फेलोशिप और छात्रवृत्ति", administeringBody: "Ministry of Tribal Affairs" },
+  { id: "nec-merit", name: "Financial Support to the Students of NER for Higher Professional Courses (NEC Merit Scholarship)", nameHindi: "उच्च व्यावसायिक पाठ्यक्रमों के लिए एनईआर विद्यार्थियों को वित्तीय सहायता (एनईसी मेरिट छात्रवृत्ति)", administeringBody: "North Eastern Council, DoNER" },
+  { id: "railway-pmss", name: "Prime Minister's Scholarship Scheme for Ministry of Railways", nameHindi: "रेल मंत्रालय के लिए प्रधानमंत्री छात्रवृत्ति योजना", administeringBody: "Ministry of Railways" },
+] satisfies DirectoryScholarship[]).map(item => ({
+  ...item,
+  category: "Education",
+  categoryHindi: "शिक्षा",
+  level: "Central",
+  benefits: "Listed in the official National Scholarship Portal directory. Read the current official specification to confirm benefit amount, course, institution and application terms.",
+  benefitsHindi: "आधिकारिक राष्ट्रीय छात्रवृत्ति पोर्टल निर्देशिका में सूचीबद्ध। लाभ राशि, पाठ्यक्रम, संस्थान और आवेदन शर्तों की पुष्टि के लिए वर्तमान आधिकारिक विनिर्देश पढ़ें।",
+  eligibility: { ageMin: 10, ageMax: 45, casteCategories: "all", occupations: "all", states: "all", requiresStudent: true, ...item.eligibility },
+  documents: directoryDocuments,
+  documentsHindi: directoryDocumentsHindi,
+  steps: directorySteps,
+  stepsHindi: directoryStepsHindi,
+  portalUrl: nspDirectoryUrl,
+  sourceUrl: nspDirectoryUrl,
+  verificationStatus: "officialDirectory",
+  reviewed: "Official NSP directory checked 19 Aug 2026",
+  accent: "indigo",
+  artwork: artwork.education,
+}));
+
 export const schemeCatalog: SchemeCatalogItem[] = [
   { id: "pmjay", name: "Ayushman Bharat PM-JAY", nameHindi: "आयुष्मान भारत प्रधानमंत्री जन आरोग्य योजना", category: "Health", categoryHindi: "स्वास्थ्य", level: "Central", administeringBody: "National Health Authority", benefits: "Cashless health cover up to ₹5 lakh per family per year at empanelled hospitals.", benefitsHindi: "सूचीबद्ध अस्पतालों में प्रति परिवार प्रति वर्ष ₹5 लाख तक का कैशलेस स्वास्थ्य कवर।", eligibility: { ageMin: 0, incomeMax: 300000, casteCategories: "all", occupations: "all", states: "all" }, documents: ["Aadhaar or alternate ID", "Ration card / family ID", "Mobile number"], documentsHindi: ["आधार या वैकल्पिक पहचान पत्र", "राशन कार्ड / परिवार आईडी", "मोबाइल नंबर"], steps: ["Check your name in the beneficiary list", "Visit a CSC or empanelled hospital", "Carry your ID and complete e-KYC"], stepsHindi: ["लाभार्थी सूची में अपना नाम देखें", "सीएससी या सूचीबद्ध अस्पताल जाएँ", "पहचान पत्र लेकर ई-केवाईसी पूरा करें"], portalUrl: "https://pmjay.gov.in/", reviewed: "Reviewed 18 Jun 2026", accent: "emerald", artwork: artwork.health },
   { id: "pmkisan", name: "PM-KISAN Samman Nidhi", nameHindi: "प्रधानमंत्री किसान सम्मान निधि", category: "Agriculture", categoryHindi: "कृषि", level: "Central", administeringBody: "Department of Agriculture & Farmers Welfare", benefits: "Income support of ₹6,000 per year for eligible landholding farmers.", benefitsHindi: "पात्र भूमिधारक किसानों को हर साल ₹6,000 की आय सहायता।", eligibility: { ageMin: 18, casteCategories: "all", occupations: ["Farmer", "Agriculture"], states: "all", requiresFarmer: true }, documents: ["Aadhaar card", "Land ownership record", "Bank account details"], documentsHindi: ["आधार कार्ड", "भूमि स्वामित्व रिकॉर्ड", "बैंक खाते का विवरण"], steps: ["Open the PM-KISAN portal", "Complete farmer registration with land details", "Finish Aadhaar-linked e-KYC"], stepsHindi: ["पीएम-किसान पोर्टल खोलें", "भूमि विवरण के साथ किसान पंजीकरण करें", "आधार से जुड़ी ई-केवाईसी पूरी करें"], portalUrl: "https://pmkisan.gov.in/", reviewed: "Reviewed 12 Jun 2026", accent: "saffron", artwork: artwork.farmer },
@@ -68,4 +132,5 @@ export const schemeCatalog: SchemeCatalogItem[] = [
   { id: "nsap", name: "National Social Assistance Programme", nameHindi: "राष्ट्रीय सामाजिक सहायता कार्यक्रम", category: "Social Security", categoryHindi: "सामाजिक सुरक्षा", level: "Central", administeringBody: "Ministry of Rural Development", benefits: "Social assistance pensions for eligible elderly persons, widows and persons with disabilities.", benefitsHindi: "पात्र बुजुर्गों, विधवाओं और दिव्यांग व्यक्तियों के लिए सामाजिक सहायता पेंशन।", eligibility: { ageMin: 18, incomeMax: 300000, states: "all", requiresDisability: true }, documents: ["Age or disability proof", "Aadhaar or alternate ID", "Bank or post-office account"], documentsHindi: ["आयु या दिव्यांगता प्रमाण", "आधार या वैकल्पिक पहचान पत्र", "बैंक या डाकघर खाता"], steps: ["Contact your Gram Panchayat or municipal office", "Submit the pension application", "Keep acknowledgement for status checks"], stepsHindi: ["ग्राम पंचायत या नगर कार्यालय से संपर्क करें", "पेंशन आवेदन जमा करें", "स्थिति जाँच के लिए पावती रखें"], portalUrl: "https://nsap.nic.in/", reviewed: "Reviewed 03 May 2026", accent: "emerald", artwork: artwork.health },
   { id: "up-kanya", name: "Mukhyamantri Kanya Sumangala", nameHindi: "मुख्यमंत्री कन्या सुमंगला योजना", category: "Women & Family", categoryHindi: "महिला एवं परिवार", level: "State", administeringBody: "Government of Uttar Pradesh", benefits: "Stage-wise financial support for the health, education and development of a girl child in Uttar Pradesh.", benefitsHindi: "उत्तर प्रदेश में बालिका के स्वास्थ्य, शिक्षा और विकास के लिए चरणबद्ध आर्थिक सहायता।", eligibility: { ageMin: 0, ageMax: 25, incomeMax: 300000, genders: ["Female"], states: ["Uttar Pradesh"] }, documents: ["UP residence proof", "Girl child birth certificate", "Family income certificate and bank details"], documentsHindi: ["उत्तर प्रदेश निवास प्रमाण", "बालिका का जन्म प्रमाण पत्र", "परिवार आय प्रमाण और बैंक विवरण"], steps: ["Register on the state portal", "Upload stage-specific documents", "Track approval and instalment status"], stepsHindi: ["राज्य पोर्टल पर पंजीकरण करें", "चरण के अनुसार दस्तावेज अपलोड करें", "स्वीकृति और किस्त की स्थिति ट्रैक करें"], portalUrl: "https://mksy.up.gov.in/", reviewed: "Reviewed 18 Apr 2026", accent: "coral", artwork: artwork.education },
   { id: "maha-ladki", name: "Majhi Ladki Bahin Yojana", nameHindi: "मुख्यमंत्री माझी लाडकी बहिन योजना", category: "Women & Family", categoryHindi: "महिला एवं परिवार", level: "State", administeringBody: "Government of Maharashtra", benefits: "Direct support for eligible women residents of Maharashtra, subject to current state criteria.", benefitsHindi: "वर्तमान राज्य मानदंडों के अधीन महाराष्ट्र की पात्र महिला निवासियों के लिए प्रत्यक्ष सहायता।", eligibility: { ageMin: 21, ageMax: 65, incomeMax: 250000, genders: ["Female"], states: ["Maharashtra"] }, documents: ["Maharashtra residence proof", "Aadhaar-linked mobile", "Bank account and income declaration"], documentsHindi: ["महाराष्ट्र निवास प्रमाण", "आधार से जुड़ा मोबाइल", "बैंक खाता और आय घोषणा"], steps: ["Use the official state application channel", "Complete identity and bank verification", "Check the current notice before applying"], stepsHindi: ["आधिकारिक राज्य आवेदन माध्यम का उपयोग करें", "पहचान और बैंक सत्यापन पूरा करें", "आवेदन से पहले वर्तमान सरकारी सूचना देखें"], portalUrl: "https://ladakibahin.maharashtra.gov.in/", reviewed: "Reviewed 11 Apr 2026", accent: "saffron", artwork: artwork.health },
+  ...officialDirectoryScholarships,
 ];
