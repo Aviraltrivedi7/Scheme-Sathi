@@ -16,6 +16,7 @@ import {
   createPilotCohortInvite,
   createPilotFeedbackSubmission,
   deleteComparisonExportPreset,
+  deletePilotDashboardView,
   deleteDocumentPdfAnnotation,
   deleteDocumentReviewEscalationTemplate,
   deleteSchemeNote,
@@ -45,6 +46,7 @@ import {
   listPilotCohortInvites,
   listPilotCohortConversionStats,
   listPilotCohortMonthlyConversionTrend,
+  listPilotDashboardViews,
   listPilotFeedbackForAdmin,
   listReceivedVerificationHistoryFilterInvites,
   listReceivedVerificationHistoryFilters,
@@ -68,6 +70,7 @@ import {
   runApplicationDocumentOcr,
   runBatchDocumentOcr,
   saveComparisonExportPreset,
+  savePilotDashboardView,
   saveDocumentPdfAnnotation,
   saveDocumentReminderTask,
   saveDocumentReviewerAlertPreferences,
@@ -123,6 +126,16 @@ const scholarshipProfileInput = z.object({
   gender: z.string().trim().min(1).max(32),
   isDisabled: z.boolean(),
 });
+const pilotDashboardViewFiltersInput = z
+  .object({
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")),
+    segment: z.enum(["all", "college", "ngo"]),
+    view: z.enum(["month", "quarter"]),
+  })
+  .refine(input => !input.from || !input.to || input.from <= input.to, {
+    message: "Dashboard view start date must be before the end date.",
+  });
 const pilotFeedbackInput = z
   .object({
     role: z.enum(["student", "parent", "collegeStaff", "ngoStaff", "other"]),
@@ -1163,6 +1176,22 @@ export const appRouter = router({
           .mutation(async ({ input }) => {
             await revokePilotCohortInvite(input.inviteId);
             return { revoked: true };
+          }),
+      }),
+      views: router({
+        list: adminProcedure.query(async ({ ctx }) => ({
+          views: await listPilotDashboardViews(ctx.user.id),
+        })),
+        save: adminProcedure
+          .input(z.object({ name: z.string().trim().min(1).max(60), filters: pilotDashboardViewFiltersInput }))
+          .mutation(async ({ ctx, input }) => ({
+            view: await savePilotDashboardView(ctx.user.id, input.name, input.filters),
+          })),
+        delete: adminProcedure
+          .input(z.object({ viewId: z.number().int().positive() }))
+          .mutation(async ({ ctx, input }) => {
+            await deletePilotDashboardView(ctx.user.id, input.viewId);
+            return { deleted: true };
           }),
       }),
     }),

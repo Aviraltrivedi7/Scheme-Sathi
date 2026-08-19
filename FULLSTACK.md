@@ -380,6 +380,22 @@ Selected date bounds, segment, and trend view now persist in a shareable `/admin
 
 Focused tests validate total-rate math, QoQ percentage-point changes, default/no-prior handling, shareable URL round trips, invalid URL normalization, and client wiring. The full suite now contains **98 tests** across 33 files; TypeScript, production build, and current runtime logs pass. No live user data, personal identifiers in the URL, admin action, report download, publishing, or external operation occurred.
 
+## QoQ Calculation Tooltips, Saved Views, and Read-Only Summaries
+
+The quarterly feedback and signup badges now expose an accessible hover/focus tooltip. It explains that each displayed value equals the current quarterly conversion rate minus the **prior reported quarter's** rate, measured in **percentage points**; it is not a percentage-growth figure. The tooltip appears only when the corresponding QoQ badges exist, preserving the chart's existing no-prior-data behavior.
+
+Migration `0022_young_blazing_skull.sql` adds `pilot_dashboard_views`. A view belongs to one administrator, stores a unique name and a JSON filter payload, cascades on user deletion, and has owner/update indexes. The admin-only `admin.pilot.views` API offers owner-scoped list, save-or-update-by-name, and delete operations. Saved filter payloads are strictly validated as empty/ISO date bounds, all/college/NGO segment, and monthly/quarterly view; inverted ranges are rejected. Each administrator can save up to **20** named views. Loading one updates the active date range, segment, chart period, and existing shareable URL state.
+
+The new **Export summary** action downloads a read-only plain-text snapshot of the current filter scope and aggregate funnel totals. It includes only date range, cohort segment, trend view, aggregate counts/rates, and (when present) the QoQ aggregate change. It deliberately excludes cohort names, invite codes, visitor hashes, account identifiers, contact details, response text, and document/profile data.
+
+| Capability | Scope / behavior | Privacy boundary |
+| --- | --- | --- |
+| QoQ tooltip | Hover or focus on either quarterly rate-change badge | Explains aggregate percentage-point math only. |
+| Saved dashboard view | Admin-owner-private named filters, max 20; same name updates | Stores filters only, never report results or individual data. |
+| Read-only summary export | Browser-local `.txt` file for current selected scope | Contains aggregate metrics only; no cohort names or personal information. |
+
+Applied and verified the new table's user foreign key, owner/name uniqueness, and owner/update index in the development database. Focused coverage validates saved-view ownership, route protection, URL filter validation, tooltip/UI wiring, summary content, and intentional absence of cohort identifiers. The full suite now contains **100 tests** across 33 files; TypeScript, production build, and runtime-log checks passed. No administrator login, saved view, real export, personal data, publishing, or external action occurred.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

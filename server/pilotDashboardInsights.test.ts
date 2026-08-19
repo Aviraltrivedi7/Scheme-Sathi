@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getQuarterOverQuarterChange, summariseFunnelSegment } from "../client/src/lib/pilotDashboardInsights";
 import { createPilotDashboardSearch, parsePilotDashboardFilters } from "../client/src/lib/pilotDashboardView";
+import { createPilotDashboardSummary } from "../client/src/lib/pilotDashboardSummary";
 
 describe("pilot dashboard insights", () => {
   it("recomputes segment totals and rates from aggregate event counts", () => {
@@ -25,5 +26,21 @@ describe("shareable pilot dashboard filters", () => {
     expect(createPilotDashboardSearch(filters)).toBe("?from=2026-01-01&to=2026-06-30&segment=college&view=quarter");
     expect(parsePilotDashboardFilters(createPilotDashboardSearch(filters))).toEqual(filters);
     expect(parsePilotDashboardFilters("?from=2026-06-30&to=2026-01-01&segment=unknown&view=year")).toEqual({ from: "", to: "", segment: "all", view: "month" });
+  });
+});
+
+describe("read-only dashboard summary export", () => {
+  it("includes scoped aggregate metrics and omits cohort or personal identifiers", () => {
+    const summary = createPilotDashboardSummary({
+      filters: { from: "2026-01-01", to: "2026-06-30", segment: "college", view: "quarter" },
+      totals: { linkVisits: 30, feedbackSubmissions: 13, accountSignups: 6, feedbackRate: 43.3, signupRate: 20 },
+      quarterChange: { previousPeriod: "2026-Q1", currentPeriod: "2026-Q2", feedbackPoints: 12.5, signupPoints: -2 },
+    });
+    expect(summary.fileName).toBe("scheme-sathi-dashboard-summary-2026-01-01-to-2026-06-30.txt");
+    expect(summary.contents).toContain("Read-only aggregate view");
+    expect(summary.contents).toContain("College cohorts");
+    expect(summary.contents).toContain("Feedback change: +12.5 percentage points");
+    expect(summary.contents).toContain("Signup change: -2.0 percentage points");
+    expect(summary.contents).not.toContain("Pune College Cell");
   });
 });

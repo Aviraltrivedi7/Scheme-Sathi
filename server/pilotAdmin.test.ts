@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   listPilotCohortInvites: vi.fn(),
   listPilotCohortConversionStats: vi.fn(),
   listPilotCohortMonthlyConversionTrend: vi.fn(),
+  listPilotDashboardViews: vi.fn(),
+  savePilotDashboardView: vi.fn(),
+  deletePilotDashboardView: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -150,6 +153,21 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.cohorts.list()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.conversionStats()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.monthlyTrend()).rejects.toThrow();
+    await expect(caller.admin.pilot.views.list()).rejects.toThrow();
+  });
+
+  it("keeps named dashboard views private to the authenticated administrator", async () => {
+    mocks.listPilotDashboardViews.mockResolvedValue([{ id: 3, name: "College Q2", filters: { from: "2026-04-01", to: "2026-06-30", segment: "college", view: "quarter" } }]);
+    mocks.savePilotDashboardView.mockResolvedValue({ id: 3, name: "College Q2" });
+    const caller = appRouter.createCaller(context("admin"));
+    const filters = { from: "2026-04-01", to: "2026-06-30", segment: "college" as const, view: "quarter" as const };
+    const listed = await caller.admin.pilot.views.list();
+    await caller.admin.pilot.views.save({ name: "College Q2", filters });
+    await caller.admin.pilot.views.delete({ viewId: 3 });
+    expect(listed.views).toHaveLength(1);
+    expect(mocks.listPilotDashboardViews).toHaveBeenCalledWith(9);
+    expect(mocks.savePilotDashboardView).toHaveBeenCalledWith(9, "College Q2", filters);
+    expect(mocks.deletePilotDashboardView).toHaveBeenCalledWith(9, 3);
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {

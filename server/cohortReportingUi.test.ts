@@ -68,5 +68,11 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain("Segment total");
     expect(pilotAdmin).toContain("copyDashboardView");
     expect(pilotAdmin).toContain("createPilotDashboardSearch");
+    expect(pilotAdmin).toContain("TooltipContent");
+    expect(pilotAdmin).toContain("percentage points. It is not percentage growth");
+    expect(pilotAdmin).toContain("trpc.admin.pilot.views.list.useQuery");
+    expect(pilotAdmin).toContain("saveCurrentDashboardView");
+    expect(pilotAdmin).toContain("createPilotDashboardSummary");
+    expect(pilotAdmin).toContain("Export summary");
   });
 });

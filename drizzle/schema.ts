@@ -183,6 +183,38 @@ export const comparisonExportPresets = mysqlTable(
   ]
 );
 
+/** Administrator-private named pilot dashboard filter views for fast return access. */
+export const pilotDashboardViews = mysqlTable(
+  "pilot_dashboard_views",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 60 }).notNull(),
+    filters: json("filters")
+      .$type<{
+        from: string;
+        to: string;
+        segment: "all" | "college" | "ngo";
+        view: "month" | "quarter";
+      }>()
+      .notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("pilot_dashboard_views_user_name_unique").on(
+      table.userId,
+      table.name
+    ),
+    index("pilot_dashboard_views_user_updated_idx").on(
+      table.userId,
+      table.updatedAt
+    ),
+  ]
+);
+
 /** Admin-created, revocable cohort links for college and NGO pilot outreach. */
 export const pilotCohortInvites = mysqlTable(
   "pilot_cohort_invites",

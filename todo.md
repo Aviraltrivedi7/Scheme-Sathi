@@ -395,3 +395,12 @@
 - [x] Build change badges, funnel summary row, and shareable filter controls in the admin dashboard.
 - [x] Test analytics calculations, URL state validation, sharing behavior, and responsive display.
 - [x] Document and checkpoint the development-only dashboard insight upgrade without publishing.
+
+## QoQ explanation, saved dashboard views, and read-only summary export
+
+- [x] Review dashboard insight UI, filter URL state, persistence schema, and export options.
+- [x] Define tooltip copy, private saved-view model, summary export format, limits, and privacy boundaries.
+- [x] Add saved dashboard view persistence, protected APIs, tooltip metadata, and read-only summary export.
+- [x] Build QoQ tooltip, saved-view controls, and selected-dashboard summary export interface.
+- [x] Test tooltip accuracy, saved-view ownership and limits, summary export safety, and responsive journeys.
+- [x] Document and checkpoint the development-only dashboard sharing upgrade without publishing.

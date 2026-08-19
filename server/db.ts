@@ -18,6 +18,7 @@ import {
   InsertUser,
   comparisonExportPresets,
   ocrPolicySettings,
+  pilotDashboardViews,
   pilotCohortInvites,
   pilotCohortSignups,
   pilotCohortVisits,
@@ -739,6 +740,91 @@ export async function deleteComparisonExportPreset(userId: number, presetId: num
       and(
         eq(comparisonExportPresets.id, presetId),
         eq(comparisonExportPresets.userId, userId)
+      )
+    );
+}
+
+export type PilotDashboardViewFilters = {
+  from: string;
+  to: string;
+  segment: "all" | "college" | "ngo";
+  view: "month" | "quarter";
+};
+
+export async function listPilotDashboardViews(userId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db
+    .select()
+    .from(pilotDashboardViews)
+    .where(eq(pilotDashboardViews.userId, userId))
+    .orderBy(desc(pilotDashboardViews.updatedAt));
+  return rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    filters: row.filters,
+    updatedAt: row.updatedAt.getTime(),
+  }));
+}
+
+export async function savePilotDashboardView(
+  userId: number,
+  name: string,
+  filters: PilotDashboardViewFilters
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const normalizedName = name.trim();
+  if (!normalizedName) throw new Error("Give this dashboard view a name.");
+  const existing = await db
+    .select({ id: pilotDashboardViews.id })
+    .from(pilotDashboardViews)
+    .where(eq(pilotDashboardViews.userId, userId));
+  const namedRows = await db
+    .select({ id: pilotDashboardViews.id })
+    .from(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.name, normalizedName)
+      )
+    )
+    .limit(1);
+  if (!namedRows[0] && existing.length >= 20)
+    throw new Error("You can save up to 20 dashboard views.");
+  await db
+    .insert(pilotDashboardViews)
+    .values({ userId, name: normalizedName, filters })
+    .onDuplicateKeyUpdate({ set: { filters, updatedAt: new Date() } });
+  const saved = await db
+    .select()
+    .from(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.name, normalizedName)
+      )
+    )
+    .limit(1);
+  const view = saved[0];
+  if (!view) throw new Error("The dashboard view could not be saved.");
+  return {
+    id: view.id,
+    name: view.name,
+    filters: view.filters,
+    updatedAt: view.updatedAt.getTime(),
+  };
+}
+
+export async function deletePilotDashboardView(userId: number, viewId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db
+    .delete(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.id, viewId),
+        eq(pilotDashboardViews.userId, userId)
       )
     );
 }
