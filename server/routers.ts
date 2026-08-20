@@ -24,6 +24,7 @@ import {
   deleteSchemeNote,
   exportDocumentVerificationHistoryCsv,
   exportDocumentVerificationHistoryPdf,
+  getPilotDashboardArchiveSettings,
   getApplicationDocumentPreview,
   getDocumentReminderSetting,
   getDocumentReviewerAlertPreferences,
@@ -85,6 +86,7 @@ import {
   saveVerificationHistoryFilter,
   setApplicationDocumentReviewState,
   setPilotDashboardFolderColor,
+  setPilotDashboardArchiveSettings,
   setPilotDashboardViewArchived,
   setPilotDashboardViewPinned,
   setDefaultVerificationHistoryFilter,
@@ -152,6 +154,11 @@ const pilotDashboardFolderColorInput = z.enum([
   "indigo",
   "plum",
   "slate",
+]);
+const pilotDashboardArchiveRetentionInput = z.union([
+  z.literal(15),
+  z.literal(30),
+  z.literal(60),
 ]);
 const pilotFeedbackInput = z
   .object({
@@ -1199,6 +1206,14 @@ export const appRouter = router({
         list: adminProcedure.query(async ({ ctx }) => ({
           views: await listPilotDashboardViews(ctx.user.id),
         })),
+        archiveSettings: adminProcedure.query(async ({ ctx }) => ({
+          settings: await getPilotDashboardArchiveSettings(ctx.user.id),
+        })),
+        setArchiveSettings: adminProcedure
+          .input(z.object({ retentionDays: pilotDashboardArchiveRetentionInput }))
+          .mutation(async ({ ctx, input }) => ({
+            settings: await setPilotDashboardArchiveSettings(ctx.user.id, input.retentionDays),
+          })),
         save: adminProcedure
           .input(z.object({ name: z.string().trim().min(1).max(60), filters: pilotDashboardViewFiltersInput, folder: z.string().trim().max(40).nullable().optional(), folderColor: pilotDashboardFolderColorInput.nullable().optional() }))
           .mutation(async ({ ctx, input }) => ({

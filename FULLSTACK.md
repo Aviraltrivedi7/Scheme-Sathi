@@ -508,6 +508,22 @@ The Hindi PDF modal now provides an optional **Show A4 page-break guides** switc
 
 Focused tests now cover administrator-only folder deletion, screen-only page-guide markup and final-print omission, retention/quick-action/page-guide UI wiring, and all preceding archive privacy contracts. The full suite passes **112 tests** across **33 test files**, with a clean TypeScript check, production build, migration application, runtime-log review, and desktop/375px development renders. The visual account remains intentionally empty, so populated folder/retention controls and the open preview modal remain covered by protected route, helper, and UI-contract regression tests. No publishing, real purge, real folder-label mutation, external logo fetch, PDF save, cohort action, or personal data action was performed.
 
+## Configurable Archive Retention, Archived Backup, and PDF Alignment Presets
+
+Migration `0027_pale_king_cobra.sql` creates the owner-private `pilot_dashboard_archive_settings` table with a unique user foreign key and a 30-day default. The administrator-only `archiveSettings` and `setArchiveSettings` routes accept only **15**, **30**, or **60** days. The saved-view list now reads that owner setting before applying its timestamped archive cleanup, and the Archived workspace recalculates its local countdown from the same returned preference. New accounts continue to default safely to 30 days until they choose otherwise.
+
+The Archived workspace now offers **Backup archived views**, a browser-local JSON download. Its pure builder includes only the current list’s archived view IDs, names, non-sensitive filters, private folder/color labels, and archive/update timestamps. It excludes account IDs, emails, visitor hashes, invite data, cohort names, feedback, documents, and active saved views. It does not upload a file, invoke third parties, or create a server-side copy; the administrator controls the downloaded local backup.
+
+The Hindi PDF customization panel now provides independent header and footer alignment presets: Left, Center, and Right. The values are constrained in client state and passed into the shared safe HTML builder used by both the live preview and final browser print. Header alignment is applied within the header copy column alongside the selected brand/logo; footer alignment applies to the custom footer content while the report date remains in its dedicated date column. Alignment changes only layout—never report scope or data.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Archive retention setting | Choose 15, 30, or 60 days in **Archive retention**. | Stored per administrator; only timestamped archived views are eligible for cleanup during that owner’s list load. |
+| Archived backup | Use **Backup archived views** before expiry. | Browser-local JSON contains only archived private view configuration; no account, cohort, feedback, or document data. |
+| PDF alignment | Choose header and footer Left, Center, or Right before Preview PDF / Hindi PDF. | Fixed layout values are shared by preview and print; no aggregate metrics or personal data change. |
+
+Focused tests now cover administrator-only retention settings, allowed-value forwarding, archived backup privacy/content, header/footer alignment HTML, and UI wiring. The full suite passes **114 tests** across **34 test files**, together with a clean TypeScript check, production build, migration application, runtime-log review, and desktop/375px development renders. The empty visual account means applied retention changes, populated archive backup, and open preview-alignment behavior remain covered by protected route, helper, and UI-contract tests. No publishing, real setting mutation, real archive purge, backup download, PDF save, external logo fetch, cohort action, or personal data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

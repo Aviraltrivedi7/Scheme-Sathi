@@ -468,3 +468,12 @@
 - [x] Add page-break guides to the adjustable live Hindi PDF preview without affecting final PDF content.
 - [x] Test retention lifecycle, folder action ownership, page-marker rendering, and responsive controls.
 - [x] Document and checkpoint the development-only saved-view lifecycle and PDF preview upgrade without publishing.
+
+## Archive retention settings, backup export, and PDF alignment presets
+
+- [x] Review private archive settings, archived-view backup boundaries, and shared Hindi PDF layout extension points.
+- [x] Add owner-private retention preference persistence, protected settings APIs, and retention-aware archive cleanup.
+- [x] Add browser-local archived-view backup export with safe CSV/JSON escaping and no cross-owner data.
+- [x] Build retention settings, archived export action, and header/footer left-center-right alignment controls.
+- [x] Test retention ownership and cleanup thresholds, archive backup content, alignment HTML, and responsive controls.
+- [x] Document and checkpoint the development-only archive control and print layout enhancement without publishing.

@@ -18,6 +18,7 @@ import {
   InsertUser,
   comparisonExportPresets,
   ocrPolicySettings,
+  pilotDashboardArchiveSettings,
   pilotDashboardViews,
   pilotCohortInvites,
   pilotCohortSignups,
@@ -754,6 +755,15 @@ export type PilotDashboardViewFilters = {
 export const pilotDashboardFolderColors = ["saffron", "marigold", "teal", "indigo", "plum", "slate"] as const;
 export type PilotDashboardFolderColor = (typeof pilotDashboardFolderColors)[number];
 export const pilotDashboardArchiveRetentionDays = 30;
+export const pilotDashboardArchiveRetentionOptions = [15, 30, 60] as const;
+export type PilotDashboardArchiveRetentionDays = (typeof pilotDashboardArchiveRetentionOptions)[number];
+
+function normalizePilotDashboardArchiveRetentionDays(value: number): PilotDashboardArchiveRetentionDays {
+  if (!pilotDashboardArchiveRetentionOptions.includes(value as PilotDashboardArchiveRetentionDays)) {
+    throw new Error("Choose a 15, 30, or 60 day archive retention period.");
+  }
+  return value as PilotDashboardArchiveRetentionDays;
+}
 
 function normalizePilotDashboardFolderColor(value?: string | null) {
   if (!value) return null;
@@ -763,10 +773,33 @@ function normalizePilotDashboardFolderColor(value?: string | null) {
   return value as PilotDashboardFolderColor;
 }
 
+export async function getPilotDashboardArchiveSettings(userId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const rows = await db
+    .select({ retentionDays: pilotDashboardArchiveSettings.retentionDays })
+    .from(pilotDashboardArchiveSettings)
+    .where(eq(pilotDashboardArchiveSettings.userId, userId))
+    .limit(1);
+  return { retentionDays: rows[0]?.retentionDays ?? pilotDashboardArchiveRetentionDays };
+}
+
+export async function setPilotDashboardArchiveSettings(userId: number, retentionDays: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const normalizedRetentionDays = normalizePilotDashboardArchiveRetentionDays(retentionDays);
+  await db
+    .insert(pilotDashboardArchiveSettings)
+    .values({ userId, retentionDays: normalizedRetentionDays })
+    .onDuplicateKeyUpdate({ set: { retentionDays: normalizedRetentionDays, updatedAt: new Date() } });
+  return { retentionDays: normalizedRetentionDays };
+}
+
 export async function listPilotDashboardViews(userId: number) {
   const db = await getDb();
   if (!db) databaseUnavailable();
-  const retentionCutoff = new Date(Date.now() - pilotDashboardArchiveRetentionDays * 24 * 60 * 60 * 1000);
+  const { retentionDays } = await getPilotDashboardArchiveSettings(userId);
+  const retentionCutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
   await db
     .delete(pilotDashboardViews)
     .where(

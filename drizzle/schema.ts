@@ -233,6 +233,23 @@ export const pilotDashboardViews = mysqlTable(
   ]
 );
 
+/** Administrator-private archive purge preference for saved dashboard views. */
+export const pilotDashboardArchiveSettings = mysqlTable(
+  "pilot_dashboard_archive_settings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    retentionDays: int("retentionDays").notNull().default(30),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("pilot_dashboard_archive_settings_user_unique").on(table.userId),
+  ]
+);
+
 /** Admin-created, revocable cohort links for college and NGO pilot outreach. */
 export const pilotCohortInvites = mysqlTable(
   "pilot_cohort_invites",

@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   listPilotCohortConversionStats: vi.fn(),
   listPilotCohortMonthlyConversionTrend: vi.fn(),
   listPilotDashboardViews: vi.fn(),
+  getPilotDashboardArchiveSettings: vi.fn(),
+  setPilotDashboardArchiveSettings: vi.fn(),
   savePilotDashboardView: vi.fn(),
   deletePilotDashboardView: vi.fn(),
   deletePilotDashboardViewFolder: vi.fn(),
@@ -170,6 +172,8 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.views.setFolderColor({ folder: "Review", folderColor: "teal" })).rejects.toThrow();
     await expect(caller.admin.pilot.views.restoreArchived({ viewIds: [3, 8] })).rejects.toThrow();
     await expect(caller.admin.pilot.views.deleteFolder({ folder: "Review" })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.archiveSettings()).rejects.toThrow();
+    await expect(caller.admin.pilot.views.setArchiveSettings({ retentionDays: 15 })).rejects.toThrow();
   });
 
   it("keeps named dashboard views private to the authenticated administrator", async () => {
@@ -184,6 +188,18 @@ describe("admin pilot inbox and cohort invites", () => {
     expect(mocks.listPilotDashboardViews).toHaveBeenCalledWith(9);
     expect(mocks.savePilotDashboardView).toHaveBeenCalledWith(9, "College Q2", filters, "Quarterly reviews", "teal");
     expect(mocks.deletePilotDashboardView).toHaveBeenCalledWith(9, 3);
+  });
+
+  it("reads and updates only the current administrator's archive retention preference", async () => {
+    mocks.getPilotDashboardArchiveSettings.mockResolvedValue({ retentionDays: 30 });
+    mocks.setPilotDashboardArchiveSettings.mockResolvedValue({ retentionDays: 60 });
+    const caller = appRouter.createCaller(context("admin"));
+    const current = await caller.admin.pilot.views.archiveSettings();
+    const updated = await caller.admin.pilot.views.setArchiveSettings({ retentionDays: 60 });
+    expect(current.settings).toEqual({ retentionDays: 30 });
+    expect(updated.settings).toEqual({ retentionDays: 60 });
+    expect(mocks.getPilotDashboardArchiveSettings).toHaveBeenCalledWith(9);
+    expect(mocks.setPilotDashboardArchiveSettings).toHaveBeenCalledWith(9, 60);
   });
 
   it("pins a named dashboard view only for the authenticated administrator", async () => {
