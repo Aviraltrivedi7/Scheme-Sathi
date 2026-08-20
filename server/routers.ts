@@ -67,6 +67,7 @@ import {
   revokeVerificationHistoryFilterShare,
   recordPilotCohortSignup,
   recordPilotCohortVisit,
+  reorderPinnedPilotDashboardViews,
   runApplicationDocumentOcr,
   runBatchDocumentOcr,
   saveComparisonExportPreset,
@@ -1184,15 +1185,21 @@ export const appRouter = router({
           views: await listPilotDashboardViews(ctx.user.id),
         })),
         save: adminProcedure
-          .input(z.object({ name: z.string().trim().min(1).max(60), filters: pilotDashboardViewFiltersInput }))
+          .input(z.object({ name: z.string().trim().min(1).max(60), filters: pilotDashboardViewFiltersInput, folder: z.string().trim().max(40).nullable().optional() }))
           .mutation(async ({ ctx, input }) => ({
-            view: await savePilotDashboardView(ctx.user.id, input.name, input.filters),
+            view: await savePilotDashboardView(ctx.user.id, input.name, input.filters, input.folder),
           })),
         setPinned: adminProcedure
           .input(z.object({ viewId: z.number().int().positive(), isPinned: z.boolean() }))
           .mutation(async ({ ctx, input }) => {
             await setPilotDashboardViewPinned(ctx.user.id, input.viewId, input.isPinned);
             return { updated: true };
+          }),
+        reorderPinned: adminProcedure
+          .input(z.object({ viewIds: z.array(z.number().int().positive()).max(20) }))
+          .mutation(async ({ ctx, input }) => {
+            await reorderPinnedPilotDashboardViews(ctx.user.id, input.viewIds);
+            return { reordered: true };
           }),
         delete: adminProcedure
           .input(z.object({ viewId: z.number().int().positive() }))

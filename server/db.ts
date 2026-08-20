@@ -758,12 +758,18 @@ export async function listPilotDashboardViews(userId: number) {
     .select()
     .from(pilotDashboardViews)
     .where(eq(pilotDashboardViews.userId, userId))
-    .orderBy(desc(pilotDashboardViews.isPinned), desc(pilotDashboardViews.updatedAt));
+    .orderBy(
+      desc(pilotDashboardViews.isPinned),
+      sql`coalesce(${pilotDashboardViews.pinnedRank}, 2147483647) asc`,
+      desc(pilotDashboardViews.updatedAt)
+    );
   return rows.map(row => ({
     id: row.id,
     name: row.name,
     filters: row.filters,
     isPinned: row.isPinned,
+    pinnedRank: row.pinnedRank,
+    folder: row.folder,
     updatedAt: row.updatedAt.getTime(),
   }));
 }
@@ -771,11 +777,13 @@ export async function listPilotDashboardViews(userId: number) {
 export async function savePilotDashboardView(
   userId: number,
   name: string,
-  filters: PilotDashboardViewFilters
+  filters: PilotDashboardViewFilters,
+  folder?: string | null
 ) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   const normalizedName = name.trim();
+  const normalizedFolder = folder?.trim() || null;
   if (!normalizedName) throw new Error("Give this dashboard view a name.");
   const existing = await db
     .select({ id: pilotDashboardViews.id })
@@ -795,8 +803,8 @@ export async function savePilotDashboardView(
     throw new Error("You can save up to 20 dashboard views.");
   await db
     .insert(pilotDashboardViews)
-    .values({ userId, name: normalizedName, filters })
-    .onDuplicateKeyUpdate({ set: { filters, updatedAt: new Date() } });
+    .values({ userId, name: normalizedName, filters, folder: normalizedFolder })
+    .onDuplicateKeyUpdate({ set: { filters, folder: normalizedFolder, updatedAt: new Date() } });
   const saved = await db
     .select()
     .from(pilotDashboardViews)
@@ -814,6 +822,8 @@ export async function savePilotDashboardView(
     name: view.name,
     filters: view.filters,
     isPinned: view.isPinned,
+    pinnedRank: view.pinnedRank,
+    folder: view.folder,
     updatedAt: view.updatedAt.getTime(),
   };
 }
@@ -825,15 +835,74 @@ export async function setPilotDashboardViewPinned(
 ) {
   const db = await getDb();
   if (!db) databaseUnavailable();
+  const current = await db
+    .select({ isPinned: pilotDashboardViews.isPinned })
+    .from(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.id, viewId),
+        eq(pilotDashboardViews.userId, userId)
+      )
+    )
+    .limit(1);
+  if (!current[0] || current[0].isPinned === isPinned) return;
+  const rankRows = isPinned
+    ? await db
+        .select({ maxRank: sql<number | null>`max(${pilotDashboardViews.pinnedRank})` })
+        .from(pilotDashboardViews)
+        .where(
+          and(
+            eq(pilotDashboardViews.userId, userId),
+            eq(pilotDashboardViews.isPinned, true)
+          )
+        )
+    : [];
+  const nextRank = Number(rankRows[0]?.maxRank ?? -1) + 1;
   await db
     .update(pilotDashboardViews)
-    .set({ isPinned, updatedAt: new Date() })
+    .set({ isPinned, pinnedRank: isPinned ? nextRank : null, updatedAt: new Date() })
     .where(
       and(
         eq(pilotDashboardViews.id, viewId),
         eq(pilotDashboardViews.userId, userId)
       )
     );
+}
+
+export async function reorderPinnedPilotDashboardViews(userId: number, viewIds: number[]) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const pinned = await db
+    .select({ id: pilotDashboardViews.id })
+    .from(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.isPinned, true)
+      )
+    );
+  const pinnedIds = pinned.map(view => view.id);
+  const requested = new Set(viewIds);
+  if (
+    viewIds.length !== pinnedIds.length ||
+    requested.size !== viewIds.length ||
+    pinnedIds.some(id => !requested.has(id))
+  ) {
+    throw new Error("Pinned view order must include every one of your pinned views exactly once.");
+  }
+  for (let pinnedRank = 0; pinnedRank < viewIds.length; pinnedRank += 1) {
+    const viewId = viewIds[pinnedRank];
+    await db
+      .update(pilotDashboardViews)
+      .set({ pinnedRank, updatedAt: new Date() })
+      .where(
+        and(
+          eq(pilotDashboardViews.id, viewId),
+          eq(pilotDashboardViews.userId, userId),
+          eq(pilotDashboardViews.isPinned, true)
+        )
+      );
+  }
 }
 
 export async function deletePilotDashboardView(userId: number, viewId: number) {

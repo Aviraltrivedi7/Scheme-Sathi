@@ -30,12 +30,14 @@ function pointLabel(value: number, language: PilotDashboardSummaryLanguage) {
 }
 
 /** Builds a read-only, aggregate-only text summary; it never includes cohort names or personal data. */
-export function createPilotDashboardSummary(input: {
+export type PilotDashboardSummaryInput = {
   filters: PilotDashboardFilters;
   totals: PilotDashboardSummaryTotals;
   quarterChange: PilotDashboardQuarterChange;
   language?: PilotDashboardSummaryLanguage;
-}) {
+};
+
+export function createPilotDashboardSummary(input: PilotDashboardSummaryInput) {
   const language = input.language ?? "en";
   const hindi = language === "hi";
   const segment = input.filters.segment === "all" ? (hindi ? "सभी समूह" : "All cohorts") : input.filters.segment === "college" ? (hindi ? "कॉलेज समूह" : "College cohorts") : (hindi ? "एनजीओ समूह" : "NGO cohorts");
@@ -66,4 +68,28 @@ export function createPilotDashboardSummary(input: {
     contents: `${lines.join("\n")}\n`,
     fileName: `scheme-sathi-dashboard-summary-${language}-${input.filters.from || "all-time"}-to-${input.filters.to || "today"}.txt`,
   };
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+/** Opens the browser print dialog so the administrator can save the Hindi aggregate-only summary as a PDF. */
+export function openHindiPilotDashboardSummaryPdf(
+  input: Omit<PilotDashboardSummaryInput, "language">
+) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return false;
+  const summary = createPilotDashboardSummary({ ...input, language: "hi" });
+  const heading = "Scheme Sathi — पायलट डैशबोर्ड सारांश";
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html><html lang="hi-IN"><head><meta charset="utf-8"><title>${escapeHtml(heading)}</title><style>@page { size: A4; margin: 18mm; } body { color: #18233d; font: 13px "Noto Sans Devanagari", "Nirmala UI", Mangal, Arial, sans-serif; line-height: 1.7; } h1 { font: 700 23px Georgia, "Noto Serif Devanagari", serif; margin: 0 0 8px; } p { color: #596171; margin: 0 0 20px; } pre { white-space: pre-wrap; overflow-wrap: anywhere; border-top: 2px solid #d88728; padding-top: 16px; margin: 0; font: inherit; } footer { border-top: 1px solid #ded6c8; color: #687080; font-size: 10px; margin-top: 20px; padding-top: 9px; }</style></head><body><h1>${escapeHtml(heading)}</h1><p>केवल-पढ़ने योग्य समेकित दृश्य · Scheme Sathi</p><pre>${escapeHtml(summary.contents)}</pre><footer>Scheme Sathi · ${escapeHtml(new Date().toLocaleString("hi-IN"))}</footer></body></html>`);
+  printWindow.document.close();
+  window.setTimeout(() => printWindow.print(), 240);
+  return true;
 }

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   savePilotDashboardView: vi.fn(),
   deletePilotDashboardView: vi.fn(),
   setPilotDashboardViewPinned: vi.fn(),
+  reorderPinnedPilotDashboardViews: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -159,15 +160,15 @@ describe("admin pilot inbox and cohort invites", () => {
 
   it("keeps named dashboard views private to the authenticated administrator", async () => {
     mocks.listPilotDashboardViews.mockResolvedValue([{ id: 3, name: "College Q2", filters: { from: "2026-04-01", to: "2026-06-30", segment: "college", view: "quarter" } }]);
-    mocks.savePilotDashboardView.mockResolvedValue({ id: 3, name: "College Q2" });
+    mocks.savePilotDashboardView.mockResolvedValue({ id: 3, name: "College Q2", folder: "Quarterly reviews" });
     const caller = appRouter.createCaller(context("admin"));
     const filters = { from: "2026-04-01", to: "2026-06-30", segment: "college" as const, view: "quarter" as const };
     const listed = await caller.admin.pilot.views.list();
-    await caller.admin.pilot.views.save({ name: "College Q2", filters });
+    await caller.admin.pilot.views.save({ name: "College Q2", filters, folder: "Quarterly reviews" });
     await caller.admin.pilot.views.delete({ viewId: 3 });
     expect(listed.views).toHaveLength(1);
     expect(mocks.listPilotDashboardViews).toHaveBeenCalledWith(9);
-    expect(mocks.savePilotDashboardView).toHaveBeenCalledWith(9, "College Q2", filters);
+    expect(mocks.savePilotDashboardView).toHaveBeenCalledWith(9, "College Q2", filters, "Quarterly reviews");
     expect(mocks.deletePilotDashboardView).toHaveBeenCalledWith(9, 3);
   });
 
@@ -175,6 +176,24 @@ describe("admin pilot inbox and cohort invites", () => {
     const caller = appRouter.createCaller(context("admin"));
     await caller.admin.pilot.views.setPinned({ viewId: 3, isPinned: true });
     expect(mocks.setPilotDashboardViewPinned).toHaveBeenCalledWith(9, 3, true);
+  });
+
+  it("reorders only the authenticated administrator's complete pinned-view sequence", async () => {
+    const caller = appRouter.createCaller(context("admin"));
+    await caller.admin.pilot.views.reorderPinned({ viewIds: [11, 4, 8] });
+    expect(mocks.reorderPinnedPilotDashboardViews).toHaveBeenCalledWith(9, [11, 4, 8]);
+  });
+
+  it("surfaces pinned-order validation and keeps the reorder route administrator-only", async () => {
+    const admin = appRouter.createCaller(context("admin"));
+    const user = appRouter.createCaller(context("user"));
+    mocks.reorderPinnedPilotDashboardViews.mockRejectedValueOnce(
+      new Error("Pinned view order must include every one of your pinned views exactly once.")
+    );
+    await expect(admin.admin.pilot.views.reorderPinned({ viewIds: [3, 3] })).rejects.toThrow(
+      "Pinned view order must include every one of your pinned views exactly once."
+    );
+    await expect(user.admin.pilot.views.reorderPinned({ viewIds: [3] })).rejects.toThrow();
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {

@@ -3,13 +3,13 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { downloadTextFile } from "@/lib/schemeExports";
 import { createCohortConversionReportCsv } from "@/lib/pilotCohortReports";
 import { getQuarterOverQuarterChange, summariseFunnelSegment } from "@/lib/pilotDashboardInsights";
-import { createPilotDashboardSummary } from "@/lib/pilotDashboardSummary";
+import { createPilotDashboardSummary, openHindiPilotDashboardSummaryPdf } from "@/lib/pilotDashboardSummary";
 import { createPilotDashboardSearch, parsePilotDashboardFilters } from "@/lib/pilotDashboardView";
 import { trpc } from "@/lib/trpc";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useEffect, useMemo, useState } from "react";
+import { type DragEvent, useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
-import { BarChart3, CalendarRange, CheckCircle2, Copy, Download, Inbox, Link2, Loader2, Pin, Plus, RotateCcw, Search, ShieldCheck, UsersRound, XCircle } from "lucide-react";
+import { BarChart3, CalendarRange, CheckCircle2, Copy, Download, GripVertical, Inbox, Link2, Loader2, Pin, Plus, RotateCcw, Search, ShieldCheck, UsersRound, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import "./PilotAdmin.css";
 
@@ -59,6 +59,9 @@ export default function PilotAdmin() {
   const [dashboardViewName, setDashboardViewName] = useState("");
   const [selectedDashboardViewId, setSelectedDashboardViewId] = useState<number | null>(null);
   const [savedViewSearch, setSavedViewSearch] = useState("");
+  const [folderDraft, setFolderDraft] = useState("");
+  const [folderFilter, setFolderFilter] = useState("");
+  const [draggedViewId, setDraggedViewId] = useState<number | null>(null);
   const [summaryLanguage, setSummaryLanguage] = useState<"en" | "hi">("en");
   const feedbackInput = useMemo(
     () => ({ status: status === "all" ? undefined : status, query: query.trim() || undefined }),
@@ -121,6 +124,7 @@ export default function PilotAdmin() {
     onSuccess: async ({ view }) => {
       setSelectedDashboardViewId(view.id);
       setDashboardViewName(view.name);
+      setFolderDraft(view.folder ?? "");
       await utils.admin.pilot.views.list.invalidate();
       toast.success("Dashboard view saved.");
     },
@@ -130,6 +134,7 @@ export default function PilotAdmin() {
     onSuccess: async () => {
       setSelectedDashboardViewId(null);
       setDashboardViewName("");
+      setFolderDraft("");
       await utils.admin.pilot.views.list.invalidate();
       toast.success("Saved dashboard view removed.");
     },
@@ -143,6 +148,13 @@ export default function PilotAdmin() {
     onError: error => toast.error(error.message),
   });
 
+  const reorderPinnedViews = trpc.admin.pilot.views.reorderPinned.useMutation({
+    onSuccess: async () => {
+      await utils.admin.pilot.views.list.invalidate();
+      toast.success("Pinned view order updated.");
+    },
+    onError: error => toast.error(error.message),
+  });
   const copyInvite = async (code: string) => {
     const url = `${window.location.origin}/pilot?cohort=${encodeURIComponent(code)}`;
     try {
@@ -163,10 +175,19 @@ export default function PilotAdmin() {
   const quarterChange = trendPeriod === "quarter" ? getQuarterOverQuarterChange(monthlyTrend) : null;
   const savedViews = savedViewsQuery.data?.views ?? [];
   const selectedDashboardView = savedViews.find(item => item.id === selectedDashboardViewId) ?? null;
+  const allFolders = useMemo(
+    () => Array.from(new Set(savedViews.map(view => view.folder).filter((folder): folder is string => Boolean(folder)))).sort((left, right) => left.localeCompare(right)),
+    [savedViews]
+  );
+  const pinnedViews = useMemo(() => savedViews.filter(view => view.isPinned), [savedViews]);
   const visibleSavedViews = useMemo(() => {
     const normalizedSearch = savedViewSearch.trim().toLocaleLowerCase();
-    return normalizedSearch ? savedViews.filter(view => view.name.toLocaleLowerCase().includes(normalizedSearch)) : savedViews;
-  }, [savedViewSearch, savedViews]);
+    return savedViews.filter(view => {
+      const searchMatches = !normalizedSearch || view.name.toLocaleLowerCase().includes(normalizedSearch);
+      const folderMatches = !folderFilter || view.folder === folderFilter;
+      return searchMatches && folderMatches;
+    });
+  }, [folderFilter, savedViewSearch, savedViews]);
   const exportCohortReport = () => {
     if (!conversions.length) {
       toast.error("There is no cohort data in this date range to export.");
@@ -195,10 +216,20 @@ export default function PilotAdmin() {
     downloadTextFile(summary.contents, summary.fileName, "text/plain;charset=utf-8");
     toast.success(`${summaryLanguage === "hi" ? "Hindi" : "English"} read-only dashboard summary downloaded.`);
   };
+  const exportHindiDashboardSummaryPdf = () => {
+    const opened = openHindiPilotDashboardSummaryPdf({
+      filters: { from: reportStartDate, to: reportEndDate, segment: trendCohortType, view: trendPeriod },
+      totals: funnelSummary,
+      quarterChange,
+    });
+    if (opened) toast.success("Hindi dashboard summary is ready in the print dialog. Choose Save as PDF.");
+    else toast.error("The PDF print window was blocked. Allow pop-ups and try again.");
+  };
   const saveCurrentDashboardView = () => {
     saveDashboardView.mutate({
       name: dashboardViewName,
       filters: { from: reportStartDate, to: reportEndDate, segment: trendCohortType, view: trendPeriod },
+      folder: folderDraft.trim() || null,
     });
   };
   const loadDashboardView = (viewId: number) => {
@@ -206,10 +237,29 @@ export default function PilotAdmin() {
     if (!view) return;
     setSelectedDashboardViewId(view.id);
     setDashboardViewName(view.name);
+    setFolderDraft(view.folder ?? "");
     setReportStartDate(view.filters.from);
     setReportEndDate(view.filters.to);
     setTrendCohortType(view.filters.segment);
     setTrendPeriod(view.filters.view);
+  };
+  const handlePinnedViewDragStart = (event: DragEvent<HTMLLIElement>, viewId: number) => {
+    setDraggedViewId(viewId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(viewId));
+  };
+  const handlePinnedViewDrop = (event: DragEvent<HTMLLIElement>, targetViewId: number) => {
+    event.preventDefault();
+    const sourceViewId = draggedViewId ?? Number(event.dataTransfer.getData("text/plain"));
+    setDraggedViewId(null);
+    if (!sourceViewId || sourceViewId === targetViewId || reorderPinnedViews.isPending) return;
+    const fromIndex = pinnedViews.findIndex(view => view.id === sourceViewId);
+    const toIndex = pinnedViews.findIndex(view => view.id === targetViewId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const nextOrder = [...pinnedViews];
+    const [moved] = nextOrder.splice(fromIndex, 1);
+    nextOrder.splice(toIndex, 0, moved);
+    reorderPinnedViews.mutate({ viewIds: nextOrder.map(view => view.id) });
   };
 
   if (user?.role !== "admin") {
@@ -242,9 +292,24 @@ export default function PilotAdmin() {
         </section>
 
         <section className="pilot-conversion-card" aria-label="Cohort conversion funnel">
-          <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>{trendScopeLabel}. Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div><div className="pilot-report-actions"><button type="button" className="pilot-export-report" onClick={copyDashboardView}><Copy size={15} /> Share view</button><label className="pilot-summary-language">Summary language<select value={summaryLanguage} onChange={event => setSummaryLanguage(event.target.value as "en" | "hi")}><option value="en">English</option><option value="hi">हिन्दी</option></select></label><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportDashboardSummary}><Download size={15} /> Export summary</button><button type="button" className="pilot-export-report" disabled={!conversions.length || reportRangeInvalid || conversionQuery.isLoading || monthlyTrendQuery.isLoading} onClick={exportCohortReport}><Download size={15} /> Export CSV report</button></div></div>
+          <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>{trendScopeLabel}. Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div><div className="pilot-report-actions"><button type="button" className="pilot-export-report" onClick={copyDashboardView}><Copy size={15} /> Share view</button><label className="pilot-summary-language">Summary language<select value={summaryLanguage} onChange={event => setSummaryLanguage(event.target.value as "en" | "hi")}><option value="en">English</option><option value="hi">हिन्दी</option></select></label><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportDashboardSummary}><Download size={15} /> Export summary</button><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportHindiDashboardSummaryPdf}><Download size={15} /> Hindi PDF</button><button type="button" className="pilot-export-report" disabled={!conversions.length || reportRangeInvalid || conversionQuery.isLoading || monthlyTrendQuery.isLoading} onClick={exportCohortReport}><Download size={15} /> Export CSV report</button></div></div>
           <div className="pilot-report-controls" aria-label="Cohort report date range"><div className="pilot-report-title"><CalendarRange size={17} /><span><strong>Report date range</strong><small>Only funnel events created inside this range are included.</small></span></div><label>From<input type="date" value={reportStartDate} onChange={event => setReportStartDate(event.target.value)} /></label><label>To<input type="date" value={reportEndDate} onChange={event => setReportEndDate(event.target.value)} /></label><button type="button" className="pilot-clear-report" onClick={() => { setReportStartDate(""); setReportEndDate(""); }} disabled={!reportStartDate && !reportEndDate}><RotateCcw size={14} /> All time</button></div>
-          <div className="pilot-saved-view-controls" aria-label="Saved dashboard views"><div><strong>Saved dashboard views</strong><small>Private to your administrator account. Pinned views appear first; saving the same name updates its filters.</small></div><label>Search views<input value={savedViewSearch} maxLength={60} onChange={event => setSavedViewSearch(event.target.value)} placeholder="Find a saved view" /></label><label>Load view<select value={selectedDashboardViewId?.toString() ?? ""} onChange={event => { const id = Number(event.target.value); if (id) loadDashboardView(id); else { setSelectedDashboardViewId(null); setDashboardViewName(""); } }}><option value="">{visibleSavedViews.length ? "Select a saved view" : "No matching saved views"}</option>{visibleSavedViews.map(view => <option key={view.id} value={view.id}>{view.isPinned ? `Pinned — ${view.name}` : view.name}</option>)}</select></label><label>Name<input value={dashboardViewName} maxLength={60} onChange={event => setDashboardViewName(event.target.value)} placeholder="For example, College Q2" /></label><button type="button" className="pilot-pin-view" disabled={!selectedDashboardView || setDashboardViewPinned.isPending} onClick={() => selectedDashboardView && setDashboardViewPinned.mutate({ viewId: selectedDashboardView.id, isPinned: !selectedDashboardView.isPinned })}><Pin size={14} /> {selectedDashboardView?.isPinned ? "Unpin" : "Pin"}</button><button type="button" className="pilot-save-view" disabled={saveDashboardView.isPending || !dashboardViewName.trim()} onClick={saveCurrentDashboardView}>Save view</button><button type="button" className="pilot-delete-view" disabled={!selectedDashboardViewId || deleteDashboardView.isPending} onClick={() => selectedDashboardViewId && deleteDashboardView.mutate({ viewId: selectedDashboardViewId })}>Delete</button></div>
+          <div className="pilot-saved-view-controls" aria-label="Saved dashboard views">
+            <div className="pilot-saved-view-intro"><strong>Saved dashboard views</strong><small>Private to your administrator account. Pin frequently used views, organise them into folders, and drag pins into the order you prefer.</small></div>
+            <div className="pilot-view-filter-row">
+              <label>Search views<input value={savedViewSearch} maxLength={60} onChange={event => setSavedViewSearch(event.target.value)} placeholder="Find a saved view" /></label>
+              <label className="pilot-folder-filter">Folder<select value={folderFilter} onChange={event => setFolderFilter(event.target.value)}><option value="">All folders</option>{allFolders.map(folder => <option key={folder} value={folder}>{folder}</option>)}</select></label>
+            </div>
+            <div className="pilot-view-editor-row">
+              <label>Load view<select value={selectedDashboardViewId?.toString() ?? ""} onChange={event => { const id = Number(event.target.value); if (id) loadDashboardView(id); else { setSelectedDashboardViewId(null); setDashboardViewName(""); setFolderDraft(""); } }}><option value="">{visibleSavedViews.length ? "Select a saved view" : "No matching saved views"}</option>{visibleSavedViews.map(view => <option key={view.id} value={view.id}>{`${view.isPinned ? "Pinned — " : ""}${view.name}${view.folder ? ` · ${view.folder}` : ""}`}</option>)}</select></label>
+              <label>Name<input value={dashboardViewName} maxLength={60} onChange={event => setDashboardViewName(event.target.value)} placeholder="For example, College Q2" /></label>
+              <label>Folder<input value={folderDraft} maxLength={40} onChange={event => setFolderDraft(event.target.value)} placeholder="For example, Launch review" /></label>
+              <button type="button" className="pilot-pin-view" disabled={!selectedDashboardView || setDashboardViewPinned.isPending} onClick={() => selectedDashboardView && setDashboardViewPinned.mutate({ viewId: selectedDashboardView.id, isPinned: !selectedDashboardView.isPinned })}><Pin size={14} /> {selectedDashboardView?.isPinned ? "Unpin" : "Pin"}</button>
+              <button type="button" className="pilot-save-view" disabled={saveDashboardView.isPending || !dashboardViewName.trim()} onClick={saveCurrentDashboardView}>Save view</button>
+              <button type="button" className="pilot-delete-view" disabled={!selectedDashboardViewId || deleteDashboardView.isPending} onClick={() => selectedDashboardViewId && deleteDashboardView.mutate({ viewId: selectedDashboardViewId })}>Delete</button>
+            </div>
+            {pinnedViews.length > 1 && <div className="pilot-pinned-order" aria-label="Pinned dashboard view order"><div><strong>Pinned order</strong><small>Drag a view to reorder it. This is private to your account.</small></div><ul>{pinnedViews.map(view => <li key={view.id} draggable={!reorderPinnedViews.isPending} className={draggedViewId === view.id ? "dragging" : ""} onDragStart={event => handlePinnedViewDragStart(event, view.id)} onDragEnd={() => setDraggedViewId(null)} onDragOver={event => event.preventDefault()} onDrop={event => handlePinnedViewDrop(event, view.id)}><GripVertical className="pilot-drag-handle" size={17} aria-hidden="true" /><button type="button" onClick={() => loadDashboardView(view.id)}><span>{view.name}</span>{view.folder && <span className="pilot-folder-badge">{view.folder}</span>}</button></li>)}</ul></div>}
+          </div>
           {reportRangeInvalid && <p className="pilot-report-error">Choose a start date that is on or before the end date.</p>}
           {conversionQuery.isLoading ? <div className="pilot-empty"><Loader2 className="spin" size={20} /> Loading cohort conversion…</div> : conversions.length ? <div className="pilot-funnel-table-wrap"><table className="pilot-funnel-table"><thead><tr><th>Cohort</th><th>Link visits</th><th>Feedback</th><th>Signed up</th><th>Visit → signup</th><th>Status</th></tr></thead><tbody>{conversions.map(cohort => <tr key={cohort.inviteId}><td><strong>{cohort.cohortName}</strong><small>{cohort.cohortType}</small></td><td>{cohort.linkVisits}</td><td>{cohort.feedbackSubmissions}<small>{cohort.feedbackRate}% of visits</small></td><td>{cohort.accountSignups}</td><td><span className="pilot-conversion-rate">{cohort.signupRate}%</span></td><td><span className={cohort.active ? "pilot-funnel-status active" : "pilot-funnel-status"}>{cohort.active ? "Active" : "Closed"}</span></td></tr>)}</tbody><tfoot><tr className="pilot-funnel-total"><td><strong>Segment total</strong><small>{trendScopeLabel}</small></td><td>{funnelSummary.linkVisits}</td><td>{funnelSummary.feedbackSubmissions}<small>{funnelSummary.feedbackRate}% of visits</small></td><td>{funnelSummary.accountSignups}</td><td><span className="pilot-conversion-rate">{funnelSummary.signupRate}%</span></td><td><span className="pilot-funnel-status active">Aggregate</span></td></tr></tfoot></table></div> : <div className="pilot-empty"><BarChart3 size={24} /><h3>No cohort funnel data yet</h3><p>Create and share a cohort link to begin aggregate conversion measurement. No visitor or account details will appear here.</p></div>}
         </section>

@@ -169,6 +169,13 @@
       "when": 1787206266670,
       "tag": "0023_bizarre_rogue",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1787207233320,
+      "tag": "0024_elite_the_call",
+      "breakpoints": true
     }
   ]
 }

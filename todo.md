@@ -413,3 +413,12 @@
 - [x] Build pin controls, saved-view search interface, and export language toggle.
 - [x] Test pin ownership and ordering, view search, bilingual export safety, and responsive behavior.
 - [x] Document and checkpoint the development-only saved-view usability upgrade without publishing.
+
+## Pinned view ordering, private folders, and Hindi PDF summary export
+
+- [x] Review saved-view data model, pinned ordering, grouping options, and client-side PDF export capabilities.
+- [x] Define pinned reorder semantics, private folder model, Hindi PDF layout, limits, and privacy boundaries.
+- [x] Add saved-view ordering and folder persistence, protected APIs, and Hindi PDF export helper.
+- [x] Build drag-and-drop pinned view controls, folder filtering interface, and Hindi PDF export action.
+- [x] Test owner-scoped ordering and folders, Hindi PDF content, interactions, and responsive behavior.
+- [x] Document and checkpoint the development-only saved-view organization upgrade without publishing.

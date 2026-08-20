@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getQuarterOverQuarterChange, summariseFunnelSegment } from "../client/src/lib/pilotDashboardInsights";
 import { createPilotDashboardSearch, parsePilotDashboardFilters } from "../client/src/lib/pilotDashboardView";
-import { createPilotDashboardSummary } from "../client/src/lib/pilotDashboardSummary";
+import { createPilotDashboardSummary, openHindiPilotDashboardSummaryPdf } from "../client/src/lib/pilotDashboardSummary";
 
 describe("pilot dashboard insights", () => {
   it("recomputes segment totals and rates from aggregate event counts", () => {
@@ -56,5 +56,25 @@ describe("read-only dashboard summary export", () => {
     expect(summary.contents).toContain("एनजीओ समूह");
     expect(summary.contents).toContain("विज़िटर, खाता, संपर्क");
     expect(summary.contents).not.toContain("Pune College Cell");
+  });
+
+  it("opens a Hindi-only aggregate summary in the browser print flow for PDF saving", () => {
+    const write = vi.fn();
+    const print = vi.fn();
+    vi.stubGlobal("window", {
+      open: vi.fn(() => ({ document: { open: vi.fn(), write, close: vi.fn() }, print })),
+      setTimeout: (callback: () => void) => { callback(); return 1; },
+    });
+    const opened = openHindiPilotDashboardSummaryPdf({
+      filters: { from: "", to: "", segment: "ngo", view: "month" },
+      totals: { linkVisits: 12, feedbackSubmissions: 6, accountSignups: 2, feedbackRate: 50, signupRate: 16.7 },
+      quarterChange: null,
+    });
+    expect(opened).toBe(true);
+    expect(write).toHaveBeenCalledWith(expect.stringContaining("पायलट डैशबोर्ड सारांश"));
+    expect(write).toHaveBeenCalledWith(expect.stringContaining("केवल-पढ़ने योग्य समेकित दृश्य"));
+    expect(write).toHaveBeenCalledWith(expect.stringContaining("एनजीओ समूह"));
+    expect(print).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
   });
 });

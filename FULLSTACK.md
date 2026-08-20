@@ -412,6 +412,22 @@ The read-only summary export now has an explicit **English / हिन्दी*
 
 The development database verified the `isPinned` default of `false` and all three pinned-order index columns. Focused coverage validates owner-scoped pin routing, pinned/search/language UI wiring, and both English/Hindi aggregate summary content. The full suite now contains **102 tests** across 33 files; TypeScript and production build passed. No administrator login, pin action, real export, personal data, publishing, or external action occurred.
 
+## Pinned View Ordering, Private Folders, and Hindi PDF Summaries
+
+Migration `0024_elite_the_call.sql` adds a nullable integer `pinnedRank` and a nullable 40-character `folder` label to each administrator-owned `pilot_dashboard_views` row. Views remain private to the owning administrator. When a view is pinned, the server assigns it the next rank; unpinning clears that rank. The protected `admin.pilot.views.reorderPinned` mutation accepts the complete current set of that administrator's pinned IDs exactly once and writes sequential ranks. This prevents an administrator from inserting another user's view, omitting a pinned view, or supplying duplicate IDs. List results are sorted by pinned state, saved order, then last update time.
+
+The dashboard now includes a native HTML drag-and-drop list for pinned views. The list is intentionally limited to pinned views, which avoids accidental reordering of the full saved-view archive. A drag handle gives the mouse affordance, while selecting the view name still loads its non-sensitive date, segment, and period filters. Saved views may carry one optional text folder such as `Quarterly reviews`; the folder is a simple owner-private label rather than a shared table. Administrators can filter locally by folder and name, and a same-name save updates the selected view's filters and folder.
+
+The **Hindi PDF** action builds a print-ready, browser-local Hindi document containing the same aggregate-only scope as the existing text summary. It opens the browser print dialog, where the administrator may choose **Save as PDF**. The output excludes cohort names, invite codes, browser hashes, user/account/contact identifiers, feedback text, documents, and profile data. It is not uploaded to the server and does not invoke an external PDF service.
+
+| Capability | Contract | Privacy and operational boundary |
+| --- | --- | --- |
+| Pinned drag order | Admin-only reorder mutation validates the complete private pinned ID set and persists sequential ranks. | Ranking is a preference only; no cohort metrics or other administrator's view data are stored. |
+| Folders | Optional 40-character label persisted per private saved view and filtered in the client. | Folder labels remain outside shareable URLs and are returned only through the owner-scoped view list. |
+| Hindi PDF summary | Print-window document uses the current aggregate filter scope, funnel totals, and optional QoQ changes. | Browser-local output only; it deliberately excludes names and every personal or event-level field. |
+
+Focused tests now cover protected reorder forwarding, invalid pinned-order errors, folder persistence in the save contract, Hindi HTML print content, and UI wiring for drag handlers, folders, and the PDF action. The full suite passes **105 tests** across **33 test files**, along with a clean TypeScript check and production build. Desktop and 375px mobile development renders show the controls without clipping; the empty development account had no saved views, so the drag list's interaction is additionally protected by the route and UI contract tests. No publishing, real saved view, export, cohort event, or personal data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)
