@@ -82,6 +82,8 @@ import {
   saveUserSchemeProfile,
   saveVerificationHistoryFilter,
   setApplicationDocumentReviewState,
+  setPilotDashboardFolderColor,
+  setPilotDashboardViewArchived,
   setPilotDashboardViewPinned,
   setDefaultVerificationHistoryFilter,
   setDocumentReviewAssignmentDueDate,
@@ -141,6 +143,14 @@ const pilotDashboardViewFiltersInput = z
   .refine(input => !input.from || !input.to || input.from <= input.to, {
     message: "Dashboard view start date must be before the end date.",
   });
+const pilotDashboardFolderColorInput = z.enum([
+  "saffron",
+  "marigold",
+  "teal",
+  "indigo",
+  "plum",
+  "slate",
+]);
 const pilotFeedbackInput = z
   .object({
     role: z.enum(["student", "parent", "collegeStaff", "ngoStaff", "other"]),
@@ -1188,9 +1198,9 @@ export const appRouter = router({
           views: await listPilotDashboardViews(ctx.user.id),
         })),
         save: adminProcedure
-          .input(z.object({ name: z.string().trim().min(1).max(60), filters: pilotDashboardViewFiltersInput, folder: z.string().trim().max(40).nullable().optional() }))
+          .input(z.object({ name: z.string().trim().min(1).max(60), filters: pilotDashboardViewFiltersInput, folder: z.string().trim().max(40).nullable().optional(), folderColor: pilotDashboardFolderColorInput.nullable().optional() }))
           .mutation(async ({ ctx, input }) => ({
-            view: await savePilotDashboardView(ctx.user.id, input.name, input.filters, input.folder),
+            view: await savePilotDashboardView(ctx.user.id, input.name, input.filters, input.folder, input.folderColor),
           })),
         setPinned: adminProcedure
           .input(z.object({ viewId: z.number().int().positive(), isPinned: z.boolean() }))
@@ -1211,10 +1221,22 @@ export const appRouter = router({
             return { renamed: true };
           }),
         moveToFolder: adminProcedure
-          .input(z.object({ viewIds: z.array(z.number().int().positive()).min(1).max(20), folder: z.string().trim().max(40).nullable().optional() }))
+          .input(z.object({ viewIds: z.array(z.number().int().positive()).min(1).max(20), folder: z.string().trim().max(40).nullable().optional(), folderColor: pilotDashboardFolderColorInput.nullable().optional() }))
           .mutation(async ({ ctx, input }) => {
-            await movePilotDashboardViewsToFolder(ctx.user.id, input.viewIds, input.folder);
+            await movePilotDashboardViewsToFolder(ctx.user.id, input.viewIds, input.folder, input.folderColor);
             return { moved: true };
+          }),
+        setFolderColor: adminProcedure
+          .input(z.object({ folder: z.string().trim().min(1).max(40), folderColor: pilotDashboardFolderColorInput }))
+          .mutation(async ({ ctx, input }) => {
+            await setPilotDashboardFolderColor(ctx.user.id, input.folder, input.folderColor);
+            return { recolored: true };
+          }),
+        setArchived: adminProcedure
+          .input(z.object({ viewId: z.number().int().positive(), isArchived: z.boolean() }))
+          .mutation(async ({ ctx, input }) => {
+            await setPilotDashboardViewArchived(ctx.user.id, input.viewId, input.isArchived);
+            return { updated: true };
           }),
         duplicate: adminProcedure
           .input(z.object({ viewId: z.number().int().positive() }))

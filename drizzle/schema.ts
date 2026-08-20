@@ -203,6 +203,8 @@ export const pilotDashboardViews = mysqlTable(
     isPinned: boolean("isPinned").notNull().default(false),
     pinnedRank: int("pinnedRank"),
     folder: varchar("folder", { length: 40 }),
+    folderColor: varchar("folderColor", { length: 16 }),
+    isArchived: boolean("isArchived").notNull().default(false),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -219,6 +221,12 @@ export const pilotDashboardViews = mysqlTable(
       table.userId,
       table.isPinned,
       table.pinnedRank,
+      table.updatedAt
+    ),
+    index("pilot_dashboard_views_user_archived_pinned_updated_idx").on(
+      table.userId,
+      table.isArchived,
+      table.isPinned,
       table.updatedAt
     ),
   ]

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getQuarterOverQuarterChange, summariseFunnelSegment } from "../client/src/lib/pilotDashboardInsights";
 import { createPilotDashboardSearch, parsePilotDashboardFilters } from "../client/src/lib/pilotDashboardView";
-import { createPilotDashboardSummary, openHindiPilotDashboardSummaryPdf } from "../client/src/lib/pilotDashboardSummary";
+import { createHindiPilotDashboardSummaryPrintHtml, createPilotDashboardSummary, openHindiPilotDashboardSummaryPdf } from "../client/src/lib/pilotDashboardSummary";
 
 describe("pilot dashboard insights", () => {
   it("recomputes segment totals and rates from aggregate event counts", () => {
@@ -85,5 +85,24 @@ describe("read-only dashboard summary export", () => {
     expect(write).toHaveBeenCalledWith(expect.stringContaining(`दिनांक: ${new Date().toISOString().slice(0, 10)}`));
     expect(print).toHaveBeenCalledOnce();
     vi.unstubAllGlobals();
+  });
+
+  it("builds the same safe aggregate-only HTML for the live Hindi PDF preview", () => {
+    const html = createHindiPilotDashboardSummaryPrintHtml({
+      filters: { from: "", to: "", segment: "college", view: "month" },
+      totals: { linkVisits: 9, feedbackSubmissions: 4, accountSignups: 2, feedbackRate: 44.4, signupRate: 22.2 },
+      quarterChange: null,
+      header: "पूर्वावलोकन <रिपोर्ट>",
+      footer: "निजी & समेकित",
+      logo: "custom",
+      customLogoUrl: "https://assets.example.org/preview-logo.png",
+      dateFormat: "short",
+    });
+    expect(html).toContain("पायलट डैशबोर्ड सारांश");
+    expect(html).toContain("पूर्वावलोकन &lt;रिपोर्ट&gt;");
+    expect(html).toContain("निजी &amp; समेकित");
+    expect(html).toContain('src="https://assets.example.org/preview-logo.png"');
+    expect(html).toContain("केवल-पढ़ने योग्य समेकित दृश्य");
+    expect(html).not.toContain("Pune College Cell");
   });
 });

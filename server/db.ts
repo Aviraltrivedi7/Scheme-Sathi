@@ -751,6 +751,17 @@ export type PilotDashboardViewFilters = {
   view: "month" | "quarter";
 };
 
+export const pilotDashboardFolderColors = ["saffron", "marigold", "teal", "indigo", "plum", "slate"] as const;
+export type PilotDashboardFolderColor = (typeof pilotDashboardFolderColors)[number];
+
+function normalizePilotDashboardFolderColor(value?: string | null) {
+  if (!value) return null;
+  if (!pilotDashboardFolderColors.includes(value as PilotDashboardFolderColor)) {
+    throw new Error("Choose one of the supported folder colors.");
+  }
+  return value as PilotDashboardFolderColor;
+}
+
 export async function listPilotDashboardViews(userId: number) {
   const db = await getDb();
   if (!db) databaseUnavailable();
@@ -759,6 +770,7 @@ export async function listPilotDashboardViews(userId: number) {
     .from(pilotDashboardViews)
     .where(eq(pilotDashboardViews.userId, userId))
     .orderBy(
+      sql`${pilotDashboardViews.isArchived} asc`,
       desc(pilotDashboardViews.isPinned),
       sql`coalesce(${pilotDashboardViews.pinnedRank}, 2147483647) asc`,
       desc(pilotDashboardViews.updatedAt)
@@ -770,6 +782,8 @@ export async function listPilotDashboardViews(userId: number) {
     isPinned: row.isPinned,
     pinnedRank: row.pinnedRank,
     folder: row.folder,
+    folderColor: row.folderColor,
+    isArchived: row.isArchived,
     updatedAt: row.updatedAt.getTime(),
   }));
 }
@@ -778,12 +792,16 @@ export async function savePilotDashboardView(
   userId: number,
   name: string,
   filters: PilotDashboardViewFilters,
-  folder?: string | null
+  folder?: string | null,
+  folderColor?: string | null
 ) {
   const db = await getDb();
   if (!db) databaseUnavailable();
   const normalizedName = name.trim();
   const normalizedFolder = folder?.trim() || null;
+  const normalizedFolderColor = normalizedFolder
+    ? normalizePilotDashboardFolderColor(folderColor)
+    : null;
   if (!normalizedName) throw new Error("Give this dashboard view a name.");
   const existing = await db
     .select({ id: pilotDashboardViews.id })
@@ -803,8 +821,8 @@ export async function savePilotDashboardView(
     throw new Error("You can save up to 20 dashboard views.");
   await db
     .insert(pilotDashboardViews)
-    .values({ userId, name: normalizedName, filters, folder: normalizedFolder })
-    .onDuplicateKeyUpdate({ set: { filters, folder: normalizedFolder, updatedAt: new Date() } });
+    .values({ userId, name: normalizedName, filters, folder: normalizedFolder, folderColor: normalizedFolderColor })
+    .onDuplicateKeyUpdate({ set: { filters, folder: normalizedFolder, folderColor: normalizedFolderColor, updatedAt: new Date() } });
   const saved = await db
     .select()
     .from(pilotDashboardViews)
@@ -824,6 +842,8 @@ export async function savePilotDashboardView(
     isPinned: view.isPinned,
     pinnedRank: view.pinnedRank,
     folder: view.folder,
+    folderColor: view.folderColor,
+    isArchived: view.isArchived,
     updatedAt: view.updatedAt.getTime(),
   };
 }
@@ -836,7 +856,7 @@ export async function setPilotDashboardViewPinned(
   const db = await getDb();
   if (!db) databaseUnavailable();
   const current = await db
-    .select({ isPinned: pilotDashboardViews.isPinned })
+    .select({ isPinned: pilotDashboardViews.isPinned, isArchived: pilotDashboardViews.isArchived })
     .from(pilotDashboardViews)
     .where(
       and(
@@ -846,6 +866,9 @@ export async function setPilotDashboardViewPinned(
     )
     .limit(1);
   if (!current[0] || current[0].isPinned === isPinned) return;
+  if (current[0].isArchived && isPinned) {
+    throw new Error("Restore this saved view before pinning it.");
+  }
   const rankRows = isPinned
     ? await db
         .select({ maxRank: sql<number | null>`max(${pilotDashboardViews.pinnedRank})` })
@@ -853,7 +876,8 @@ export async function setPilotDashboardViewPinned(
         .where(
           and(
             eq(pilotDashboardViews.userId, userId),
-            eq(pilotDashboardViews.isPinned, true)
+            eq(pilotDashboardViews.isPinned, true),
+            eq(pilotDashboardViews.isArchived, false)
           )
         )
     : [];
@@ -878,7 +902,8 @@ export async function reorderPinnedPilotDashboardViews(userId: number, viewIds: 
     .where(
       and(
         eq(pilotDashboardViews.userId, userId),
-        eq(pilotDashboardViews.isPinned, true)
+        eq(pilotDashboardViews.isPinned, true),
+        eq(pilotDashboardViews.isArchived, false)
       )
     );
   const pinnedIds = pinned.map(view => view.id);
@@ -899,7 +924,8 @@ export async function reorderPinnedPilotDashboardViews(userId: number, viewIds: 
         and(
           eq(pilotDashboardViews.id, viewId),
           eq(pilotDashboardViews.userId, userId),
-          eq(pilotDashboardViews.isPinned, true)
+          eq(pilotDashboardViews.isPinned, true),
+          eq(pilotDashboardViews.isArchived, false)
         )
       );
   }
@@ -930,7 +956,8 @@ export async function renamePilotDashboardViewFolder(
 export async function movePilotDashboardViewsToFolder(
   userId: number,
   viewIds: number[],
-  folder?: string | null
+  folder?: string | null,
+  folderColor?: string | null
 ) {
   const db = await getDb();
   if (!db) databaseUnavailable();
@@ -947,10 +974,13 @@ export async function movePilotDashboardViewsToFolder(
     throw new Error("You can only move your own saved dashboard views.");
   }
   const normalizedFolder = folder?.trim() || null;
+  const normalizedFolderColor = normalizedFolder
+    ? normalizePilotDashboardFolderColor(folderColor)
+    : null;
   for (let index = 0; index < viewIds.length; index += 1) {
     await db
       .update(pilotDashboardViews)
-      .set({ folder: normalizedFolder, updatedAt: new Date() })
+      .set({ folder: normalizedFolder, folderColor: normalizedFolderColor, updatedAt: new Date() })
       .where(
         and(
           eq(pilotDashboardViews.id, viewIds[index]),
@@ -958,6 +988,50 @@ export async function movePilotDashboardViewsToFolder(
         )
       );
   }
+}
+
+export async function setPilotDashboardViewArchived(
+  userId: number,
+  viewId: number,
+  isArchived: boolean
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db
+    .update(pilotDashboardViews)
+    .set({
+      isArchived,
+      isPinned: isArchived ? false : undefined,
+      pinnedRank: isArchived ? null : undefined,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(pilotDashboardViews.id, viewId),
+        eq(pilotDashboardViews.userId, userId)
+      )
+    );
+}
+
+export async function setPilotDashboardFolderColor(
+  userId: number,
+  folder: string,
+  folderColor: string
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const normalizedFolder = folder.trim();
+  if (!normalizedFolder) throw new Error("Choose a folder to color.");
+  const normalizedFolderColor = normalizePilotDashboardFolderColor(folderColor);
+  await db
+    .update(pilotDashboardViews)
+    .set({ folderColor: normalizedFolderColor, updatedAt: new Date() })
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.folder, normalizedFolder)
+      )
+    );
 }
 
 export async function duplicatePilotDashboardView(userId: number, viewId: number) {
@@ -983,8 +1057,10 @@ export async function duplicatePilotDashboardView(userId: number, viewId: number
     name: nextName,
     filters: source.filters,
     folder: source.folder,
+    folderColor: source.folderColor,
     isPinned: false,
     pinnedRank: null,
+    isArchived: false,
   });
   const copied = await db
     .select()
@@ -1005,6 +1081,8 @@ export async function duplicatePilotDashboardView(userId: number, viewId: number
     isPinned: view.isPinned,
     pinnedRank: view.pinnedRank,
     folder: view.folder,
+    folderColor: view.folderColor,
+    isArchived: view.isArchived,
     updatedAt: view.updatedAt.getTime(),
   };
 }

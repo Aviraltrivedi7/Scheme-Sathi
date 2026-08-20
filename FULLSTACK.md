@@ -460,6 +460,22 @@ Hindi PDF presentation now provides built-in Scheme Sathi, Jan Seva, and no-logo
 
 Focused tests now cover duplicate route ownership forwarding, custom HTTPS logo markup, ISO date rendering, folder-count/duplicate/presentation UI wiring, and the prior saved-view privacy contracts. The full suite passes **107 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The preview administrator account contains no saved views, so populated count badges remain covered by derived-state and UI-contract regression coverage. No publishing, real view duplication, real logo fetch, PDF save, cohort action, or personal data action was performed.
 
+## Saved-View Archive, Folder Colors, and Live Hindi PDF Preview
+
+Migration `0025_stiff_caretaker.sql` adds the `isArchived` boolean and optional `folderColor` label to `pilot_dashboard_views`, plus an owner/archive/pin lookup index. The development database migration was generated, reviewed, and applied. Archive and restore use the protected `admin.pilot.views.setArchived` mutation, which is owner-scoped by saved-view ID. Archiving also clears the pin and pinned rank, so an archived preference cannot remain in the active drag-order list; restoring returns the view unpinned. Permanent deletion remains a separate deliberate action.
+
+Folder colors are limited to the server-validated `saffron`, `marigold`, `teal`, `indigo`, `plum`, and `slate` palette. The color is stored beside each private saved view so moving, saving, duplicating, and listing views retain visual organisation. `admin.pilot.views.setFolderColor` updates only matching folder rows owned by the current administrator. Active saved views drive the main folder counts and overview badges; archived rows live in a separate local workspace and never leak into shareable URLs or another account's data.
+
+The Hindi PDF flow now builds the aggregate-only print HTML once through `createHindiPilotDashboardSummaryPrintHtml()`. The **Preview PDF** control opens an accessible modal containing a sandboxed `srcDoc` preview using the current header, footer, logo, custom HTTP(S) URL, date preset, filters, totals, and optional QoQ changes. The final print action consumes the same builder, avoiding preview-to-export layout drift. No document is uploaded or persisted; custom text and accepted logo URLs remain HTML-escaped, unsupported protocols are rejected, and the scope still excludes names, invite codes, account/contact identifiers, visitor hashes, feedback text, documents, and profile data.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Archive and restore | Switch between Active and Archived lists, then archive or restore the selected private view. | Mutation rechecks user ownership; archive clears pins and preserves a reversible, non-destructive state. |
+| Folder colors | Choose one of six palette colors for a current folder, new view, or bulk move. | Server accepts only the fixed color values and updates only the administrator's matching private rows. |
+| Live Hindi PDF preview | Open **Preview PDF**, review the rendered browser-local layout, then choose **Open print dialog**. | Sandboxed preview and final print share escaped aggregate-only HTML; no external PDF service or report upload occurs. |
+
+Focused route, print-builder, and UI-contract tests now cover archive/restore forwarding, owner-bound folder colors, preview markup, safe custom logo output, and active/archive controls. The full suite passes **109 tests** across **33 test files**, together with a clean TypeScript check, production build, runtime-log review, migration application, and desktop/375px development renders. The visual test account has no saved views, so populated archive/color states remain covered by protected-route and UI-contract regression tests. No publishing, real saved-view mutation, external logo fetch, PDF save, cohort action, or personal data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

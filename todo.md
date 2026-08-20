@@ -441,3 +441,12 @@
 - [x] Add browser-local Hindi PDF logo selection and predefined date-format presentation presets.
 - [x] Test folder counts, duplicate ownership/name handling, PDF branding/date rendering, and shortcut wiring.
 - [x] Document and checkpoint the development-only saved-view presentation upgrade without publishing.
+
+## Saved-view archive, folder colors, and Hindi PDF preview
+
+- [x] Review saved-view persistence, folder-label model, and browser-local Hindi print layout boundaries.
+- [x] Add owner-private archive/restore state and folder color persistence with protected APIs and migration coverage.
+- [x] Build active/archive saved-view controls, folder color selection, and color-aware private badges.
+- [x] Build a live Hindi PDF preview modal using the current logo, header/footer, date-format, and aggregate filter scope.
+- [x] Test archive/restore ownership, folder color handling, print preview markup, and responsive controls.
+- [x] Document and checkpoint the development-only saved-view organization and preview upgrade without publishing.

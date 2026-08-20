@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   renamePilotDashboardViewFolder: vi.fn(),
   movePilotDashboardViewsToFolder: vi.fn(),
   duplicatePilotDashboardView: vi.fn(),
+  setPilotDashboardViewArchived: vi.fn(),
+  setPilotDashboardFolderColor: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -162,6 +164,8 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.views.renameFolder({ fromFolder: "Review", toFolder: "Archive" })).rejects.toThrow();
     await expect(caller.admin.pilot.views.moveToFolder({ viewIds: [3], folder: "Review" })).rejects.toThrow();
     await expect(caller.admin.pilot.views.duplicate({ viewId: 3 })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.setArchived({ viewId: 3, isArchived: true })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.setFolderColor({ folder: "Review", folderColor: "teal" })).rejects.toThrow();
   });
 
   it("keeps named dashboard views private to the authenticated administrator", async () => {
@@ -170,11 +174,11 @@ describe("admin pilot inbox and cohort invites", () => {
     const caller = appRouter.createCaller(context("admin"));
     const filters = { from: "2026-04-01", to: "2026-06-30", segment: "college" as const, view: "quarter" as const };
     const listed = await caller.admin.pilot.views.list();
-    await caller.admin.pilot.views.save({ name: "College Q2", filters, folder: "Quarterly reviews" });
+    await caller.admin.pilot.views.save({ name: "College Q2", filters, folder: "Quarterly reviews", folderColor: "teal" });
     await caller.admin.pilot.views.delete({ viewId: 3 });
     expect(listed.views).toHaveLength(1);
     expect(mocks.listPilotDashboardViews).toHaveBeenCalledWith(9);
-    expect(mocks.savePilotDashboardView).toHaveBeenCalledWith(9, "College Q2", filters, "Quarterly reviews");
+    expect(mocks.savePilotDashboardView).toHaveBeenCalledWith(9, "College Q2", filters, "Quarterly reviews", "teal");
     expect(mocks.deletePilotDashboardView).toHaveBeenCalledWith(9, 3);
   });
 
@@ -205,11 +209,11 @@ describe("admin pilot inbox and cohort invites", () => {
   it("renames folders and bulk-moves saved views through the authenticated administrator identity", async () => {
     const caller = appRouter.createCaller(context("admin"));
     await caller.admin.pilot.views.renameFolder({ fromFolder: "Quarterly reviews", toFolder: "Leadership review" });
-    await caller.admin.pilot.views.moveToFolder({ viewIds: [3, 8], folder: "Leadership review" });
+    await caller.admin.pilot.views.moveToFolder({ viewIds: [3, 8], folder: "Leadership review", folderColor: "indigo" });
     await caller.admin.pilot.views.moveToFolder({ viewIds: [8], folder: null });
     expect(mocks.renamePilotDashboardViewFolder).toHaveBeenCalledWith(9, "Quarterly reviews", "Leadership review");
-    expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(1, 9, [3, 8], "Leadership review");
-    expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(2, 9, [8], null);
+    expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(1, 9, [3, 8], "Leadership review", "indigo");
+    expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(2, 9, [8], null, undefined);
   });
 
   it("duplicates only the current administrator's selected saved view", async () => {
@@ -218,6 +222,16 @@ describe("admin pilot inbox and cohort invites", () => {
     const result = await caller.admin.pilot.views.duplicate({ viewId: 3 });
     expect(mocks.duplicatePilotDashboardView).toHaveBeenCalledWith(9, 3);
     expect(result.view).toEqual(expect.objectContaining({ id: 12, name: "College Q2 copy" }));
+  });
+
+  it("archives, restores, and recolors only the authenticated administrator's private saved views", async () => {
+    const caller = appRouter.createCaller(context("admin"));
+    await caller.admin.pilot.views.setArchived({ viewId: 12, isArchived: true });
+    await caller.admin.pilot.views.setArchived({ viewId: 12, isArchived: false });
+    await caller.admin.pilot.views.setFolderColor({ folder: "Leadership review", folderColor: "plum" });
+    expect(mocks.setPilotDashboardViewArchived).toHaveBeenNthCalledWith(1, 9, 12, true);
+    expect(mocks.setPilotDashboardViewArchived).toHaveBeenNthCalledWith(2, 9, 12, false);
+    expect(mocks.setPilotDashboardFolderColor).toHaveBeenCalledWith(9, "Leadership review", "plum");
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {
