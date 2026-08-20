@@ -444,6 +444,22 @@ The Hindi print-to-PDF flow now includes configurable header and footer text inp
 
 Focused routing, PDF-output, and UI contract tests cover the owner-bound folder operations, shortcut wiring, custom print copy, and HTML escaping. The full suite now passes **106 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The test preview account had no saved view data, so the rename/bulk manager's populated state remains covered by typed route and UI-contract regression tests. No publishing, real folder mutation, real PDF save, cohort action, or personal data action was performed.
 
+## Folder Counts, Duplicate Views, and Hindi PDF Presentation Presets
+
+The saved-view workspace now derives a private per-folder count from the current administrator's owner-scoped list. The folder selector shows each label with its count, and a compact folder overview exposes the same named count badges as quick filters. These are client-side aggregates over already-authorized view rows; they do not create a new reporting endpoint, enter a shareable URL, or reveal another administrator's folder label or count.
+
+The protected `admin.pilot.views.duplicate` mutation duplicates the administrator's selected saved view while preserving its non-sensitive filter payload and optional folder. The server first verifies ownership, enforces the existing 20-view limit, assigns a unique generated copy name within the 60-character limit, and creates the copy unpinned with no pinned rank. The UI selects the duplicate after refresh. **Alt + D** triggers this same flow only when focus is outside editable controls, and a visible **Duplicate** button provides the mouse-accessible equivalent.
+
+Hindi PDF presentation now provides built-in Scheme Sathi, Jan Seva, and no-logo choices plus a custom browser-rendered HTTP(S) logo URL field. The helper rejects other URL schemes, HTML-escapes accepted URLs and text, and does not upload an image or persist logo data. Administrators may also choose a print-date preset: Hindi long date, numeric short date, or ISO date. The date is presentation metadata generated only in the print window; the PDF remains browser-local and aggregate-only.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Folder count badges | Folder picker and overview badges show the private number of saved views in each label. | Derived only from the authenticated administrator's already-loaded saved views. |
+| Duplicate selected view | **Duplicate** or **Alt + D** copies the selected view with a unique copy name. | Owner check, 20-view cap, unpinned default, and no cross-account source view access. |
+| Logo and date presets | Choose a built-in/no logo or a custom HTTP(S) logo URL, then choose long, short, or ISO date output. | Browser print only; URL protocol validation and HTML escaping prevent unsafe injected markup. |
+
+Focused tests now cover duplicate route ownership forwarding, custom HTTPS logo markup, ISO date rendering, folder-count/duplicate/presentation UI wiring, and the prior saved-view privacy contracts. The full suite passes **107 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The preview administrator account contains no saved views, so populated count badges remain covered by derived-state and UI-contract regression coverage. No publishing, real view duplication, real logo fetch, PDF save, cohort action, or personal data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

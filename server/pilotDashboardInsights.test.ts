@@ -71,6 +71,9 @@ describe("read-only dashboard summary export", () => {
       quarterChange: null,
       header: "कॉलेज पायलट <आंतरिक>",
       footer: "टीम रिपोर्ट & समीक्षा",
+      logo: "custom",
+      customLogoUrl: "https://assets.example.org/logo.png",
+      dateFormat: "iso",
     });
     expect(opened).toBe(true);
     expect(write).toHaveBeenCalledWith(expect.stringContaining("पायलट डैशबोर्ड सारांश"));
@@ -78,6 +81,8 @@ describe("read-only dashboard summary export", () => {
     expect(write).toHaveBeenCalledWith(expect.stringContaining("एनजीओ समूह"));
     expect(write).toHaveBeenCalledWith(expect.stringContaining("कॉलेज पायलट &lt;आंतरिक&gt;"));
     expect(write).toHaveBeenCalledWith(expect.stringContaining("टीम रिपोर्ट &amp; समीक्षा"));
+    expect(write).toHaveBeenCalledWith(expect.stringContaining('src="https://assets.example.org/logo.png"'));
+    expect(write).toHaveBeenCalledWith(expect.stringContaining(`दिनांक: ${new Date().toISOString().slice(0, 10)}`));
     expect(print).toHaveBeenCalledOnce();
     vi.unstubAllGlobals();
   });

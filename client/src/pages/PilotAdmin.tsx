@@ -68,6 +68,9 @@ export default function PilotAdmin() {
   const [summaryLanguage, setSummaryLanguage] = useState<"en" | "hi">("en");
   const [pdfHeaderDraft, setPdfHeaderDraft] = useState("सरकारी योजना पायलट · समेकित रिपोर्ट");
   const [pdfFooterDraft, setPdfFooterDraft] = useState("केवल आंतरिक उपयोग के लिए · व्यक्तिगत डेटा शामिल नहीं है");
+  const [pdfLogoDraft, setPdfLogoDraft] = useState<"schemeSathi" | "janSeva" | "custom" | "none">("schemeSathi");
+  const [pdfCustomLogoUrlDraft, setPdfCustomLogoUrlDraft] = useState("");
+  const [pdfDateFormatDraft, setPdfDateFormatDraft] = useState<"long" | "short" | "iso">("long");
   const feedbackInput = useMemo(
     () => ({ status: status === "all" ? undefined : status, query: query.trim() || undefined }),
     [status, query]
@@ -178,6 +181,16 @@ export default function PilotAdmin() {
     },
     onError: error => toast.error(error.message),
   });
+  const duplicateDashboardView = trpc.admin.pilot.views.duplicate.useMutation({
+    onSuccess: async ({ view }) => {
+      setSelectedDashboardViewId(view.id);
+      setDashboardViewName(view.name);
+      setFolderDraft(view.folder ?? "");
+      await utils.admin.pilot.views.list.invalidate();
+      toast.success("Private dashboard view duplicated.");
+    },
+    onError: error => toast.error(error.message),
+  });
   const copyInvite = async (code: string) => {
     const url = `${window.location.origin}/pilot?cohort=${encodeURIComponent(code)}`;
     try {
@@ -198,10 +211,11 @@ export default function PilotAdmin() {
   const quarterChange = trendPeriod === "quarter" ? getQuarterOverQuarterChange(monthlyTrend) : null;
   const savedViews = savedViewsQuery.data?.views ?? [];
   const selectedDashboardView = savedViews.find(item => item.id === selectedDashboardViewId) ?? null;
-  const allFolders = useMemo(
-    () => Array.from(new Set(savedViews.map(view => view.folder).filter((folder): folder is string => Boolean(folder)))).sort((left, right) => left.localeCompare(right)),
-    [savedViews]
-  );
+  const folderCounts = useMemo(() => savedViews.reduce<Record<string, number>>((counts, view) => {
+    if (view.folder) counts[view.folder] = (counts[view.folder] ?? 0) + 1;
+    return counts;
+  }, {}), [savedViews]);
+  const allFolders = useMemo(() => Object.keys(folderCounts).sort((left, right) => left.localeCompare(right)), [folderCounts]);
   const pinnedViews = useMemo(() => savedViews.filter(view => view.isPinned), [savedViews]);
   const visibleSavedViews = useMemo(() => {
     const normalizedSearch = savedViewSearch.trim().toLocaleLowerCase();
@@ -252,6 +266,9 @@ export default function PilotAdmin() {
       quarterChange,
       header: pdfHeaderDraft,
       footer: pdfFooterDraft,
+      logo: pdfLogoDraft,
+      customLogoUrl: pdfCustomLogoUrlDraft,
+      dateFormat: pdfDateFormatDraft,
     });
     if (opened) toast.success("Hindi dashboard summary is ready in the print dialog. Choose Save as PDF.");
     else toast.error("The PDF print window was blocked. Allow pop-ups and try again.");
@@ -312,11 +329,15 @@ export default function PilotAdmin() {
         event.preventDefault();
         if (dashboardViewName.trim()) saveCurrentDashboardView();
         else toast.error("Give the dashboard view a name before using Alt+S.");
+      } else if (event.key.toLocaleLowerCase() === "d") {
+        event.preventDefault();
+        if (selectedDashboardView) duplicateDashboardView.mutate({ viewId: selectedDashboardView.id });
+        else toast.error("Select a saved dashboard view before using Alt+D.");
       }
     };
     window.addEventListener("keydown", handleSavedViewShortcut);
     return () => window.removeEventListener("keydown", handleSavedViewShortcut);
-  }, [dashboardViewName, selectedDashboardViewId, visibleSavedViews]);
+  }, [dashboardViewName, selectedDashboardView, selectedDashboardViewId, visibleSavedViews]);
   const handlePinnedViewDragStart = (event: DragEvent<HTMLLIElement>, viewId: number) => {
     setDraggedViewId(viewId);
     event.dataTransfer.effectAllowed = "move";
@@ -368,13 +389,14 @@ export default function PilotAdmin() {
         <section className="pilot-conversion-card" aria-label="Cohort conversion funnel">
           <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>{trendScopeLabel}. Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div><div className="pilot-report-actions"><button type="button" className="pilot-export-report" onClick={copyDashboardView}><Copy size={15} /> Share view</button><label className="pilot-summary-language">Summary language<select value={summaryLanguage} onChange={event => setSummaryLanguage(event.target.value as "en" | "hi")}><option value="en">English</option><option value="hi">हिन्दी</option></select></label><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportDashboardSummary}><Download size={15} /> Export summary</button><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportHindiDashboardSummaryPdf}><Download size={15} /> Hindi PDF</button><button type="button" className="pilot-export-report" disabled={!conversions.length || reportRangeInvalid || conversionQuery.isLoading || monthlyTrendQuery.isLoading} onClick={exportCohortReport}><Download size={15} /> Export CSV report</button></div></div>
           <div className="pilot-report-controls" aria-label="Cohort report date range"><div className="pilot-report-title"><CalendarRange size={17} /><span><strong>Report date range</strong><small>Only funnel events created inside this range are included.</small></span></div><label>From<input type="date" value={reportStartDate} onChange={event => setReportStartDate(event.target.value)} /></label><label>To<input type="date" value={reportEndDate} onChange={event => setReportEndDate(event.target.value)} /></label><button type="button" className="pilot-clear-report" onClick={() => { setReportStartDate(""); setReportEndDate(""); }} disabled={!reportStartDate && !reportEndDate}><RotateCcw size={14} /> All time</button></div>
-          <div className="pilot-pdf-customization" aria-label="Hindi PDF print layout"><div><strong>Hindi PDF print layout</strong><small>These private labels appear only in the browser print window. The PDF remains aggregate-only.</small></div><label>Header<input value={pdfHeaderDraft} maxLength={100} onChange={event => setPdfHeaderDraft(event.target.value)} placeholder="Hindi report header" /></label><label>Footer<input value={pdfFooterDraft} maxLength={120} onChange={event => setPdfFooterDraft(event.target.value)} placeholder="Hindi report footer" /></label></div>
+          <div className="pilot-pdf-customization" aria-label="Hindi PDF print layout"><div><strong>Hindi PDF print layout</strong><small>These private labels appear only in the browser print window. The PDF remains aggregate-only.</small></div><label>Header<input value={pdfHeaderDraft} maxLength={100} onChange={event => setPdfHeaderDraft(event.target.value)} placeholder="Hindi report header" /></label><label>Footer<input value={pdfFooterDraft} maxLength={120} onChange={event => setPdfFooterDraft(event.target.value)} placeholder="Hindi report footer" /></label><label>Logo<select value={pdfLogoDraft} onChange={event => setPdfLogoDraft(event.target.value as typeof pdfLogoDraft)}><option value="schemeSathi">Scheme Sathi</option><option value="janSeva">जन सेवा</option><option value="custom">Custom logo URL</option><option value="none">No logo</option></select></label>{pdfLogoDraft === "custom" && <label>Custom logo URL<input type="url" value={pdfCustomLogoUrlDraft} maxLength={500} onChange={event => setPdfCustomLogoUrlDraft(event.target.value)} placeholder="https://example.org/logo.png" /></label>}<label>Date format<select value={pdfDateFormatDraft} onChange={event => setPdfDateFormatDraft(event.target.value as typeof pdfDateFormatDraft)}><option value="long">20 अगस्त 2026</option><option value="short">20/08/2026</option><option value="iso">2026-08-20</option></select></label></div>
           <div className="pilot-saved-view-controls" aria-label="Saved dashboard views">
-            <div className="pilot-saved-view-intro"><strong>Saved dashboard views</strong><small>Private to your administrator account. Pin frequently used views, organise them into folders, and drag pins into the order you prefer.</small><span className="pilot-shortcut-guide" aria-label="Saved-view keyboard shortcuts" aria-keyshortcuts="Alt+ArrowDown Alt+ArrowUp Alt+Enter Alt+S"><kbd>Alt+↓</kbd> next <kbd>Alt+↑</kbd> previous <kbd>Alt+Enter</kbd> load <kbd>Alt+S</kbd> save</span></div>
+            <div className="pilot-saved-view-intro"><strong>Saved dashboard views</strong><small>Private to your administrator account. Pin frequently used views, organise them into folders, and drag pins into the order you prefer.</small><span className="pilot-shortcut-guide" aria-label="Saved-view keyboard shortcuts" aria-keyshortcuts="Alt+ArrowDown Alt+ArrowUp Alt+Enter Alt+S Alt+D"><kbd>Alt+↓</kbd> next <kbd>Alt+↑</kbd> previous <kbd>Alt+Enter</kbd> load <kbd>Alt+S</kbd> save <kbd>Alt+D</kbd> duplicate</span></div>
             <div className="pilot-view-filter-row">
               <label>Search views<input value={savedViewSearch} maxLength={60} onChange={event => setSavedViewSearch(event.target.value)} placeholder="Find a saved view" /></label>
-              <label className="pilot-folder-filter">Folder<select value={folderFilter} onChange={event => setFolderFilter(event.target.value)}><option value="">All folders</option>{allFolders.map(folder => <option key={folder} value={folder}>{folder}</option>)}</select></label>
+              <label className="pilot-folder-filter">Folder<select value={folderFilter} onChange={event => setFolderFilter(event.target.value)}><option value="">All folders</option>{allFolders.map(folder => <option key={folder} value={folder}>{`${folder} (${folderCounts[folder]})`}</option>)}</select></label>
             </div>
+            {allFolders.length > 0 && <div className="pilot-folder-overview" aria-label="Saved view counts by folder">{allFolders.map(folder => <button type="button" key={folder} className={folderFilter === folder ? "active" : ""} onClick={() => setFolderFilter(folder)}><span>{folder}</span><strong className="pilot-folder-count-badge">{folderCounts[folder]}</strong></button>)}</div>}
             {allFolders.length > 0 && <div className="pilot-folder-management"><div><strong>Rename selected folder</strong><small>{folderFilter ? `Renaming private folder “${folderFilter}”.` : "Choose a folder above before renaming it."}</small></div><label>New folder name<input value={folderRenameDraft} maxLength={40} onChange={event => setFolderRenameDraft(event.target.value)} placeholder="For example, Spring review" /></label><button type="button" className="pilot-folder-action" disabled={!folderFilter || !folderRenameDraft.trim() || folderRenameDraft.trim() === folderFilter || renameDashboardViewFolder.isPending} onClick={() => renameDashboardViewFolder.mutate({ fromFolder: folderFilter, toFolder: folderRenameDraft })}>Rename folder</button></div>}
             <div className="pilot-view-editor-row">
               <label>Load view<select value={selectedDashboardViewId?.toString() ?? ""} onChange={event => { const id = Number(event.target.value); if (id) loadDashboardView(id); else { setSelectedDashboardViewId(null); setDashboardViewName(""); setFolderDraft(""); } }}><option value="">{visibleSavedViews.length ? "Select a saved view" : "No matching saved views"}</option>{visibleSavedViews.map(view => <option key={view.id} value={view.id}>{`${view.isPinned ? "Pinned — " : ""}${view.name}${view.folder ? ` · ${view.folder}` : ""}`}</option>)}</select></label>
@@ -382,6 +404,7 @@ export default function PilotAdmin() {
               <label>Folder<input value={folderDraft} maxLength={40} onChange={event => setFolderDraft(event.target.value)} placeholder="For example, Launch review" /></label>
               <button type="button" className="pilot-pin-view" disabled={!selectedDashboardView || setDashboardViewPinned.isPending} onClick={() => selectedDashboardView && setDashboardViewPinned.mutate({ viewId: selectedDashboardView.id, isPinned: !selectedDashboardView.isPinned })}><Pin size={14} /> {selectedDashboardView?.isPinned ? "Unpin" : "Pin"}</button>
               <button type="button" className="pilot-save-view" disabled={saveDashboardView.isPending || !dashboardViewName.trim()} onClick={saveCurrentDashboardView}>Save view</button>
+              <button type="button" className="pilot-duplicate-view" disabled={!selectedDashboardView || duplicateDashboardView.isPending} onClick={() => selectedDashboardView && duplicateDashboardView.mutate({ viewId: selectedDashboardView.id })}><Copy size={14} /> Duplicate</button>
               <button type="button" className="pilot-delete-view" disabled={!selectedDashboardViewId || deleteDashboardView.isPending} onClick={() => selectedDashboardViewId && deleteDashboardView.mutate({ viewId: selectedDashboardViewId })}>Delete</button>
             </div>
             {visibleSavedViews.length > 0 && <div className="pilot-bulk-view-manager" aria-label="Bulk move saved views"><div className="pilot-bulk-heading"><div><strong>Bulk move saved views</strong><small>{selectedSavedViewIds.length ? `${selectedSavedViewIds.length} private view${selectedSavedViewIds.length === 1 ? "" : "s"} selected.` : "Select one or more visible views, then choose a folder."}</small></div><div><button type="button" onClick={selectVisibleSavedViews}>Select shown</button><button type="button" disabled={!selectedSavedViewIds.length} onClick={() => setSelectedSavedViewIds([])}>Clear selection</button></div></div><div className="pilot-bulk-view-list">{visibleSavedViews.map(view => <label key={view.id}><input type="checkbox" checked={selectedSavedViewIds.includes(view.id)} onChange={event => toggleSavedViewSelection(view.id, event.target.checked)} /><span>{view.name}</span>{view.folder && <span className="pilot-folder-badge">{view.folder}</span>}</label>)}</div><div className="pilot-bulk-move-action"><label>Move selected to folder<input value={bulkFolderDraft} maxLength={40} onChange={event => setBulkFolderDraft(event.target.value)} placeholder="Leave blank to clear folder" /></label><button type="button" className="pilot-folder-action" disabled={!selectedSavedViewIds.length || moveDashboardViewsToFolder.isPending} onClick={() => moveDashboardViewsToFolder.mutate({ viewIds: selectedSavedViewIds, folder: bulkFolderDraft.trim() || null })}>Move {selectedSavedViewIds.length || ""} view{selectedSavedViewIds.length === 1 ? "" : "s"}</button></div></div>}

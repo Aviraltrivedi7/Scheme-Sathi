@@ -432,3 +432,12 @@
 - [x] Add custom Hindi PDF header and footer fields to the browser print layout without expanding report data scope.
 - [x] Test shortcuts, folder ownership and mutations, print layout content, and responsive controls.
 - [x] Document and checkpoint the development-only saved-view productivity upgrade without publishing.
+
+## Folder counts, Hindi PDF presentation presets, and duplicate view shortcut
+
+- [x] Review saved-view selection, folder filtering/count aggregation, duplicate-view naming, and print branding extension points.
+- [x] Add protected owner-private duplicate saved-view API support with safe unique-name behavior.
+- [x] Add folder count badges and a keyboard shortcut for duplicating the selected saved view.
+- [x] Add browser-local Hindi PDF logo selection and predefined date-format presentation presets.
+- [x] Test folder counts, duplicate ownership/name handling, PDF branding/date rendering, and shortcut wiring.
+- [x] Document and checkpoint the development-only saved-view presentation upgrade without publishing.

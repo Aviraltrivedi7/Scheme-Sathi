@@ -17,6 +17,7 @@ import {
   createPilotFeedbackSubmission,
   deleteComparisonExportPreset,
   deletePilotDashboardView,
+  duplicatePilotDashboardView,
   deleteDocumentPdfAnnotation,
   deleteDocumentReviewEscalationTemplate,
   deleteSchemeNote,
@@ -1215,6 +1216,11 @@ export const appRouter = router({
             await movePilotDashboardViewsToFolder(ctx.user.id, input.viewIds, input.folder);
             return { moved: true };
           }),
+        duplicate: adminProcedure
+          .input(z.object({ viewId: z.number().int().positive() }))
+          .mutation(async ({ ctx, input }) => ({
+            view: await duplicatePilotDashboardView(ctx.user.id, input.viewId),
+          })),
         delete: adminProcedure
           .input(z.object({ viewId: z.number().int().positive() }))
           .mutation(async ({ ctx, input }) => {

@@ -960,6 +960,55 @@ export async function movePilotDashboardViewsToFolder(
   }
 }
 
+export async function duplicatePilotDashboardView(userId: number, viewId: number) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const ownedViews = await db
+    .select()
+    .from(pilotDashboardViews)
+    .where(eq(pilotDashboardViews.userId, userId));
+  const source = ownedViews.find(view => view.id === viewId);
+  if (!source) throw new Error("You can only duplicate your own saved dashboard view.");
+  if (ownedViews.length >= 20) throw new Error("You can save up to 20 dashboard views.");
+  const existingNames = new Set(ownedViews.map(view => view.name));
+  let copyNumber = 1;
+  let nextName = "";
+  do {
+    const suffix = copyNumber === 1 ? " copy" : ` copy ${copyNumber}`;
+    nextName = `${source.name.slice(0, 60 - suffix.length).trimEnd()}${suffix}`;
+    copyNumber += 1;
+  } while (existingNames.has(nextName));
+  await db.insert(pilotDashboardViews).values({
+    userId,
+    name: nextName,
+    filters: source.filters,
+    folder: source.folder,
+    isPinned: false,
+    pinnedRank: null,
+  });
+  const copied = await db
+    .select()
+    .from(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.name, nextName)
+      )
+    )
+    .limit(1);
+  const view = copied[0];
+  if (!view) throw new Error("The dashboard view could not be duplicated.");
+  return {
+    id: view.id,
+    name: view.name,
+    filters: view.filters,
+    isPinned: view.isPinned,
+    pinnedRank: view.pinnedRank,
+    folder: view.folder,
+    updatedAt: view.updatedAt.getTime(),
+  };
+}
+
 export async function deletePilotDashboardView(userId: number, viewId: number) {
   const db = await getDb();
   if (!db) databaseUnavailable();

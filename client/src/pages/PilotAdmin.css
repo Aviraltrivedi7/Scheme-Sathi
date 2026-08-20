@@ -59,3 +59,16 @@
 .pilot-pdf-customization input { min-width: 0; height: 36px; border: 1px solid var(--line); background: var(--white); color: var(--ink); padding: 0 9px; font: 600 11px var(--sans); }
 @media (max-width: 960px) { .pilot-folder-management, .pilot-pdf-customization { grid-template-columns: 1fr 1fr; }.pilot-folder-management > div, .pilot-pdf-customization > div { grid-column: 1 / -1; }.pilot-bulk-view-list { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .pilot-folder-management, .pilot-pdf-customization, .pilot-bulk-move-action { grid-template-columns: 1fr; }.pilot-folder-action { width: 100%; }.pilot-bulk-heading { display: block; }.pilot-bulk-heading > div:last-child { margin-top: 9px; }.pilot-bulk-heading button { flex: 1; }.pilot-bulk-view-list { grid-template-columns: 1fr; }.pilot-pdf-customization { padding: 14px 19px; } }
+
+/* Folder counts, duplicate workflow, and richer Hindi print presentation controls. */
+.pilot-folder-overview { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.pilot-folder-overview button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e2c493; background: #fffaf2; color: #75470f; padding: 5px 7px; font: 800 10px var(--sans); cursor: pointer; }
+.pilot-folder-overview button.active { border-color: var(--saffron-deep); background: #f8e5c0; color: #6b3b08; }
+.pilot-folder-overview button:active { transform: scale(.97); }
+.pilot-folder-count-badge { display: inline-grid; min-width: 18px; min-height: 18px; place-items: center; border-radius: 999px; background: var(--ink); color: var(--white); padding: 0 4px; font: 900 9px var(--sans); }
+.pilot-duplicate-view { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 36px; border: 1px dashed #bd8241; background: #fff8ec; color: #81500f; padding: 0 10px; font: 800 10px var(--sans); cursor: pointer; }
+.pilot-duplicate-view:disabled { cursor: not-allowed; opacity: .45; }
+.pilot-pdf-customization { grid-template-columns: minmax(180px, 1.4fr) repeat(2, minmax(160px, 1fr)); }
+.pilot-pdf-customization select { min-width: 0; height: 36px; border: 1px solid var(--line); background: var(--white); color: var(--ink); padding: 0 9px; font: 600 11px var(--sans); }
+@media (max-width: 1040px) { .pilot-view-editor-row .pilot-duplicate-view { width: 100%; } }
+@media (max-width: 640px) { .pilot-view-editor-row .pilot-duplicate-view { width: 100%; }.pilot-folder-overview button { max-width: 100%; }.pilot-folder-overview button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }

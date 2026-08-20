@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   reorderPinnedPilotDashboardViews: vi.fn(),
   renamePilotDashboardViewFolder: vi.fn(),
   movePilotDashboardViewsToFolder: vi.fn(),
+  duplicatePilotDashboardView: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -160,6 +161,7 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.views.list()).rejects.toThrow();
     await expect(caller.admin.pilot.views.renameFolder({ fromFolder: "Review", toFolder: "Archive" })).rejects.toThrow();
     await expect(caller.admin.pilot.views.moveToFolder({ viewIds: [3], folder: "Review" })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.duplicate({ viewId: 3 })).rejects.toThrow();
   });
 
   it("keeps named dashboard views private to the authenticated administrator", async () => {
@@ -208,6 +210,14 @@ describe("admin pilot inbox and cohort invites", () => {
     expect(mocks.renamePilotDashboardViewFolder).toHaveBeenCalledWith(9, "Quarterly reviews", "Leadership review");
     expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(1, 9, [3, 8], "Leadership review");
     expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(2, 9, [8], null);
+  });
+
+  it("duplicates only the current administrator's selected saved view", async () => {
+    mocks.duplicatePilotDashboardView.mockResolvedValue({ id: 12, name: "College Q2 copy", folder: "Leadership review" });
+    const caller = appRouter.createCaller(context("admin"));
+    const result = await caller.admin.pilot.views.duplicate({ viewId: 3 });
+    expect(mocks.duplicatePilotDashboardView).toHaveBeenCalledWith(9, 3);
+    expect(result.view).toEqual(expect.objectContaining({ id: 12, name: "College Q2 copy" }));
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {

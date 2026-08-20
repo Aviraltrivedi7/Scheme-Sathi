@@ -98,5 +98,14 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain("Hindi PDF print layout");
     expect(pilotAdmin).toContain("pdfHeaderDraft");
     expect(pilotAdmin).toContain("pdfFooterDraft");
+    expect(pilotAdmin).toContain("folderCounts");
+    expect(pilotAdmin).toContain("pilot-folder-count-badge");
+    expect(pilotAdmin).toContain("duplicateDashboardView");
+    expect(pilotAdmin).toContain("Alt+D");
+    expect(pilotAdmin).toContain("pilot-duplicate-view");
+    expect(pilotAdmin).toContain("pdfLogoDraft");
+    expect(pilotAdmin).toContain("pdfCustomLogoUrlDraft");
+    expect(pilotAdmin).toContain("pdfDateFormatDraft");
+    expect(pilotAdmin).toContain("Custom logo URL");
   });
 });
