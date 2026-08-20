@@ -495,3 +495,12 @@
 - [x] Add archived-view quick filters for private folders and fixed color labels alongside the separate archive search.
 - [x] Test integrity checks, preview conflict calculation, owner-safe import confirmation, quick filter behavior, and responsive controls.
 - [x] Document, verify, and checkpoint the development-only archive workflow enhancement without publishing.
+
+## Installable PWA and offline app shell
+
+- [x] Review the current app shell, navigation, public assets, and Vite/service-worker configuration.
+- [x] Add a standards-compliant web manifest, Scheme Sathi icon assets, and service worker registration with a safe offline navigation fallback.
+- [x] Build a right-side install experience that opens the browser install prompt when available and provides iOS add-to-home-screen guidance when needed.
+- [x] Add install-state feedback for accepted, dismissed, unavailable, and already-installed states without claiming a downloadable native APK/IPA.
+- [x] Test PWA metadata, service-worker registration, install prompt behavior, responsive placement, offline fallback, TypeScript, production build, and browser rendering.
+- [x] Document, checkpoint, and deliver the development-only PWA upgrade without publishing.

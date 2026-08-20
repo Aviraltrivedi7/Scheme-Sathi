@@ -45,6 +45,7 @@ import {
 import { SchemeHelpDrawer } from "@/components/SchemeHelpDrawer";
 import { ScoreExplanationModal } from "@/components/ScoreExplanationModal";
 import { SchemeComparisonModal } from "@/components/SchemeComparisonModal";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { createDeadlineCalendarIcs, downloadTextFile } from "@/lib/schemeExports";
 import "./SchemeActionEnhancements.css";
 
@@ -199,6 +200,7 @@ function AppHeader({
           </a>
         </nav>
         <div className="header-actions">
+          <PwaInstallButton language={language} />
           <button
             className={`account-button ${authenticated ? "signed-in" : ""}`}
             onClick={authenticated ? onLogout : startLogin}

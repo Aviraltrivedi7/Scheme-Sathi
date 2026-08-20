@@ -1,0 +1,20 @@
+{
+  "name": "Scheme Sathi — Government schemes, made clear.",
+  "short_name": "Scheme Sathi",
+  "description": "Find Indian government schemes with clear eligibility guidance.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f3eb",
+  "theme_color": "#f7f3eb",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/manus-storage/scheme-sathi-pwa-icon_52c69fd8.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

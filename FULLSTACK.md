@@ -566,4 +566,23 @@ Focused regression coverage validates SHA-256 metadata, verified/legacy states, 
 
 ### Reference
 
+## Installable PWA and Offline App Shell
+
+Scheme Sathi now ships with a standards-compliant `manifest.webmanifest`, standalone display mode, site theme metadata, and a persistent Scheme Sathi home-screen icon. Public header actions include a right-side **Install app** button. On browsers that expose the install event, the action opens the browser’s native install prompt; the user’s choice is respected and shown through clear accepted or dismissed feedback. An already installed app shows a compact **Installed** status instead of re-offering installation.
+
+On iPhone and iPad, where browsers do not provide the same prompt, the control opens concise in-context Safari guidance: use **Share** then **Add to Home Screen**. This is a browser-installed PWA, not a downloadable native APK or IPA; installation therefore uses the device’s browser-managed application flow and does not require an app store account.
+
+The root service worker is registered after the page load. In production it caches the offline page, current same-origin navigations, and successfully fetched static scripts, styles, images, and fonts. It never intercepts `/api/` traffic, avoiding cache-based interference with authentication and fresh scheme data. A failed offline navigation falls back to the dedicated Scheme Sathi offline page. The development registration uses an explicit no-cache worker mode so ongoing local development does not receive stale shell responses.
+
+| Capability | User interaction | Behavior and boundary |
+| --- | --- | --- |
+| Desktop/Android installation | Choose **Install app** in the right side of the public header. | The browser’s native PWA prompt handles installation when the platform marks the app eligible. |
+| iPhone/iPad installation | Choose the same action in Safari. | Compact guidance explains **Share → Add to Home Screen**; no false native-download claim is made. |
+| Installed state | Reopen the installed web app. | The action becomes an accessible Installed state rather than duplicating an install request. |
+| Offline navigation | Open a cached app route without a connection. | The worker prefers a stored app shell and falls back to the offline notice if no route is cached. API calls remain network-only. |
+
+Verification covers PWA metadata, service-worker registration, root static endpoint responses, offline fallback wiring, install prompt/iOS/installed UI contracts, 1280 px and 375 px public-header renders, TypeScript, and the production build. The full suite passes **122 tests across 35 files**. The production build retains the existing non-blocking JavaScript chunk-size advisory. No publishing or browser installation was performed during development verification.
+
+> PWA visual verification: the right-side **Install app** control is visible and aligned with the public header actions at 1280 px. At 375 px it deliberately condenses into a labelled-by-accessibility saffron download icon, preserving room for account, language, appearance, and menu controls without horizontal clipping.
+
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

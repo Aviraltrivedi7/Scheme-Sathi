@@ -538,6 +538,79 @@ h3 {
   align-items: center;
   gap: 9px;
 }
+.pwa-install-wrap {
+  position: relative;
+}
+.pwa-install-button,
+.pwa-install-status {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 0 11px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.pwa-install-button {
+  border: 1px solid var(--saffron-deep);
+  background: var(--saffron);
+  color: var(--ink);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--saffron-deep) 32%, transparent);
+  transition: transform 0.16s var(--ease-out), box-shadow 0.16s ease, background 0.16s ease;
+}
+.pwa-install-button:hover {
+  background: #f2a247;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--saffron-deep) 38%, transparent);
+}
+.pwa-install-button:active {
+  transform: scale(.97);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--saffron-deep) 30%, transparent);
+}
+.pwa-install-status {
+  border: 1px solid #91bda7;
+  background: #edf8f2;
+  color: #1f7258;
+}
+.pwa-ios-help {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(270px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  background: var(--white);
+  box-shadow: 0 16px 36px #21130720;
+  padding: 13px 34px 13px 13px;
+  color: var(--ink);
+}
+.pwa-ios-help strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 15px;
+}
+.pwa-ios-help p {
+  margin: 5px 0 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.pwa-ios-help button {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+}
 .language-button,
 .icon-button {
   min-height: 34px;
@@ -2253,6 +2326,27 @@ h3 {
   }
   .brand small {
     display: none;
+  }
+  .header-actions {
+    gap: 6px;
+  }
+  .pwa-install-button,
+  .pwa-install-status {
+    width: 34px;
+    padding: 0;
+    border-radius: 50%;
+  }
+  .pwa-install-button span,
+  .pwa-install-status span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .pwa-ios-help {
+    right: -54px;
   }
   .brand-mark {
     width: 33px;
