@@ -1103,6 +1103,7 @@ export async function restoreArchivedPilotDashboardViews(userId: number, viewIds
 
 function restoredPilotDashboardViewName(name: string, usedNames: Set<string>) {
   const source = name.trim() || "Saved view";
+  if (!usedNames.has(source)) return source;
   let counter = 1;
   while (counter <= 99) {
     const suffix = counter === 1 ? " (restored)" : ` (restored ${counter})`;

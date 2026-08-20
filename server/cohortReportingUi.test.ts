@@ -158,5 +158,16 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain("pdfFooterSizeDraft");
     expect(pilotAdmin).toContain("Header size");
     expect(pilotAdmin).toContain("Footer size");
+    expect(pilotAdmin).toContain("createPilotDashboardArchiveRestorePreview");
+    expect(pilotAdmin).toContain("archiveImportPreview");
+    expect(pilotAdmin).toContain("Restore archived backup");
+    expect(pilotAdmin).toContain("Confirm restore");
+    expect(pilotAdmin).toContain("Integrity verified");
+    expect(pilotAdmin).toContain("Legacy file");
+    expect(pilotAdmin).toContain("Name conflicts");
+    expect(pilotAdmin).toContain("archivedFolderQuickFilter");
+    expect(pilotAdmin).toContain("archivedColorQuickFilter");
+    expect(pilotAdmin).toContain("Archive quick filters");
+    expect(pilotAdmin).toContain("All colors");
   });
 });

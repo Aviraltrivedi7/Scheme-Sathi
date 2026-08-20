@@ -23,6 +23,39 @@ export type PilotDashboardArchiveImportView = {
   folderColor: PilotDashboardArchiveFolderColor | null;
 };
 
+type ArchivedBackupFileView = PilotDashboardArchiveImportView & {
+  id: number;
+  archivedAt: number | null;
+  updatedAt: number;
+};
+
+export const pilotDashboardArchiveBackupFormat = "scheme-sathi-archived-dashboard-views-v1";
+const pilotDashboardArchiveBackupScope = "administrator-private archived dashboard views";
+const pilotDashboardArchiveBackupVersion = "v1" as const;
+const pilotDashboardArchiveViewLimit = 20;
+
+export type PilotDashboardArchiveBackupIntegrity = {
+  formatVersion: typeof pilotDashboardArchiveBackupVersion;
+  status: "verified" | "legacy";
+  algorithm: "SHA-256" | null;
+  digest: string | null;
+};
+
+export type ParsedPilotDashboardArchiveBackup = {
+  views: PilotDashboardArchiveImportView[];
+  integrity: PilotDashboardArchiveBackupIntegrity;
+  exportedAt: number;
+};
+
+export type PilotDashboardArchiveRestorePreview = {
+  canRestore: boolean;
+  existingViewCount: number;
+  importedViewCount: number;
+  remainingSlots: number;
+  conflicts: { sourceName: string; restoredName: string }[];
+  views: Array<PilotDashboardArchiveImportView & { restoredName: string; hasNameConflict: boolean }>;
+};
+
 const allowedFolderColors = new Set<PilotDashboardArchiveFolderColor>([
   "saffron",
   "marigold",
@@ -38,6 +71,10 @@ function isPilotDashboardArchiveFolderColor(value: string): value is PilotDashbo
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isSafeTimestamp(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 function parseArchivedBackupView(value: unknown): PilotDashboardArchiveImportView {
@@ -58,31 +95,19 @@ function parseArchivedBackupView(value: unknown): PilotDashboardArchiveImportVie
   return { name, filters: { from, to, segment, view }, folder, folderColor: folderColor as PilotDashboardArchiveFolderColor | null };
 }
 
-/** Reads only Scheme Sathi's own local archive format and strips all non-restorable fields. */
-export function parsePilotDashboardArchiveBackup(contents: string) {
-  let payload: unknown;
-  try {
-    payload = JSON.parse(contents);
-  } catch {
-    throw new Error("Choose a valid Scheme Sathi archived-view JSON backup.");
+function parseArchivedBackupFileView(value: unknown): ArchivedBackupFileView {
+  if (!isRecord(value) || !Number.isInteger(value.id) || (value.id as number) <= 0 || !isSafeTimestamp(value.updatedAt) || (value.archivedAt !== null && !isSafeTimestamp(value.archivedAt))) {
+    throw new Error("This backup contains invalid archived-view metadata.");
   }
-  if (!isRecord(payload) || payload.format !== "scheme-sathi-archived-dashboard-views-v1" || !Array.isArray(payload.views)) {
-    throw new Error("Choose a Scheme Sathi archived-view JSON backup.");
-  }
-  if (!payload.views.length || payload.views.length > 20) {
-    throw new Error("A backup must contain between 1 and 20 archived views.");
-  }
-  return { views: payload.views.map(parseArchivedBackupView) };
+  return { ...parseArchivedBackupView(value), id: value.id as number, archivedAt: value.archivedAt as number | null, updatedAt: value.updatedAt as number };
 }
 
-/** Produces a browser-local backup without account identifiers, invite data, or personal responses. */
-export function createPilotDashboardArchiveBackup(
-  views: ArchivedPilotDashboardViewBackup[],
-  exportedAt = Date.now()
-) {
-  const archivedViews = views
-    .filter(view => view.isArchived)
-    .map(({ id, name, filters, folder, folderColor, archivedAt, updatedAt }) => ({
+function archivePayload(views: ArchivedBackupFileView[], exportedAt: number) {
+  return {
+    format: pilotDashboardArchiveBackupFormat,
+    exportedAt,
+    scope: pilotDashboardArchiveBackupScope,
+    views: views.map(({ id, name, filters, folder, folderColor, archivedAt, updatedAt }) => ({
       id,
       name,
       filters,
@@ -90,15 +115,121 @@ export function createPilotDashboardArchiveBackup(
       folderColor,
       archivedAt,
       updatedAt,
+    })),
+  };
+}
+
+function canonicalArchivePayload(views: ArchivedBackupFileView[], exportedAt: number) {
+  return JSON.stringify(archivePayload(views, exportedAt));
+}
+
+async function sha256Hex(contents: string) {
+  if (!globalThis.crypto?.subtle) throw new Error("This browser cannot verify archived backup integrity.");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(contents));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function restoredPilotDashboardViewName(name: string, usedNames: Set<string>) {
+  const source = name.trim() || "Saved view";
+  if (!usedNames.has(source)) return source;
+  let counter = 1;
+  while (counter <= 99) {
+    const suffix = counter === 1 ? " (restored)" : ` (restored ${counter})`;
+    const candidate = `${source.slice(0, Math.max(1, 60 - suffix.length)).trim()}${suffix}`;
+    if (!usedNames.has(candidate)) return candidate;
+    counter += 1;
+  }
+  throw new Error("Unable to create a unique restored dashboard view name.");
+}
+
+/** Builds a local-only restore plan that mirrors the server's collision-safe name behavior. */
+export function createPilotDashboardArchiveRestorePreview(
+  importedViews: PilotDashboardArchiveImportView[],
+  existingViewNames: string[]
+): PilotDashboardArchiveRestorePreview {
+  const usedNames = new Set(existingViewNames);
+  const views = importedViews.map(view => {
+    const hasNameConflict = usedNames.has(view.name);
+    const restoredName = restoredPilotDashboardViewName(view.name, usedNames);
+    usedNames.add(restoredName);
+    return { ...view, restoredName, hasNameConflict };
+  });
+  const existingViewCount = existingViewNames.length;
+  const importedViewCount = importedViews.length;
+  return {
+    canRestore: existingViewCount + importedViewCount <= pilotDashboardArchiveViewLimit,
+    existingViewCount,
+    importedViewCount,
+    remainingSlots: Math.max(0, pilotDashboardArchiveViewLimit - existingViewCount - importedViewCount),
+    conflicts: views.filter(view => view.hasNameConflict).map(({ name, restoredName }) => ({ sourceName: name, restoredName })),
+    views,
+  };
+}
+
+/** Reads Scheme Sathi archived-view JSON, verifies modern checksums, and strips non-restorable fields. */
+export async function parsePilotDashboardArchiveBackup(contents: string): Promise<ParsedPilotDashboardArchiveBackup> {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(contents);
+  } catch {
+    throw new Error("Choose a valid Scheme Sathi archived-view JSON backup.");
+  }
+  if (!isRecord(payload) || payload.format !== pilotDashboardArchiveBackupFormat || payload.scope !== pilotDashboardArchiveBackupScope || !isSafeTimestamp(payload.exportedAt) || !Array.isArray(payload.views)) {
+    throw new Error("Choose a Scheme Sathi archived-view JSON backup.");
+  }
+  if (!payload.views.length || payload.views.length > pilotDashboardArchiveViewLimit) {
+    throw new Error("A backup must contain between 1 and 20 archived views.");
+  }
+  const fileViews = payload.views.map(parseArchivedBackupFileView);
+  let integrity: PilotDashboardArchiveBackupIntegrity = {
+    formatVersion: pilotDashboardArchiveBackupVersion,
+    status: "legacy",
+    algorithm: null,
+    digest: null,
+  };
+  if (payload.integrity !== undefined) {
+    if (!isRecord(payload.integrity) || payload.integrity.algorithm !== "SHA-256" || typeof payload.integrity.digest !== "string" || !/^[a-f0-9]{64}$/i.test(payload.integrity.digest)) {
+      throw new Error("This archived backup has invalid integrity metadata.");
+    }
+    const digest = payload.integrity.digest.toLowerCase();
+    const expectedDigest = await sha256Hex(canonicalArchivePayload(fileViews, payload.exportedAt));
+    if (digest !== expectedDigest) {
+      throw new Error("Archived backup integrity check failed. Choose the original, unmodified JSON file.");
+    }
+    integrity = {
+      formatVersion: pilotDashboardArchiveBackupVersion,
+      status: "verified",
+      algorithm: "SHA-256",
+      digest,
+    };
+  }
+  return { views: fileViews.map(({ id: _id, archivedAt: _archivedAt, updatedAt: _updatedAt, ...view }) => view), integrity, exportedAt: payload.exportedAt };
+}
+
+/** Produces a browser-local, versioned backup with a SHA-256 accidental-corruption check. */
+export async function createPilotDashboardArchiveBackup(
+  views: ArchivedPilotDashboardViewBackup[],
+  exportedAt = Date.now()
+) {
+  const archivedViews: ArchivedBackupFileView[] = views
+    .filter(view => view.isArchived)
+    .map(({ id, name, filters, folder, folderColor, archivedAt, updatedAt }) => ({
+      id,
+      name,
+      filters,
+      folder,
+      folderColor: folderColor as PilotDashboardArchiveFolderColor | null,
+      archivedAt,
+      updatedAt,
     }));
+  const payload = archivePayload(archivedViews, exportedAt);
+  const integrity = {
+    algorithm: "SHA-256" as const,
+    digest: await sha256Hex(canonicalArchivePayload(archivedViews, exportedAt)),
+  };
   const date = new Date(exportedAt).toISOString().slice(0, 10);
   return {
     fileName: `scheme-sathi-archived-dashboard-views-${date}.json`,
-    contents: `${JSON.stringify({
-      format: "scheme-sathi-archived-dashboard-views-v1",
-      exportedAt,
-      scope: "administrator-private archived dashboard views",
-      views: archivedViews,
-    }, null, 2)}\n`,
+    contents: `${JSON.stringify({ ...payload, integrity }, null, 2)}\n`,
   };
 }

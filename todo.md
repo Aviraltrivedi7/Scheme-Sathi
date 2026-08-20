@@ -486,3 +486,12 @@
 - [x] Build local backup file import, archived-view search, and font-size preset controls in the admin dashboard.
 - [x] Test import validation/ownership/collisions, font-size markup, archive search behavior, and responsive controls.
 - [x] Document and checkpoint the development-only archive recovery and print typography enhancement without publishing.
+
+## Restore preview, backup integrity, and archived quick filters
+
+- [x] Review archived backup parsing, import mutation, saved-view data, and current filter/modal conventions.
+- [x] Add deterministic backup integrity metadata and supported format-version validation without adding server-side file storage.
+- [x] Build a pre-import restore preview with collision, limit, and importable-view summary before the final mutation.
+- [x] Add archived-view quick filters for private folders and fixed color labels alongside the separate archive search.
+- [x] Test integrity checks, preview conflict calculation, owner-safe import confirmation, quick filter behavior, and responsive controls.
+- [x] Document, verify, and checkpoint the development-only archive workflow enhancement without publishing.

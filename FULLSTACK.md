@@ -543,6 +543,27 @@ The Saved dashboard views filter now keeps a distinct `archivedViewSearch` value
 
 Focused coverage validates malformed/oversized/unsupported local backup rejection, strict segment and folder-color parsing, admin-only import routing and owner ID forwarding, print HTML font-size markup, and import/search/font-size UI wiring. Desktop and 375 px development renders show the import/backup actions, separate PDF size controls, and archived workspace controls without horizontal clipping; the empty account correctly renders the no-matching-view state. The project remains development-only; no archive file upload, real restore mutation, PDF save, or publishing action was performed during verification.
 
+> Visual verification on the current empty administrator account confirms that the archive backup actions—including the visible `v1` export badge—remain compact on desktop and stack without clipping at 375 px. The restore modal and populated quick-filter chips are covered by the local helper and UI-contract suite because no real archived views or backup file were created for visual testing.
+
+## Restore Preview, Archive Integrity, and Archived Quick Filters
+
+The archived backup import flow now pauses at a mandatory **Restore archived backup** preview before the administrator-only restore mutation can run. The browser validates the selected file locally, constructs a collision-aware restore plan against the current owner-scoped view names, and displays the current count, post-restore count, remaining capacity, and any name adjustments. A conflict such as `College Q2` is shown with its exact expected restored name, for example `College Q2 (restored 2)`. Import confirmation stays disabled when the combined saved-view count would exceed the existing **20-view** cap.
+
+The restore planner and server use the same original-name-first behavior: a non-conflicting imported view keeps its name; only genuine collisions receive the ` (restored)` suffix series. Every confirmed backup import still creates **Active**, unpinned, owner-private views. The file remains browser-local throughout preview and confirmation; no JSON file, account identifier, cohort data, feedback data, or document data is uploaded or retained.
+
+Newly exported archive files retain the established `scheme-sathi-archived-dashboard-views-v1` format and now include a SHA-256 integrity record over the canonical non-sensitive archive payload. The preview displays a clear **Archive v1 · Integrity verified** badge when the digest matches. Existing v1 downloads without an integrity record remain importable as **Legacy file** after their format and fields pass validation, ensuring current administrators do not lose access to earlier browser-local backups. A modified integrity-protected payload is rejected before preview with a clear request to choose the original unmodified JSON file.
+
+Within the Archived workspace, the existing dedicated text search is complemented by browser-local **Folders** and **Colors** quick-filter chips. The folder chips show archive-only counts, while color chips appear only for colors present among that administrator’s archived views. Both filters combine with the archive search term without changing Active-view search, folder management, or server-side ownership rules.
+
+| Capability | User interaction | Safety behavior |
+| --- | --- | --- |
+| Restore preview | Choose **Import archive backup**, inspect counts, conflict rows, and restore names, then choose **Confirm restore**. | The mutation is not called until explicit confirmation; cap overages disable confirmation. |
+| Integrity and version | Export a backup or choose a modern backup file. | SHA-256 is verified locally; the v1 badge distinguishes verified and legacy backups; altered protected content is rejected. |
+| Legacy v1 support | Select an earlier v1 backup that lacks an integrity record. | Strict format and field validation still applies; the preview states that it is a legacy file. |
+| Folder/color archive filters | Switch to **Archived** and select quick-filter chips with optional search text. | Filters operate only on the already owner-scoped archive list in browser memory. |
+
+Focused regression coverage validates SHA-256 metadata, verified/legacy states, integrity rejection after payload tampering, restore name conflict planning, capacity blocking, and new modal/filter UI contracts. The full suite passes **119 tests** across **34 test files**, with a clean TypeScript check and production build. The production bundle continues to report the existing non-blocking chunk-size advisory. No publishing, real archive restore, file upload, external request, or personal-data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)
