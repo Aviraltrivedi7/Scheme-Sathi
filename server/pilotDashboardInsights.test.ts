@@ -98,13 +98,25 @@ describe("read-only dashboard summary export", () => {
       customLogoUrl: "https://assets.example.org/preview-logo.png",
       dateFormat: "short",
       margin: "compact",
+      showPageBreakGuides: true,
     });
     expect(html).toContain("पायलट डैशबोर्ड सारांश");
     expect(html).toContain("पूर्वावलोकन &lt;रिपोर्ट&gt;");
     expect(html).toContain("निजी &amp; समेकित");
     expect(html).toContain('src="https://assets.example.org/preview-logo.png"');
     expect(html).toContain("@page { size: A4; margin: 12mm; }");
+    expect(html).toContain("background-size: 100% 297mm");
+    expect(html).toContain("@media screen");
     expect(html).toContain("केवल-पढ़ने योग्य समेकित दृश्य");
     expect(html).not.toContain("Pune College Cell");
+  });
+
+  it("does not add page-break guides to the final-print HTML by default", () => {
+    const html = createHindiPilotDashboardSummaryPrintHtml({
+      filters: { from: "", to: "", segment: "all", view: "month" },
+      totals: { linkVisits: 1, feedbackSubmissions: 1, accountSignups: 1, feedbackRate: 100, signupRate: 100 },
+      quarterChange: null,
+    });
+    expect(html).not.toContain("background-size: 100% 297mm");
   });
 });

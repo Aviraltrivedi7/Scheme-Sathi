@@ -17,6 +17,7 @@ import {
   createPilotFeedbackSubmission,
   deleteComparisonExportPreset,
   deletePilotDashboardView,
+  deletePilotDashboardViewFolder,
   duplicatePilotDashboardView,
   deleteDocumentPdfAnnotation,
   deleteDocumentReviewEscalationTemplate,
@@ -1231,7 +1232,13 @@ export const appRouter = router({
           .input(z.object({ folder: z.string().trim().min(1).max(40), folderColor: pilotDashboardFolderColorInput }))
           .mutation(async ({ ctx, input }) => {
             await setPilotDashboardFolderColor(ctx.user.id, input.folder, input.folderColor);
-            return { recolored: true };
+            return { updated: true };
+          }),
+        deleteFolder: adminProcedure
+          .input(z.object({ folder: z.string().trim().min(1).max(40) }))
+          .mutation(async ({ ctx, input }) => {
+            await deletePilotDashboardViewFolder(ctx.user.id, input.folder);
+            return { deleted: true };
           }),
         setArchived: adminProcedure
           .input(z.object({ viewId: z.number().int().positive(), isArchived: z.boolean() }))

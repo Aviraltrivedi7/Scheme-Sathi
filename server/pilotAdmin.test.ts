@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   listPilotDashboardViews: vi.fn(),
   savePilotDashboardView: vi.fn(),
   deletePilotDashboardView: vi.fn(),
+  deletePilotDashboardViewFolder: vi.fn(),
   setPilotDashboardViewPinned: vi.fn(),
   reorderPinnedPilotDashboardViews: vi.fn(),
   renamePilotDashboardViewFolder: vi.fn(),
@@ -168,6 +169,7 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.views.setArchived({ viewId: 3, isArchived: true })).rejects.toThrow();
     await expect(caller.admin.pilot.views.setFolderColor({ folder: "Review", folderColor: "teal" })).rejects.toThrow();
     await expect(caller.admin.pilot.views.restoreArchived({ viewIds: [3, 8] })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.deleteFolder({ folder: "Review" })).rejects.toThrow();
   });
 
   it("keeps named dashboard views private to the authenticated administrator", async () => {
@@ -234,6 +236,12 @@ describe("admin pilot inbox and cohort invites", () => {
     expect(mocks.setPilotDashboardViewArchived).toHaveBeenNthCalledWith(1, 9, 12, true);
     expect(mocks.setPilotDashboardViewArchived).toHaveBeenNthCalledWith(2, 9, 12, false);
     expect(mocks.setPilotDashboardFolderColor).toHaveBeenCalledWith(9, "Leadership review", "plum");
+  });
+
+  it("removes only the current administrator's selected folder label while retaining views", async () => {
+    const caller = appRouter.createCaller(context("admin"));
+    await caller.admin.pilot.views.deleteFolder({ folder: "Leadership review" });
+    expect(mocks.deletePilotDashboardViewFolder).toHaveBeenCalledWith(9, "Leadership review");
   });
 
   it("bulk-restores only the current administrator's selected archived saved views", async () => {

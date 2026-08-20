@@ -1,0 +1,1 @@
+ALTER TABLE `pilot_dashboard_views` ADD `archivedAt` timestamp;

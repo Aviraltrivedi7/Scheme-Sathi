@@ -459,3 +459,12 @@
 - [x] Add print margin presets to the live preview and final browser print flow.
 - [x] Test bulk restore ownership, color legend mapping, zoom behavior, margin markup, and responsive controls.
 - [x] Document and checkpoint the development-only saved-view recovery and PDF layout upgrade without publishing.
+
+## Archive retention, PDF page markers, and folder quick actions
+
+- [x] Review archive-state timestamps, private folder operations, and live preview layout extension points.
+- [x] Add owner-private archive retention metadata and protected folder deletion support.
+- [x] Build archived-view retention countdowns and folder quick actions for rename, delete, and color labels.
+- [x] Add page-break guides to the adjustable live Hindi PDF preview without affecting final PDF content.
+- [x] Test retention lifecycle, folder action ownership, page-marker rendering, and responsive controls.
+- [x] Document and checkpoint the development-only saved-view lifecycle and PDF preview upgrade without publishing.

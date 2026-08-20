@@ -205,6 +205,7 @@ export const pilotDashboardViews = mysqlTable(
     folder: varchar("folder", { length: 40 }),
     folderColor: varchar("folderColor", { length: 16 }),
     isArchived: boolean("isArchived").notNull().default(false),
+    archivedAt: timestamp("archivedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

@@ -492,6 +492,22 @@ The live Hindi PDF modal now includes preview zoom values of 75%, 100%, 125%, an
 
 Focused tests now cover bulk restore routing and administrator-only access, compact margin HTML output, legend/restore/zoom/margin UI wiring, and the prior archive/preview safety contracts. The full suite passes **110 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The visual account remains intentionally empty, so populated archived selection and open preview controls are covered by protected route, helper, and UI-contract regression tests. No publishing, real restoration, external logo fetch, PDF save, cohort action, or personal data action was performed.
 
+## Archive Retention, Folder Quick Actions, and Preview Page-Break Guides
+
+Migration `0026_faulty_thunderbolts.sql` adds a nullable `archivedAt` timestamp to private `pilot_dashboard_views`, and the migration has been applied to the development database. A view receives the timestamp at archive time; restore clears it. The list helper performs an owner-scoped cleanup when it loads a list, permanently deleting only archived rows whose recorded timestamp is at least **30 days** old. The Archived workspace displays the current browser-calculated days remaining for timestamped rows. Legacy archived rows without an archive timestamp are intentionally not auto-purged; archiving them again begins the defined retention window.
+
+Folder management now includes a compact Actions menu for the selected private folder. It provides a rename focus shortcut, a six-color submenu, and **Delete folder label**. Deleting a folder label clears the matching private views' folder and color fields but preserves the saved views, their filters, and their archive/pin state. The protected `admin.pilot.views.deleteFolder` route rechecks the administrator identity, and the interface asks for browser confirmation before applying the non-destructive folder-label removal.
+
+The Hindi PDF modal now provides an optional **Show A4 page-break guides** switch. When on, it passes a screen-only guide flag into the preview HTML builder, adding a repeating 297 mm visual line for layout tuning. The generated style is contained inside `@media screen`, while the final print action continues to use the same builder without the guide flag. As a result, guides never alter the browser print/PDF document, aggregate metrics, header/footer, logo, date preset, or margin selection.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Archive retention | Read days remaining in Archived, restore before expiry if needed. | Cleanup is owner-scoped and occurs only for timestamped archived views after 30 days on list load. |
+| Folder quick actions | Open **Actions** for Rename, Color label, or Delete folder label. | Delete removes only the private organisational label, not saved views; server ownership is rechecked. |
+| Page-break guides | Turn on A4 guides in the preview modal while adjusting zoom and margins. | Guide CSS is screen-only and is deliberately excluded from the final browser print HTML. |
+
+Focused tests now cover administrator-only folder deletion, screen-only page-guide markup and final-print omission, retention/quick-action/page-guide UI wiring, and all preceding archive privacy contracts. The full suite passes **112 tests** across **33 test files**, with a clean TypeScript check, production build, migration application, runtime-log review, and desktop/375px development renders. The visual account remains intentionally empty, so populated folder/retention controls and the open preview modal remain covered by protected route, helper, and UI-contract regression tests. No publishing, real purge, real folder-label mutation, external logo fetch, PDF save, cohort action, or personal data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

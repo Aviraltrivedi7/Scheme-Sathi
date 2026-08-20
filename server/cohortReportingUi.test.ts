@@ -130,5 +130,14 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain("pdfMarginDraft");
     expect(pilotAdmin).toContain("Preview zoom");
     expect(pilotAdmin).toContain("Print margins");
+    expect(pilotAdmin).toContain("archiveRetentionLabel");
+    expect(pilotAdmin).toContain("pilot-archive-retention");
+    expect(pilotAdmin).toContain("deleteDashboardFolder");
+    expect(pilotAdmin).toContain("deleteFolder");
+    expect(pilotAdmin).toContain("Folder quick actions");
+    expect(pilotAdmin).toContain("pilot-folder-quick-trigger");
+    expect(pilotAdmin).toContain("pdfPageBreakGuides");
+    expect(pilotAdmin).toContain("Show A4 page-break guides");
+    expect(pilotAdmin).toContain("showPageBreakGuides: pdfPageBreakGuides");
   });
 });

@@ -753,6 +753,7 @@ export type PilotDashboardViewFilters = {
 
 export const pilotDashboardFolderColors = ["saffron", "marigold", "teal", "indigo", "plum", "slate"] as const;
 export type PilotDashboardFolderColor = (typeof pilotDashboardFolderColors)[number];
+export const pilotDashboardArchiveRetentionDays = 30;
 
 function normalizePilotDashboardFolderColor(value?: string | null) {
   if (!value) return null;
@@ -765,6 +766,17 @@ function normalizePilotDashboardFolderColor(value?: string | null) {
 export async function listPilotDashboardViews(userId: number) {
   const db = await getDb();
   if (!db) databaseUnavailable();
+  const retentionCutoff = new Date(Date.now() - pilotDashboardArchiveRetentionDays * 24 * 60 * 60 * 1000);
+  await db
+    .delete(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.isArchived, true),
+        isNotNull(pilotDashboardViews.archivedAt),
+        lte(pilotDashboardViews.archivedAt, retentionCutoff)
+      )
+    );
   const rows = await db
     .select()
     .from(pilotDashboardViews)
@@ -784,6 +796,7 @@ export async function listPilotDashboardViews(userId: number) {
     folder: row.folder,
     folderColor: row.folderColor,
     isArchived: row.isArchived,
+    archivedAt: row.archivedAt?.getTime() ?? null,
     updatedAt: row.updatedAt.getTime(),
   }));
 }
@@ -844,6 +857,7 @@ export async function savePilotDashboardView(
     folder: view.folder,
     folderColor: view.folderColor,
     isArchived: view.isArchived,
+    archivedAt: view.archivedAt?.getTime() ?? null,
     updatedAt: view.updatedAt.getTime(),
   };
 }
@@ -1001,6 +1015,7 @@ export async function setPilotDashboardViewArchived(
     .update(pilotDashboardViews)
     .set({
       isArchived,
+      archivedAt: isArchived ? new Date() : null,
       isPinned: isArchived ? false : undefined,
       pinnedRank: isArchived ? null : undefined,
       updatedAt: new Date(),
@@ -1036,7 +1051,7 @@ export async function restoreArchivedPilotDashboardViews(userId: number, viewIds
   for (let index = 0; index < viewIds.length; index += 1) {
     await db
       .update(pilotDashboardViews)
-      .set({ isArchived: false, isPinned: false, pinnedRank: null, updatedAt: new Date() })
+      .set({ isArchived: false, archivedAt: null, isPinned: false, pinnedRank: null, updatedAt: new Date() })
       .where(
         and(
           eq(pilotDashboardViews.id, viewIds[index]),
@@ -1060,6 +1075,22 @@ export async function setPilotDashboardFolderColor(
   await db
     .update(pilotDashboardViews)
     .set({ folderColor: normalizedFolderColor, updatedAt: new Date() })
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.folder, normalizedFolder)
+      )
+    );
+}
+
+export async function deletePilotDashboardViewFolder(userId: number, folder: string) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const normalizedFolder = folder.trim();
+  if (!normalizedFolder) throw new Error("Choose a folder to remove.");
+  await db
+    .update(pilotDashboardViews)
+    .set({ folder: null, folderColor: null, updatedAt: new Date() })
     .where(
       and(
         eq(pilotDashboardViews.userId, userId),
