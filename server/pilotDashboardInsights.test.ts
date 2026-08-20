@@ -69,11 +69,15 @@ describe("read-only dashboard summary export", () => {
       filters: { from: "", to: "", segment: "ngo", view: "month" },
       totals: { linkVisits: 12, feedbackSubmissions: 6, accountSignups: 2, feedbackRate: 50, signupRate: 16.7 },
       quarterChange: null,
+      header: "कॉलेज पायलट <आंतरिक>",
+      footer: "टीम रिपोर्ट & समीक्षा",
     });
     expect(opened).toBe(true);
     expect(write).toHaveBeenCalledWith(expect.stringContaining("पायलट डैशबोर्ड सारांश"));
     expect(write).toHaveBeenCalledWith(expect.stringContaining("केवल-पढ़ने योग्य समेकित दृश्य"));
     expect(write).toHaveBeenCalledWith(expect.stringContaining("एनजीओ समूह"));
+    expect(write).toHaveBeenCalledWith(expect.stringContaining("कॉलेज पायलट &lt;आंतरिक&gt;"));
+    expect(write).toHaveBeenCalledWith(expect.stringContaining("टीम रिपोर्ट &amp; समीक्षा"));
     expect(print).toHaveBeenCalledOnce();
     vi.unstubAllGlobals();
   });

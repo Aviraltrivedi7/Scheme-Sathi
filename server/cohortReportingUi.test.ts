@@ -88,5 +88,15 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain("pilot-folder-badge");
     expect(pilotAdmin).toContain("openHindiPilotDashboardSummaryPdf");
     expect(pilotAdmin).toContain("Hindi PDF");
+    expect(pilotAdmin).toContain("handleSavedViewShortcut");
+    expect(pilotAdmin).toContain("Alt+ArrowDown Alt+ArrowUp Alt+Enter Alt+S");
+    expect(pilotAdmin).toContain("loadAdjacentSavedView");
+    expect(pilotAdmin).toContain("renameDashboardViewFolder");
+    expect(pilotAdmin).toContain("moveDashboardViewsToFolder");
+    expect(pilotAdmin).toContain("selectedSavedViewIds");
+    expect(pilotAdmin).toContain("Bulk move saved views");
+    expect(pilotAdmin).toContain("Hindi PDF print layout");
+    expect(pilotAdmin).toContain("pdfHeaderDraft");
+    expect(pilotAdmin).toContain("pdfFooterDraft");
   });
 });

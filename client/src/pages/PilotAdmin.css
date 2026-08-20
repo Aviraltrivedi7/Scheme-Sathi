@@ -33,3 +33,29 @@
 .pilot-pinned-order li:focus-within { border-color: var(--saffron); outline: 2px solid color-mix(in srgb, var(--saffron) 32%, transparent); outline-offset: 1px; }
 @media (max-width: 1040px) { .pilot-view-editor-row { grid-template-columns: repeat(3, minmax(150px, 1fr)); }.pilot-view-editor-row .pilot-save-view, .pilot-view-editor-row .pilot-delete-view, .pilot-view-editor-row .pilot-pin-view { width: 100%; } }
 @media (max-width: 640px) { .pilot-view-filter-row, .pilot-view-editor-row { grid-template-columns: 1fr; }.pilot-view-editor-row .pilot-save-view, .pilot-view-editor-row .pilot-delete-view, .pilot-view-editor-row .pilot-pin-view { width: 100%; }.pilot-pinned-order > div { display: block; }.pilot-pinned-order > div small { margin-top: 4px; }.pilot-folder-badge { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+
+/* Fast saved-view navigation, private folder operations, and print branding inputs. */
+.pilot-shortcut-guide { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; color: var(--ink-muted); font-size: 9px; font-weight: 700; }
+.pilot-shortcut-guide kbd { border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 2px 4px; font: 800 9px var(--sans); }
+.pilot-folder-management, .pilot-bulk-view-manager { display: grid; gap: 10px; margin-top: 12px; padding: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 75%, var(--white)); }
+.pilot-folder-management { grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 1fr) auto; align-items: end; }
+.pilot-folder-management strong, .pilot-bulk-view-manager strong { display: block; color: var(--ink); font-size: 11px; }
+.pilot-folder-management small, .pilot-bulk-view-manager small { display: block; margin-top: 3px; color: var(--ink-muted); font-size: 10px; line-height: 1.35; }
+.pilot-folder-action { min-height: 36px; border: 1px solid var(--ink); background: var(--ink); color: var(--white); padding: 0 11px; font: 800 10px var(--sans); cursor: pointer; }
+.pilot-folder-action:disabled { cursor: not-allowed; opacity: .45; }
+.pilot-bulk-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pilot-bulk-heading > div:last-child { display: flex; flex-wrap: wrap; gap: 6px; }
+.pilot-bulk-heading button { border: 1px solid var(--line); background: var(--white); color: var(--ink); padding: 6px 8px; font: 800 9px var(--sans); cursor: pointer; }
+.pilot-bulk-heading button:disabled { cursor: not-allowed; opacity: .45; }
+.pilot-bulk-view-list { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 6px; }
+.pilot-bulk-view-list label { display: flex; min-width: 0; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--white); padding: 7px 8px; color: var(--ink); font: 700 10px var(--sans); cursor: pointer; }
+.pilot-bulk-view-list input { width: 14px; height: 14px; accent-color: var(--saffron-deep); }
+.pilot-bulk-view-list label > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pilot-bulk-view-list .pilot-folder-badge { margin-left: auto; }
+.pilot-bulk-move-action { display: grid; grid-template-columns: minmax(220px, 1fr) auto; align-items: end; gap: 10px; }
+.pilot-pdf-customization { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr); align-items: end; gap: 10px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 42%, var(--white)); }
+.pilot-pdf-customization strong, .pilot-pdf-customization small { display: block; }.pilot-pdf-customization strong { color: var(--ink); font-size: 12px; }.pilot-pdf-customization small { margin-top: 3px; color: var(--ink-muted); font-size: 10px; line-height: 1.35; }
+.pilot-pdf-customization label { display: grid; gap: 5px; color: var(--ink-muted); font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.pilot-pdf-customization input { min-width: 0; height: 36px; border: 1px solid var(--line); background: var(--white); color: var(--ink); padding: 0 9px; font: 600 11px var(--sans); }
+@media (max-width: 960px) { .pilot-folder-management, .pilot-pdf-customization { grid-template-columns: 1fr 1fr; }.pilot-folder-management > div, .pilot-pdf-customization > div { grid-column: 1 / -1; }.pilot-bulk-view-list { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .pilot-folder-management, .pilot-pdf-customization, .pilot-bulk-move-action { grid-template-columns: 1fr; }.pilot-folder-action { width: 100%; }.pilot-bulk-heading { display: block; }.pilot-bulk-heading > div:last-child { margin-top: 9px; }.pilot-bulk-heading button { flex: 1; }.pilot-bulk-view-list { grid-template-columns: 1fr; }.pilot-pdf-customization { padding: 14px 19px; } }

@@ -428,6 +428,22 @@ The **Hindi PDF** action builds a print-ready, browser-local Hindi document cont
 
 Focused tests now cover protected reorder forwarding, invalid pinned-order errors, folder persistence in the save contract, Hindi HTML print content, and UI wiring for drag handlers, folders, and the PDF action. The full suite passes **105 tests** across **33 test files**, along with a clean TypeScript check and production build. Desktop and 375px mobile development renders show the controls without clipping; the empty development account had no saved views, so the drag list's interaction is additionally protected by the route and UI contract tests. No publishing, real saved view, export, cohort event, or personal data action was performed.
 
+## Saved-View Productivity Controls and Hindi Print Branding
+
+The saved-view workspace now supports quick, non-mouse navigation when focus is outside an editable field. **Alt + Down Arrow** loads the next visible saved view, **Alt + Up Arrow** loads the previous visible view, **Alt + Enter** loads the selected view (or the first visible view), and **Alt + S** saves the current named view. The controls intentionally ignore inputs, textareas, selects, buttons, and editable content, so normal typing and form interaction are not intercepted. The shortcut reference remains visible beside the saved-view heading and uses `aria-keyshortcuts` metadata for assistive technology.
+
+Private folder organisation now has two protected administrator-only routes. `admin.pilot.views.renameFolder` updates a non-empty source folder to a new non-empty 40-character label only within the current administrator's saved views. `admin.pilot.views.moveToFolder` validates a non-empty, distinct set of selected view IDs against the current administrator's rows before applying a destination folder; a blank destination clears the folder. Both controls operate over the existing owner-private saved-view list, remain outside shared URLs, and refresh the local cache once complete.
+
+The Hindi print-to-PDF flow now includes configurable header and footer text inputs. Default labels make the document's internal/reporting context clear, but an administrator may supply brief custom Hindi copy before opening the browser print dialog. The helper trims and HTML-escapes the strings before placing them in the print document. These labels do not alter the underlying aggregate-only data scope and do not add a server upload, PDF service, cohort name, account identifier, visitor hash, feedback text, document, or profile data.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Saved-view shortcuts | Alt-based next, previous, load, and save actions outside editable controls | Runs only in the current administrator's rendered private view list. |
+| Folder rename and bulk move | Rename the selected private folder or select visible views and move/clear their folder | Every mutation is administrator-only and rechecks row ownership server-side. |
+| Hindi print branding | Enter compact header/footer copy before pressing **Hindi PDF** | Copy is escaped and stays browser-local; the exported metrics remain aggregate-only. |
+
+Focused routing, PDF-output, and UI contract tests cover the owner-bound folder operations, shortcut wiring, custom print copy, and HTML escaping. The full suite now passes **106 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The test preview account had no saved view data, so the rename/bulk manager's populated state remains covered by typed route and UI-contract regression tests. No publishing, real folder mutation, real PDF save, cohort action, or personal data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

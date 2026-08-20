@@ -905,6 +905,61 @@ export async function reorderPinnedPilotDashboardViews(userId: number, viewIds: 
   }
 }
 
+export async function renamePilotDashboardViewFolder(
+  userId: number,
+  fromFolder: string,
+  toFolder: string
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const source = fromFolder.trim();
+  const destination = toFolder.trim();
+  if (!source || !destination) throw new Error("Choose both the current and new folder names.");
+  if (source === destination) return;
+  await db
+    .update(pilotDashboardViews)
+    .set({ folder: destination, updatedAt: new Date() })
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.folder, source)
+      )
+    );
+}
+
+export async function movePilotDashboardViewsToFolder(
+  userId: number,
+  viewIds: number[],
+  folder?: string | null
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const requested = new Set(viewIds);
+  if (!viewIds.length || requested.size !== viewIds.length) {
+    throw new Error("Choose one or more distinct saved views to move.");
+  }
+  const ownedRows = await db
+    .select({ id: pilotDashboardViews.id })
+    .from(pilotDashboardViews)
+    .where(eq(pilotDashboardViews.userId, userId));
+  const ownedIds = new Set(ownedRows.map(view => view.id));
+  if (viewIds.some(viewId => !ownedIds.has(viewId))) {
+    throw new Error("You can only move your own saved dashboard views.");
+  }
+  const normalizedFolder = folder?.trim() || null;
+  for (let index = 0; index < viewIds.length; index += 1) {
+    await db
+      .update(pilotDashboardViews)
+      .set({ folder: normalizedFolder, updatedAt: new Date() })
+      .where(
+        and(
+          eq(pilotDashboardViews.id, viewIds[index]),
+          eq(pilotDashboardViews.userId, userId)
+        )
+      );
+  }
+}
+
 export async function deletePilotDashboardView(userId: number, viewId: number) {
   const db = await getDb();
   if (!db) databaseUnavailable();

@@ -80,15 +80,22 @@ function escapeHtml(value: string) {
 }
 
 /** Opens the browser print dialog so the administrator can save the Hindi aggregate-only summary as a PDF. */
+export type HindiPilotDashboardPrintBranding = {
+  header?: string;
+  footer?: string;
+};
+
 export function openHindiPilotDashboardSummaryPdf(
-  input: Omit<PilotDashboardSummaryInput, "language">
+  input: Omit<PilotDashboardSummaryInput, "language"> & HindiPilotDashboardPrintBranding
 ) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
   const summary = createPilotDashboardSummary({ ...input, language: "hi" });
   const heading = "Scheme Sathi — पायलट डैशबोर्ड सारांश";
+  const header = input.header?.trim() || "सरकारी योजना पायलट · समेकित रिपोर्ट";
+  const footer = input.footer?.trim() || "केवल आंतरिक उपयोग के लिए · व्यक्तिगत डेटा शामिल नहीं है";
   printWindow.document.open();
-  printWindow.document.write(`<!doctype html><html lang="hi-IN"><head><meta charset="utf-8"><title>${escapeHtml(heading)}</title><style>@page { size: A4; margin: 18mm; } body { color: #18233d; font: 13px "Noto Sans Devanagari", "Nirmala UI", Mangal, Arial, sans-serif; line-height: 1.7; } h1 { font: 700 23px Georgia, "Noto Serif Devanagari", serif; margin: 0 0 8px; } p { color: #596171; margin: 0 0 20px; } pre { white-space: pre-wrap; overflow-wrap: anywhere; border-top: 2px solid #d88728; padding-top: 16px; margin: 0; font: inherit; } footer { border-top: 1px solid #ded6c8; color: #687080; font-size: 10px; margin-top: 20px; padding-top: 9px; }</style></head><body><h1>${escapeHtml(heading)}</h1><p>केवल-पढ़ने योग्य समेकित दृश्य · Scheme Sathi</p><pre>${escapeHtml(summary.contents)}</pre><footer>Scheme Sathi · ${escapeHtml(new Date().toLocaleString("hi-IN"))}</footer></body></html>`);
+  printWindow.document.write(`<!doctype html><html lang="hi-IN"><head><meta charset="utf-8"><title>${escapeHtml(heading)}</title><style>@page { size: A4; margin: 18mm; } body { color: #18233d; font: 13px "Noto Sans Devanagari", "Nirmala UI", Mangal, Arial, sans-serif; line-height: 1.7; } .print-header { align-items: flex-start; border-bottom: 2px solid #d88728; display: flex; gap: 16px; justify-content: space-between; margin-bottom: 18px; padding-bottom: 12px; } .print-brand { color: #9b5e15; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; } .print-header-copy { color: #596171; font-size: 11px; max-width: 58%; text-align: right; } h1 { font: 700 23px Georgia, "Noto Serif Devanagari", serif; margin: 0 0 8px; } p { color: #596171; margin: 0 0 20px; } pre { white-space: pre-wrap; overflow-wrap: anywhere; border-top: 1px solid #ded6c8; padding-top: 16px; margin: 0; font: inherit; } footer { align-items: flex-start; border-top: 1px solid #ded6c8; color: #687080; display: flex; font-size: 10px; gap: 16px; justify-content: space-between; margin-top: 20px; padding-top: 9px; } footer span:first-child { max-width: 72%; } @media print { .print-header, footer { break-inside: avoid; } }</style></head><body><header class="print-header"><div class="print-brand">Scheme Sathi</div><div class="print-header-copy">${escapeHtml(header)}</div></header><h1>${escapeHtml(heading)}</h1><p>केवल-पढ़ने योग्य समेकित दृश्य · Scheme Sathi</p><pre>${escapeHtml(summary.contents)}</pre><footer><span>${escapeHtml(footer)}</span><span>Scheme Sathi · ${escapeHtml(new Date().toLocaleString("hi-IN"))}</span></footer></body></html>`);
   printWindow.document.close();
   window.setTimeout(() => printWindow.print(), 240);
   return true;

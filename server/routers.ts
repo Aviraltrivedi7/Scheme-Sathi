@@ -59,6 +59,8 @@ import {
   markDocumentExpiryNotificationRead,
   markDocumentReviewAssignmentNotificationRead,
   markFamilyFilterInvitationNotificationRead,
+  movePilotDashboardViewsToFolder,
+  renamePilotDashboardViewFolder,
   removeApplicationDocument,
   removeSavedVerificationHistoryFilter,
   respondToVerificationHistoryFilterInvite,
@@ -1200,6 +1202,18 @@ export const appRouter = router({
           .mutation(async ({ ctx, input }) => {
             await reorderPinnedPilotDashboardViews(ctx.user.id, input.viewIds);
             return { reordered: true };
+          }),
+        renameFolder: adminProcedure
+          .input(z.object({ fromFolder: z.string().trim().min(1).max(40), toFolder: z.string().trim().min(1).max(40) }))
+          .mutation(async ({ ctx, input }) => {
+            await renamePilotDashboardViewFolder(ctx.user.id, input.fromFolder, input.toFolder);
+            return { renamed: true };
+          }),
+        moveToFolder: adminProcedure
+          .input(z.object({ viewIds: z.array(z.number().int().positive()).min(1).max(20), folder: z.string().trim().max(40).nullable().optional() }))
+          .mutation(async ({ ctx, input }) => {
+            await movePilotDashboardViewsToFolder(ctx.user.id, input.viewIds, input.folder);
+            return { moved: true };
           }),
         delete: adminProcedure
           .input(z.object({ viewId: z.number().int().positive() }))

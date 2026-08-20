@@ -61,8 +61,13 @@ export default function PilotAdmin() {
   const [savedViewSearch, setSavedViewSearch] = useState("");
   const [folderDraft, setFolderDraft] = useState("");
   const [folderFilter, setFolderFilter] = useState("");
+  const [folderRenameDraft, setFolderRenameDraft] = useState("");
+  const [selectedSavedViewIds, setSelectedSavedViewIds] = useState<number[]>([]);
+  const [bulkFolderDraft, setBulkFolderDraft] = useState("");
   const [draggedViewId, setDraggedViewId] = useState<number | null>(null);
   const [summaryLanguage, setSummaryLanguage] = useState<"en" | "hi">("en");
+  const [pdfHeaderDraft, setPdfHeaderDraft] = useState("सरकारी योजना पायलट · समेकित रिपोर्ट");
+  const [pdfFooterDraft, setPdfFooterDraft] = useState("केवल आंतरिक उपयोग के लिए · व्यक्तिगत डेटा शामिल नहीं है");
   const feedbackInput = useMemo(
     () => ({ status: status === "all" ? undefined : status, query: query.trim() || undefined }),
     [status, query]
@@ -155,6 +160,24 @@ export default function PilotAdmin() {
     },
     onError: error => toast.error(error.message),
   });
+  const renameDashboardViewFolder = trpc.admin.pilot.views.renameFolder.useMutation({
+    onSuccess: async (_result, input) => {
+      if (folderFilter === input.fromFolder) setFolderFilter(input.toFolder);
+      setFolderRenameDraft("");
+      await utils.admin.pilot.views.list.invalidate();
+      toast.success("Private folder renamed.");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const moveDashboardViewsToFolder = trpc.admin.pilot.views.moveToFolder.useMutation({
+    onSuccess: async () => {
+      setSelectedSavedViewIds([]);
+      setBulkFolderDraft("");
+      await utils.admin.pilot.views.list.invalidate();
+      toast.success("Selected saved views moved.");
+    },
+    onError: error => toast.error(error.message),
+  });
   const copyInvite = async (code: string) => {
     const url = `${window.location.origin}/pilot?cohort=${encodeURIComponent(code)}`;
     try {
@@ -188,6 +211,12 @@ export default function PilotAdmin() {
       return searchMatches && folderMatches;
     });
   }, [folderFilter, savedViewSearch, savedViews]);
+  useEffect(() => {
+    setSelectedSavedViewIds(current => {
+      const next = current.filter(viewId => savedViews.some(view => view.id === viewId));
+      return next.length === current.length ? current : next;
+    });
+  }, [savedViews]);
   const exportCohortReport = () => {
     if (!conversions.length) {
       toast.error("There is no cohort data in this date range to export.");
@@ -221,6 +250,8 @@ export default function PilotAdmin() {
       filters: { from: reportStartDate, to: reportEndDate, segment: trendCohortType, view: trendPeriod },
       totals: funnelSummary,
       quarterChange,
+      header: pdfHeaderDraft,
+      footer: pdfFooterDraft,
     });
     if (opened) toast.success("Hindi dashboard summary is ready in the print dialog. Choose Save as PDF.");
     else toast.error("The PDF print window was blocked. Allow pop-ups and try again.");
@@ -243,6 +274,49 @@ export default function PilotAdmin() {
     setTrendCohortType(view.filters.segment);
     setTrendPeriod(view.filters.view);
   };
+  const toggleSavedViewSelection = (viewId: number, checked: boolean) => {
+    setSelectedSavedViewIds(current => checked
+      ? current.includes(viewId) ? current : [...current, viewId]
+      : current.filter(id => id !== viewId)
+    );
+  };
+  const selectVisibleSavedViews = () => {
+    setSelectedSavedViewIds(visibleSavedViews.map(view => view.id));
+  };
+  const loadAdjacentSavedView = (direction: -1 | 1) => {
+    if (!visibleSavedViews.length) return;
+    const currentIndex = visibleSavedViews.findIndex(view => view.id === selectedDashboardViewId);
+    const nextIndex = currentIndex < 0
+      ? direction === 1 ? 0 : visibleSavedViews.length - 1
+      : (currentIndex + direction + visibleSavedViews.length) % visibleSavedViews.length;
+    loadDashboardView(visibleSavedViews[nextIndex].id);
+  };
+  useEffect(() => {
+    const handleSavedViewShortcut = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        (target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, button, [contenteditable='true']")))
+      ) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        loadAdjacentSavedView(1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        loadAdjacentSavedView(-1);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const viewId = selectedDashboardViewId ?? visibleSavedViews[0]?.id;
+        if (viewId) loadDashboardView(viewId);
+      } else if (event.key.toLocaleLowerCase() === "s") {
+        event.preventDefault();
+        if (dashboardViewName.trim()) saveCurrentDashboardView();
+        else toast.error("Give the dashboard view a name before using Alt+S.");
+      }
+    };
+    window.addEventListener("keydown", handleSavedViewShortcut);
+    return () => window.removeEventListener("keydown", handleSavedViewShortcut);
+  }, [dashboardViewName, selectedDashboardViewId, visibleSavedViews]);
   const handlePinnedViewDragStart = (event: DragEvent<HTMLLIElement>, viewId: number) => {
     setDraggedViewId(viewId);
     event.dataTransfer.effectAllowed = "move";
@@ -294,12 +368,14 @@ export default function PilotAdmin() {
         <section className="pilot-conversion-card" aria-label="Cohort conversion funnel">
           <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>{trendScopeLabel}. Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div><div className="pilot-report-actions"><button type="button" className="pilot-export-report" onClick={copyDashboardView}><Copy size={15} /> Share view</button><label className="pilot-summary-language">Summary language<select value={summaryLanguage} onChange={event => setSummaryLanguage(event.target.value as "en" | "hi")}><option value="en">English</option><option value="hi">हिन्दी</option></select></label><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportDashboardSummary}><Download size={15} /> Export summary</button><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportHindiDashboardSummaryPdf}><Download size={15} /> Hindi PDF</button><button type="button" className="pilot-export-report" disabled={!conversions.length || reportRangeInvalid || conversionQuery.isLoading || monthlyTrendQuery.isLoading} onClick={exportCohortReport}><Download size={15} /> Export CSV report</button></div></div>
           <div className="pilot-report-controls" aria-label="Cohort report date range"><div className="pilot-report-title"><CalendarRange size={17} /><span><strong>Report date range</strong><small>Only funnel events created inside this range are included.</small></span></div><label>From<input type="date" value={reportStartDate} onChange={event => setReportStartDate(event.target.value)} /></label><label>To<input type="date" value={reportEndDate} onChange={event => setReportEndDate(event.target.value)} /></label><button type="button" className="pilot-clear-report" onClick={() => { setReportStartDate(""); setReportEndDate(""); }} disabled={!reportStartDate && !reportEndDate}><RotateCcw size={14} /> All time</button></div>
+          <div className="pilot-pdf-customization" aria-label="Hindi PDF print layout"><div><strong>Hindi PDF print layout</strong><small>These private labels appear only in the browser print window. The PDF remains aggregate-only.</small></div><label>Header<input value={pdfHeaderDraft} maxLength={100} onChange={event => setPdfHeaderDraft(event.target.value)} placeholder="Hindi report header" /></label><label>Footer<input value={pdfFooterDraft} maxLength={120} onChange={event => setPdfFooterDraft(event.target.value)} placeholder="Hindi report footer" /></label></div>
           <div className="pilot-saved-view-controls" aria-label="Saved dashboard views">
-            <div className="pilot-saved-view-intro"><strong>Saved dashboard views</strong><small>Private to your administrator account. Pin frequently used views, organise them into folders, and drag pins into the order you prefer.</small></div>
+            <div className="pilot-saved-view-intro"><strong>Saved dashboard views</strong><small>Private to your administrator account. Pin frequently used views, organise them into folders, and drag pins into the order you prefer.</small><span className="pilot-shortcut-guide" aria-label="Saved-view keyboard shortcuts" aria-keyshortcuts="Alt+ArrowDown Alt+ArrowUp Alt+Enter Alt+S"><kbd>Alt+↓</kbd> next <kbd>Alt+↑</kbd> previous <kbd>Alt+Enter</kbd> load <kbd>Alt+S</kbd> save</span></div>
             <div className="pilot-view-filter-row">
               <label>Search views<input value={savedViewSearch} maxLength={60} onChange={event => setSavedViewSearch(event.target.value)} placeholder="Find a saved view" /></label>
               <label className="pilot-folder-filter">Folder<select value={folderFilter} onChange={event => setFolderFilter(event.target.value)}><option value="">All folders</option>{allFolders.map(folder => <option key={folder} value={folder}>{folder}</option>)}</select></label>
             </div>
+            {allFolders.length > 0 && <div className="pilot-folder-management"><div><strong>Rename selected folder</strong><small>{folderFilter ? `Renaming private folder “${folderFilter}”.` : "Choose a folder above before renaming it."}</small></div><label>New folder name<input value={folderRenameDraft} maxLength={40} onChange={event => setFolderRenameDraft(event.target.value)} placeholder="For example, Spring review" /></label><button type="button" className="pilot-folder-action" disabled={!folderFilter || !folderRenameDraft.trim() || folderRenameDraft.trim() === folderFilter || renameDashboardViewFolder.isPending} onClick={() => renameDashboardViewFolder.mutate({ fromFolder: folderFilter, toFolder: folderRenameDraft })}>Rename folder</button></div>}
             <div className="pilot-view-editor-row">
               <label>Load view<select value={selectedDashboardViewId?.toString() ?? ""} onChange={event => { const id = Number(event.target.value); if (id) loadDashboardView(id); else { setSelectedDashboardViewId(null); setDashboardViewName(""); setFolderDraft(""); } }}><option value="">{visibleSavedViews.length ? "Select a saved view" : "No matching saved views"}</option>{visibleSavedViews.map(view => <option key={view.id} value={view.id}>{`${view.isPinned ? "Pinned — " : ""}${view.name}${view.folder ? ` · ${view.folder}` : ""}`}</option>)}</select></label>
               <label>Name<input value={dashboardViewName} maxLength={60} onChange={event => setDashboardViewName(event.target.value)} placeholder="For example, College Q2" /></label>
@@ -308,6 +384,7 @@ export default function PilotAdmin() {
               <button type="button" className="pilot-save-view" disabled={saveDashboardView.isPending || !dashboardViewName.trim()} onClick={saveCurrentDashboardView}>Save view</button>
               <button type="button" className="pilot-delete-view" disabled={!selectedDashboardViewId || deleteDashboardView.isPending} onClick={() => selectedDashboardViewId && deleteDashboardView.mutate({ viewId: selectedDashboardViewId })}>Delete</button>
             </div>
+            {visibleSavedViews.length > 0 && <div className="pilot-bulk-view-manager" aria-label="Bulk move saved views"><div className="pilot-bulk-heading"><div><strong>Bulk move saved views</strong><small>{selectedSavedViewIds.length ? `${selectedSavedViewIds.length} private view${selectedSavedViewIds.length === 1 ? "" : "s"} selected.` : "Select one or more visible views, then choose a folder."}</small></div><div><button type="button" onClick={selectVisibleSavedViews}>Select shown</button><button type="button" disabled={!selectedSavedViewIds.length} onClick={() => setSelectedSavedViewIds([])}>Clear selection</button></div></div><div className="pilot-bulk-view-list">{visibleSavedViews.map(view => <label key={view.id}><input type="checkbox" checked={selectedSavedViewIds.includes(view.id)} onChange={event => toggleSavedViewSelection(view.id, event.target.checked)} /><span>{view.name}</span>{view.folder && <span className="pilot-folder-badge">{view.folder}</span>}</label>)}</div><div className="pilot-bulk-move-action"><label>Move selected to folder<input value={bulkFolderDraft} maxLength={40} onChange={event => setBulkFolderDraft(event.target.value)} placeholder="Leave blank to clear folder" /></label><button type="button" className="pilot-folder-action" disabled={!selectedSavedViewIds.length || moveDashboardViewsToFolder.isPending} onClick={() => moveDashboardViewsToFolder.mutate({ viewIds: selectedSavedViewIds, folder: bulkFolderDraft.trim() || null })}>Move {selectedSavedViewIds.length || ""} view{selectedSavedViewIds.length === 1 ? "" : "s"}</button></div></div>}
             {pinnedViews.length > 1 && <div className="pilot-pinned-order" aria-label="Pinned dashboard view order"><div><strong>Pinned order</strong><small>Drag a view to reorder it. This is private to your account.</small></div><ul>{pinnedViews.map(view => <li key={view.id} draggable={!reorderPinnedViews.isPending} className={draggedViewId === view.id ? "dragging" : ""} onDragStart={event => handlePinnedViewDragStart(event, view.id)} onDragEnd={() => setDraggedViewId(null)} onDragOver={event => event.preventDefault()} onDrop={event => handlePinnedViewDrop(event, view.id)}><GripVertical className="pilot-drag-handle" size={17} aria-hidden="true" /><button type="button" onClick={() => loadDashboardView(view.id)}><span>{view.name}</span>{view.folder && <span className="pilot-folder-badge">{view.folder}</span>}</button></li>)}</ul></div>}
           </div>
           {reportRangeInvalid && <p className="pilot-report-error">Choose a start date that is on or before the end date.</p>}

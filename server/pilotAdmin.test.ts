@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   deletePilotDashboardView: vi.fn(),
   setPilotDashboardViewPinned: vi.fn(),
   reorderPinnedPilotDashboardViews: vi.fn(),
+  renamePilotDashboardViewFolder: vi.fn(),
+  movePilotDashboardViewsToFolder: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -156,6 +158,8 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.cohorts.conversionStats()).rejects.toThrow();
     await expect(caller.admin.pilot.cohorts.monthlyTrend()).rejects.toThrow();
     await expect(caller.admin.pilot.views.list()).rejects.toThrow();
+    await expect(caller.admin.pilot.views.renameFolder({ fromFolder: "Review", toFolder: "Archive" })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.moveToFolder({ viewIds: [3], folder: "Review" })).rejects.toThrow();
   });
 
   it("keeps named dashboard views private to the authenticated administrator", async () => {
@@ -194,6 +198,16 @@ describe("admin pilot inbox and cohort invites", () => {
       "Pinned view order must include every one of your pinned views exactly once."
     );
     await expect(user.admin.pilot.views.reorderPinned({ viewIds: [3] })).rejects.toThrow();
+  });
+
+  it("renames folders and bulk-moves saved views through the authenticated administrator identity", async () => {
+    const caller = appRouter.createCaller(context("admin"));
+    await caller.admin.pilot.views.renameFolder({ fromFolder: "Quarterly reviews", toFolder: "Leadership review" });
+    await caller.admin.pilot.views.moveToFolder({ viewIds: [3, 8], folder: "Leadership review" });
+    await caller.admin.pilot.views.moveToFolder({ viewIds: [8], folder: null });
+    expect(mocks.renamePilotDashboardViewFolder).toHaveBeenCalledWith(9, "Quarterly reviews", "Leadership review");
+    expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(1, 9, [3, 8], "Leadership review");
+    expect(mocks.movePilotDashboardViewsToFolder).toHaveBeenNthCalledWith(2, 9, [8], null);
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {

@@ -422,3 +422,13 @@
 - [x] Build drag-and-drop pinned view controls, folder filtering interface, and Hindi PDF export action.
 - [x] Test owner-scoped ordering and folders, Hindi PDF content, interactions, and responsive behavior.
 - [x] Document and checkpoint the development-only saved-view organization upgrade without publishing.
+
+## Saved-view shortcuts, folder management, and Hindi PDF print branding
+
+- [x] Review the saved-view interaction contract, folder ownership model, and Hindi print helper customization points.
+- [x] Add owner-private folder rename and bulk saved-view move APIs with validated input and safe cache behavior.
+- [x] Build keyboard shortcuts for saved-view navigation and activation with accessible focus/input safeguards.
+- [x] Build private folder rename and multi-view bulk-move controls in the admin dashboard.
+- [x] Add custom Hindi PDF header and footer fields to the browser print layout without expanding report data scope.
+- [x] Test shortcuts, folder ownership and mutations, print layout content, and responsive controls.
+- [x] Document and checkpoint the development-only saved-view productivity upgrade without publishing.
