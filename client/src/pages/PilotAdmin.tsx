@@ -1,7 +1,7 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { downloadTextFile } from "@/lib/schemeExports";
-import { createPilotDashboardArchiveBackup } from "@/lib/pilotDashboardArchiveBackup";
+import { createPilotDashboardArchiveBackup, parsePilotDashboardArchiveBackup } from "@/lib/pilotDashboardArchiveBackup";
 import { createCohortConversionReportCsv } from "@/lib/pilotCohortReports";
 import { getQuarterOverQuarterChange, summariseFunnelSegment } from "@/lib/pilotDashboardInsights";
 import { createHindiPilotDashboardSummaryPrintHtml, createPilotDashboardSummary, openHindiPilotDashboardSummaryPdf } from "@/lib/pilotDashboardSummary";
@@ -10,9 +10,9 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type DragEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
-import { Archive, ArchiveRestore, BarChart3, CalendarRange, CheckCircle2, Copy, Download, Eye, GripVertical, Inbox, Link2, Loader2, MoreHorizontal, Palette, Pencil, Pin, Plus, RotateCcw, Search, ShieldCheck, Trash2, UsersRound, XCircle } from "lucide-react";
+import { Archive, ArchiveRestore, BarChart3, CalendarRange, CheckCircle2, Copy, Download, Eye, GripVertical, Inbox, Link2, Loader2, MoreHorizontal, Palette, Pencil, Pin, Plus, RotateCcw, Search, ShieldCheck, Trash2, Upload, UsersRound, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import "./PilotAdmin.css";
 
@@ -78,6 +78,7 @@ export default function PilotAdmin() {
   const [dashboardViewName, setDashboardViewName] = useState("");
   const [selectedDashboardViewId, setSelectedDashboardViewId] = useState<number | null>(null);
   const [savedViewSearch, setSavedViewSearch] = useState("");
+  const [archivedViewSearch, setArchivedViewSearch] = useState("");
   const [folderDraft, setFolderDraft] = useState("");
   const [folderColorDraft, setFolderColorDraft] = useState<FolderColor>("saffron");
   const [folderFilter, setFolderFilter] = useState("");
@@ -92,6 +93,8 @@ export default function PilotAdmin() {
   const [pdfFooterDraft, setPdfFooterDraft] = useState("केवल आंतरिक उपयोग के लिए · व्यक्तिगत डेटा शामिल नहीं है");
   const [pdfHeaderAlignmentDraft, setPdfHeaderAlignmentDraft] = useState<"left" | "center" | "right">("right");
   const [pdfFooterAlignmentDraft, setPdfFooterAlignmentDraft] = useState<"left" | "center" | "right">("left");
+  const [pdfHeaderSizeDraft, setPdfHeaderSizeDraft] = useState<"small" | "medium" | "large">("medium");
+  const [pdfFooterSizeDraft, setPdfFooterSizeDraft] = useState<"small" | "medium" | "large">("medium");
   const [pdfLogoDraft, setPdfLogoDraft] = useState<"schemeSathi" | "janSeva" | "custom" | "none">("schemeSathi");
   const [pdfCustomLogoUrlDraft, setPdfCustomLogoUrlDraft] = useState("");
   const [pdfDateFormatDraft, setPdfDateFormatDraft] = useState<"long" | "short" | "iso">("long");
@@ -99,6 +102,7 @@ export default function PilotAdmin() {
   const [pdfPreviewZoom, setPdfPreviewZoom] = useState(100);
   const [pdfPageBreakGuides, setPdfPageBreakGuides] = useState(true);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const archiveImportInputRef = useRef<HTMLInputElement>(null);
   const feedbackInput = useMemo(
     () => ({ status: status === "all" ? undefined : status, query: query.trim() || undefined }),
     [status, query]
@@ -261,6 +265,15 @@ export default function PilotAdmin() {
     },
     onError: error => toast.error(error.message),
   });
+  const importArchivedDashboardViews = trpc.admin.pilot.views.importArchived.useMutation({
+    onSuccess: async ({ restored }) => {
+      setSavedViewScope("active");
+      setSelectedSavedViewIds([]);
+      await utils.admin.pilot.views.list.invalidate();
+      toast.success(`${restored.length} archived view${restored.length === 1 ? "" : "s"} restored as active private views.`);
+    },
+    onError: error => toast.error(error.message),
+  });
   const setArchiveRetention = trpc.admin.pilot.views.setArchiveSettings.useMutation({
     onSuccess: async () => {
       await utils.admin.pilot.views.archiveSettings.invalidate();
@@ -296,11 +309,13 @@ export default function PilotAdmin() {
     footer: pdfFooterDraft,
     headerAlignment: pdfHeaderAlignmentDraft,
     footerAlignment: pdfFooterAlignmentDraft,
+    headerSize: pdfHeaderSizeDraft,
+    footerSize: pdfFooterSizeDraft,
     logo: pdfLogoDraft,
     customLogoUrl: pdfCustomLogoUrlDraft,
     dateFormat: pdfDateFormatDraft,
     margin: pdfMarginDraft,
-  }), [funnelSummary, pdfCustomLogoUrlDraft, pdfDateFormatDraft, pdfFooterAlignmentDraft, pdfFooterDraft, pdfHeaderAlignmentDraft, pdfHeaderDraft, pdfLogoDraft, pdfMarginDraft, quarterChange, reportEndDate, reportStartDate, trendCohortType, trendPeriod]);
+  }), [funnelSummary, pdfCustomLogoUrlDraft, pdfDateFormatDraft, pdfFooterAlignmentDraft, pdfFooterDraft, pdfFooterSizeDraft, pdfHeaderAlignmentDraft, pdfHeaderDraft, pdfHeaderSizeDraft, pdfLogoDraft, pdfMarginDraft, quarterChange, reportEndDate, reportStartDate, trendCohortType, trendPeriod]);
   const hindiPdfPreviewHtml = useMemo(
     () => createHindiPilotDashboardSummaryPrintHtml({ ...hindiPdfPrintInput, showPageBreakGuides: pdfPageBreakGuides }),
     [hindiPdfPrintInput, pdfPageBreakGuides]
@@ -321,13 +336,13 @@ export default function PilotAdmin() {
   const allFolders = useMemo(() => Object.keys(folderCounts).sort((left, right) => left.localeCompare(right)), [folderCounts]);
   const pinnedViews = useMemo(() => activeSavedViews.filter(view => view.isPinned), [activeSavedViews]);
   const visibleSavedViews = useMemo(() => {
-    const normalizedSearch = savedViewSearch.trim().toLocaleLowerCase();
+    const normalizedSearch = (savedViewScope === "archived" ? archivedViewSearch : savedViewSearch).trim().toLocaleLowerCase();
     return scopedSavedViews.filter(view => {
       const searchMatches = !normalizedSearch || view.name.toLocaleLowerCase().includes(normalizedSearch);
       const folderMatches = !folderFilter || view.folder === folderFilter;
       return searchMatches && folderMatches;
     });
-  }, [folderFilter, savedViewSearch, scopedSavedViews]);
+  }, [archivedViewSearch, folderFilter, savedViewScope, savedViewSearch, scopedSavedViews]);
   useEffect(() => {
     setSelectedSavedViewIds(current => {
       const next = current.filter(viewId => savedViews.some(view => view.id === viewId));
@@ -351,6 +366,21 @@ export default function PilotAdmin() {
     const backup = createPilotDashboardArchiveBackup(archivedSavedViews);
     downloadTextFile(backup.contents, backup.fileName, "application/json;charset=utf-8");
     toast.success("Private archived-view backup downloaded.");
+  };
+  const importArchivedDashboardBackup = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 512 * 1024) {
+      toast.error("Choose an archived-view backup smaller than 512 KB.");
+      return;
+    }
+    try {
+      const backup = parsePilotDashboardArchiveBackup(await file.text());
+      importArchivedDashboardViews.mutate(backup);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The archived-view backup could not be read.");
+    }
   };
   const copyDashboardView = async () => {
     const search = createPilotDashboardSearch({ from: reportStartDate, to: reportEndDate, segment: trendCohortType, view: trendPeriod });
@@ -494,14 +524,14 @@ export default function PilotAdmin() {
         <section className="pilot-conversion-card" aria-label="Cohort conversion funnel">
           <div className="pilot-card-heading"><div><p className="desk-kicker"><BarChart3 size={14} /> CONVERSION FUNNEL</p><h2>See which cohorts become accounts</h2><p>{trendScopeLabel}. Counts are aggregate-only: one anonymised browser visit, feedback submissions, and first account attribution per active cohort link.</p></div><div className="pilot-report-actions"><button type="button" className="pilot-export-report" onClick={copyDashboardView}><Copy size={15} /> Share view</button><label className="pilot-summary-language">Summary language<select value={summaryLanguage} onChange={event => setSummaryLanguage(event.target.value as "en" | "hi")}><option value="en">English</option><option value="hi">हिन्दी</option></select></label><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportDashboardSummary}><Download size={15} /> Export summary</button><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={() => setPdfPreviewOpen(true)}><Eye size={15} /> Preview PDF</button><button type="button" className="pilot-export-report" disabled={reportRangeInvalid || conversionQuery.isLoading} onClick={exportHindiDashboardSummaryPdf}><Download size={15} /> Hindi PDF</button><button type="button" className="pilot-export-report" disabled={!conversions.length || reportRangeInvalid || conversionQuery.isLoading || monthlyTrendQuery.isLoading} onClick={exportCohortReport}><Download size={15} /> Export CSV report</button></div></div>
           <div className="pilot-report-controls" aria-label="Cohort report date range"><div className="pilot-report-title"><CalendarRange size={17} /><span><strong>Report date range</strong><small>Only funnel events created inside this range are included.</small></span></div><label>From<input type="date" value={reportStartDate} onChange={event => setReportStartDate(event.target.value)} /></label><label>To<input type="date" value={reportEndDate} onChange={event => setReportEndDate(event.target.value)} /></label><button type="button" className="pilot-clear-report" onClick={() => { setReportStartDate(""); setReportEndDate(""); }} disabled={!reportStartDate && !reportEndDate}><RotateCcw size={14} /> All time</button></div>
-          <div className="pilot-pdf-customization" aria-label="Hindi PDF print layout"><div><strong>Hindi PDF print layout</strong><small>These private labels appear only in the browser print window. The PDF remains aggregate-only.</small></div><label>Header<input value={pdfHeaderDraft} maxLength={100} onChange={event => setPdfHeaderDraft(event.target.value)} placeholder="Hindi report header" /></label><label>Header position<select value={pdfHeaderAlignmentDraft} onChange={event => setPdfHeaderAlignmentDraft(event.target.value as typeof pdfHeaderAlignmentDraft)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Footer<input value={pdfFooterDraft} maxLength={120} onChange={event => setPdfFooterDraft(event.target.value)} placeholder="Hindi report footer" /></label><label>Footer position<select value={pdfFooterAlignmentDraft} onChange={event => setPdfFooterAlignmentDraft(event.target.value as typeof pdfFooterAlignmentDraft)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Logo<select value={pdfLogoDraft} onChange={event => setPdfLogoDraft(event.target.value as typeof pdfLogoDraft)}><option value="schemeSathi">Scheme Sathi</option><option value="janSeva">जन सेवा</option><option value="custom">Custom logo URL</option><option value="none">No logo</option></select></label>{pdfLogoDraft === "custom" && <label>Custom logo URL<input type="url" value={pdfCustomLogoUrlDraft} maxLength={500} onChange={event => setPdfCustomLogoUrlDraft(event.target.value)} placeholder="https://example.org/logo.png" /></label>}<label>Date format<select value={pdfDateFormatDraft} onChange={event => setPdfDateFormatDraft(event.target.value as typeof pdfDateFormatDraft)}><option value="long">20 अगस्त 2026</option><option value="short">20/08/2026</option><option value="iso">2026-08-20</option></select></label></div>
+          <div className="pilot-pdf-customization" aria-label="Hindi PDF print layout"><div><strong>Hindi PDF print layout</strong><small>These private labels appear only in the browser print window. The PDF remains aggregate-only.</small></div><label>Header<input value={pdfHeaderDraft} maxLength={100} onChange={event => setPdfHeaderDraft(event.target.value)} placeholder="Hindi report header" /></label><label>Header position<select value={pdfHeaderAlignmentDraft} onChange={event => setPdfHeaderAlignmentDraft(event.target.value as typeof pdfHeaderAlignmentDraft)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Header size<select value={pdfHeaderSizeDraft} onChange={event => setPdfHeaderSizeDraft(event.target.value as typeof pdfHeaderSizeDraft)}><option value="small">Small · 9 px</option><option value="medium">Medium · 11 px</option><option value="large">Large · 13 px</option></select></label><label>Footer<input value={pdfFooterDraft} maxLength={120} onChange={event => setPdfFooterDraft(event.target.value)} placeholder="Hindi report footer" /></label><label>Footer position<select value={pdfFooterAlignmentDraft} onChange={event => setPdfFooterAlignmentDraft(event.target.value as typeof pdfFooterAlignmentDraft)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Footer size<select value={pdfFooterSizeDraft} onChange={event => setPdfFooterSizeDraft(event.target.value as typeof pdfFooterSizeDraft)}><option value="small">Small · 8 px</option><option value="medium">Medium · 10 px</option><option value="large">Large · 12 px</option></select></label><label>Logo<select value={pdfLogoDraft} onChange={event => setPdfLogoDraft(event.target.value as typeof pdfLogoDraft)}><option value="schemeSathi">Scheme Sathi</option><option value="janSeva">जन सेवा</option><option value="custom">Custom logo URL</option><option value="none">No logo</option></select></label>{pdfLogoDraft === "custom" && <label>Custom logo URL<input type="url" value={pdfCustomLogoUrlDraft} maxLength={500} onChange={event => setPdfCustomLogoUrlDraft(event.target.value)} placeholder="https://example.org/logo.png" /></label>}<label>Date format<select value={pdfDateFormatDraft} onChange={event => setPdfDateFormatDraft(event.target.value as typeof pdfDateFormatDraft)}><option value="long">20 अगस्त 2026</option><option value="short">20/08/2026</option><option value="iso">2026-08-20</option></select></label></div>
           <Dialog open={pdfPreviewOpen} onOpenChange={setPdfPreviewOpen}><DialogContent className="pilot-pdf-preview-dialog" showCloseButton><DialogHeader><DialogTitle>Hindi PDF preview</DialogTitle><DialogDescription>Review the live aggregate-only document layout, logo, header, footer, and date before opening the print dialog.</DialogDescription></DialogHeader><div className="pilot-pdf-preview-controls"><label>Preview zoom<select value={pdfPreviewZoom} onChange={event => setPdfPreviewZoom(Number(event.target.value))}><option value={75}>75%</option><option value={100}>100%</option><option value={125}>125%</option><option value={150}>150%</option></select></label><label>Print margins<select value={pdfMarginDraft} onChange={event => setPdfMarginDraft(event.target.value as typeof pdfMarginDraft)}><option value="compact">Compact · 12 mm</option><option value="standard">Standard · 18 mm</option><option value="spacious">Spacious · 24 mm</option></select></label><label className="pilot-page-guide-toggle"><input type="checkbox" checked={pdfPageBreakGuides} onChange={event => setPdfPageBreakGuides(event.target.checked)} /> Show A4 page-break guides</label><small>Guides are preview-only. Margins affect the final browser print document.</small></div><div className="pilot-pdf-preview-frame"><div className="pilot-pdf-preview-canvas" style={{ transform: `scale(${pdfPreviewZoom / 100})`, transformOrigin: "top left" }}><iframe title="Hindi PDF preview" srcDoc={hindiPdfPreviewHtml} sandbox="" /></div></div><DialogFooter><button type="button" className="pilot-clear-report" onClick={() => setPdfPreviewOpen(false)}>Close preview</button><button type="button" className="pilot-export-report" onClick={exportHindiDashboardSummaryPdf}><Download size={15} /> Open print dialog</button></DialogFooter></DialogContent></Dialog>
           <div className="pilot-saved-view-controls" aria-label="Saved dashboard views">
             <div className="pilot-saved-view-intro"><strong>Saved dashboard views</strong><small>Private to your administrator account. Pin frequently used views, organise them into folders, and drag pins into the order you prefer.</small><span className="pilot-shortcut-guide" aria-label="Saved-view keyboard shortcuts" aria-keyshortcuts="Alt+ArrowDown Alt+ArrowUp Alt+Enter Alt+S Alt+D"><kbd>Alt+↓</kbd> next <kbd>Alt+↑</kbd> previous <kbd>Alt+Enter</kbd> load <kbd>Alt+S</kbd> save <kbd>Alt+D</kbd> duplicate</span></div>
-            <div className="pilot-view-scope-row"><div className="pilot-view-scope-toggle" role="group" aria-label="Saved dashboard view archive"><button type="button" className={savedViewScope === "active" ? "active" : ""} aria-pressed={savedViewScope === "active"} onClick={() => setSavedViewScope("active")}>Active ({activeSavedViews.length})</button><button type="button" className={savedViewScope === "archived" ? "active" : ""} aria-pressed={savedViewScope === "archived"} onClick={() => setSavedViewScope("archived")}>Archived ({archivedSavedViews.length})</button></div><button type="button" className="pilot-archive-backup" disabled={!archivedSavedViews.length} onClick={exportArchivedDashboardViews}><Download size={14} /> Backup archived views</button></div>
+            <div className="pilot-view-scope-row"><div className="pilot-view-scope-toggle" role="group" aria-label="Saved dashboard view archive"><button type="button" className={savedViewScope === "active" ? "active" : ""} aria-pressed={savedViewScope === "active"} onClick={() => setSavedViewScope("active")}>Active ({activeSavedViews.length})</button><button type="button" className={savedViewScope === "archived" ? "active" : ""} aria-pressed={savedViewScope === "archived"} onClick={() => setSavedViewScope("archived")}>Archived ({archivedSavedViews.length})</button></div><input ref={archiveImportInputRef} className="pilot-archive-import-input" type="file" accept="application/json,.json" onChange={importArchivedDashboardBackup} /><button type="button" className="pilot-archive-backup" disabled={importArchivedDashboardViews.isPending} onClick={() => archiveImportInputRef.current?.click()}><Upload size={14} /> Import archive backup</button><button type="button" className="pilot-archive-backup" disabled={!archivedSavedViews.length} onClick={exportArchivedDashboardViews}><Download size={14} /> Backup archived views</button></div>
             <div className="pilot-archive-settings"><div><strong>Archive retention</strong><small>Archived private views are permanently deleted when their private list next loads after this period. Export a backup first if needed.</small></div><label>Retention period<select value={archiveRetentionDays} disabled={archiveSettingsQuery.isLoading || setArchiveRetention.isPending} onChange={event => setArchiveRetention.mutate({ retentionDays: Number(event.target.value) as 15 | 30 | 60 })}><option value={15}>15 days</option><option value={30}>30 days</option><option value={60}>60 days</option></select></label></div>
             <div className="pilot-view-filter-row">
-              <label>Search views<input value={savedViewSearch} maxLength={60} onChange={event => setSavedViewSearch(event.target.value)} placeholder="Find a saved view" /></label>
+              <label>{savedViewScope === "archived" ? "Search archived views" : "Search views"}<input value={savedViewScope === "archived" ? archivedViewSearch : savedViewSearch} maxLength={60} onChange={event => savedViewScope === "archived" ? setArchivedViewSearch(event.target.value) : setSavedViewSearch(event.target.value)} placeholder={savedViewScope === "archived" ? "Find an archived view" : "Find a saved view"} /></label>
               <label className="pilot-folder-filter">Folder<select value={folderFilter} onChange={event => setFolderFilter(event.target.value)}><option value="">All folders</option>{allFolders.map(folder => <option key={folder} value={folder}>{`${folder} (${folderCounts[folder]})`}</option>)}</select></label>
             </div>
             {allFolders.length > 0 && <div className="pilot-folder-overview" aria-label="Saved view counts by folder">{allFolders.map(folder => <button type="button" key={folder} className={`${folderFilter === folder ? "active " : ""}color-${folderColors[folder] ?? "saffron"}`} onClick={() => setFolderFilter(folder)}><span>{folder}</span><strong className="pilot-folder-count-badge">{folderCounts[folder]}</strong></button>)}</div>}

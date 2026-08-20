@@ -524,6 +524,25 @@ The Hindi PDF customization panel now provides independent header and footer ali
 
 Focused tests now cover administrator-only retention settings, allowed-value forwarding, archived backup privacy/content, header/footer alignment HTML, and UI wiring. The full suite passes **114 tests** across **34 test files**, together with a clean TypeScript check, production build, migration application, runtime-log review, and desktop/375px development renders. The empty visual account means applied retention changes, populated archive backup, and open preview-alignment behavior remain covered by protected route, helper, and UI-contract tests. No publishing, real setting mutation, real archive purge, backup download, PDF save, external logo fetch, cohort action, or personal data action was performed.
 
+## Archived Backup Import, PDF Font Sizes, and Archive Search
+
+The administrator can now choose **Import archive backup** and select a local Scheme Sathi archived-view JSON file. The browser reads no more than 512 KB, validates the fixed backup format locally, and sends only validated view configuration through the administrator-only `admin.pilot.views.importArchived` mutation. The router accepts between one and twenty views, and the database helper rechecks the current administrator’s ownership boundary by importing exclusively under that administrator’s user ID. No file is uploaded or retained by the server.
+
+Only a supported private folder color, optional 40-character folder label, 60-character view name, and non-sensitive date/segment/trend filter configuration can reach the import path. Imported records return as **Active**, unpinned views with no archived timestamp. The helper rejects a combined saved-view count above twenty and creates collision-safe names such as `Quarterly review (restored)` and `Quarterly review (restored 2)` where needed. The backup parser discards source IDs and timestamps as restoration inputs, avoiding cross-account linkage or archive-retention manipulation.
+
+Hindi PDF print branding now exposes independent **Header size** presets of 9 px, 11 px, and 13 px, and **Footer size** presets of 8 px, 10 px, and 12 px. These cosmetic values are passed into the same escaped aggregate-only HTML builder used by both the sandboxed preview and final browser print action. Header/footer size selection changes neither the data scope nor the metrics in the document.
+
+The Saved dashboard views filter now keeps a distinct `archivedViewSearch` value for the Archived workspace. Switching between Active and Archived views therefore preserves each workspace’s private search term; the visible list applies the correct term together with its folder filter. The search remains browser-local over the current administrator’s already owner-scoped view list.
+
+| Capability | User interaction | Safety and lifecycle behavior |
+| --- | --- | --- |
+| Archived backup import | Select **Import archive backup** and choose the downloaded JSON file. | Browser-local size/format validation; administrator-only import; no server-side file retention; imported views activate unpinned. |
+| Import name collisions | Restore a backup whose view names already exist. | Server creates unique restored names and rejects any operation that would exceed the owner’s 20-view limit. |
+| PDF type sizing | Set Header size and Footer size before Preview PDF or Hindi PDF. | Fixed safe presets feed preview and final print HTML only; aggregate report scope is unchanged. |
+| Archived-view search | Open Archived and use **Search archived views**. | Separate client state from Active search; filters only the private owner-scoped list already in memory. |
+
+Focused coverage validates malformed/oversized/unsupported local backup rejection, strict segment and folder-color parsing, admin-only import routing and owner ID forwarding, print HTML font-size markup, and import/search/font-size UI wiring. Desktop and 375 px development renders show the import/backup actions, separate PDF size controls, and archived workspace controls without horizontal clipping; the empty account correctly renders the no-matching-view state. The project remains development-only; no archive file upload, real restore mutation, PDF save, or publishing action was performed during verification.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

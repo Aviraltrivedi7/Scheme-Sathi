@@ -751,6 +751,12 @@ export type PilotDashboardViewFilters = {
   segment: "all" | "college" | "ngo";
   view: "month" | "quarter";
 };
+export type PilotDashboardArchiveImportView = {
+  name: string;
+  filters: PilotDashboardViewFilters;
+  folder?: string | null;
+  folderColor?: string | null;
+};
 
 export const pilotDashboardFolderColors = ["saffron", "marigold", "teal", "indigo", "plum", "slate"] as const;
 export type PilotDashboardFolderColor = (typeof pilotDashboardFolderColors)[number];
@@ -1093,6 +1099,67 @@ export async function restoreArchivedPilotDashboardViews(userId: number, viewIds
         )
       );
   }
+}
+
+function restoredPilotDashboardViewName(name: string, usedNames: Set<string>) {
+  const source = name.trim() || "Saved view";
+  let counter = 1;
+  while (counter <= 99) {
+    const suffix = counter === 1 ? " (restored)" : ` (restored ${counter})`;
+    const candidate = `${source.slice(0, Math.max(1, 60 - suffix.length)).trim()}${suffix}`;
+    if (!usedNames.has(candidate)) return candidate;
+    counter += 1;
+  }
+  throw new Error("Unable to create a unique restored dashboard view name.");
+}
+
+/** Imports a validated local archive backup into the current owner as active, unpinned views. */
+export async function importArchivedPilotDashboardViews(
+  userId: number,
+  importedViews: PilotDashboardArchiveImportView[]
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  if (!importedViews.length || importedViews.length > 20) {
+    throw new Error("Choose a backup containing between 1 and 20 archived saved views.");
+  }
+  const existing = await db
+    .select({ id: pilotDashboardViews.id, name: pilotDashboardViews.name })
+    .from(pilotDashboardViews)
+    .where(eq(pilotDashboardViews.userId, userId));
+  if (existing.length + importedViews.length > 20) {
+    throw new Error("Archive import would exceed your 20 saved-view limit. Remove or archive fewer views first.");
+  }
+  const usedNames = new Set(existing.map(view => view.name));
+  const restored: { id: number; name: string }[] = [];
+  for (let index = 0; index < importedViews.length; index += 1) {
+    const source = importedViews[index];
+    const name = restoredPilotDashboardViewName(source.name, usedNames);
+    const folder = source.folder?.trim() || null;
+    const folderColor = folder ? normalizePilotDashboardFolderColor(source.folderColor) : null;
+    await db
+      .insert(pilotDashboardViews)
+      .values({
+        userId,
+        name,
+        filters: source.filters,
+        folder,
+        folderColor,
+        isArchived: false,
+        archivedAt: null,
+        isPinned: false,
+        pinnedRank: null,
+      });
+    const row = await db
+      .select({ id: pilotDashboardViews.id })
+      .from(pilotDashboardViews)
+      .where(and(eq(pilotDashboardViews.userId, userId), eq(pilotDashboardViews.name, name)))
+      .limit(1);
+    if (!row[0]) throw new Error("The archived dashboard view could not be restored.");
+    usedNames.add(name);
+    restored.push({ id: row[0].id, name });
+  }
+  return { restored };
 }
 
 export async function setPilotDashboardFolderColor(

@@ -477,3 +477,12 @@
 - [x] Build retention settings, archived export action, and header/footer left-center-right alignment controls.
 - [x] Test retention ownership and cleanup thresholds, archive backup content, alignment HTML, and responsive controls.
 - [x] Document and checkpoint the development-only archive control and print layout enhancement without publishing.
+
+## Archived backup import, PDF font-size presets, and archive search
+
+- [x] Review the private archived backup JSON format, safe restoration limits, and existing print/search contracts.
+- [x] Add protected owner-private archived backup import validation and collision-safe restore persistence.
+- [x] Add shared Hindi PDF header/footer font-size preset support to the preview and final print builder.
+- [x] Build local backup file import, archived-view search, and font-size preset controls in the admin dashboard.
+- [x] Test import validation/ownership/collisions, font-size markup, archive search behavior, and responsive controls.
+- [x] Document and checkpoint the development-only archive recovery and print typography enhancement without publishing.

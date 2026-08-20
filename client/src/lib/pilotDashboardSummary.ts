@@ -85,6 +85,8 @@ export type HindiPilotDashboardPrintBranding = {
   footer?: string;
   headerAlignment?: "left" | "center" | "right";
   footerAlignment?: "left" | "center" | "right";
+  headerSize?: "small" | "medium" | "large";
+  footerSize?: "small" | "medium" | "large";
   logo?: "schemeSathi" | "janSeva" | "custom" | "none";
   customLogoUrl?: string;
   dateFormat?: "long" | "short" | "iso";
@@ -104,6 +106,14 @@ function printMargin(value: HindiPilotDashboardPrintBranding["margin"]) {
 
 function printAlignment(value: HindiPilotDashboardPrintBranding["headerAlignment"] | HindiPilotDashboardPrintBranding["footerAlignment"]) {
   return value === "left" || value === "center" || value === "right" ? value : "right";
+}
+
+function printHeaderFontSize(value: HindiPilotDashboardPrintBranding["headerSize"]) {
+  return value === "small" ? "9px" : value === "large" ? "13px" : "11px";
+}
+
+function printFooterFontSize(value: HindiPilotDashboardPrintBranding["footerSize"]) {
+  return value === "small" ? "8px" : value === "large" ? "12px" : "10px";
 }
 
 function formatPrintDate(dateFormat: HindiPilotDashboardPrintBranding["dateFormat"]) {
@@ -142,8 +152,10 @@ export function createHindiPilotDashboardSummaryPrintHtml(
   const dateLabel = formatPrintDate(input.dateFormat);
   const headerAlignment = printAlignment(input.headerAlignment);
   const footerAlignment = printAlignment(input.footerAlignment);
+  const headerFontSize = printHeaderFontSize(input.headerSize);
+  const footerFontSize = printFooterFontSize(input.footerSize);
   const pageGuideStyles = input.showPageBreakGuides ? "@media screen { body { background-image: linear-gradient(to bottom, transparent calc(297mm - 1px), rgba(198, 106, 33, .72) calc(297mm - 1px), rgba(198, 106, 33, .72) 297mm); background-size: 100% 297mm; } }" : "";
-  return `<!doctype html><html lang="hi-IN"><head><meta charset="utf-8"><title>${escapeHtml(heading)}</title><style>@page { size: A4; margin: ${printMargin(input.margin)}; } body { color: #18233d; font: 13px "Noto Sans Devanagari", "Nirmala UI", Mangal, Arial, sans-serif; line-height: 1.7; } .print-header { align-items: flex-start; border-bottom: 2px solid #d88728; display: grid; gap: 16px; grid-template-columns: auto minmax(0, 1fr); margin-bottom: 18px; padding-bottom: 12px; } .print-brand { color: #9b5e15; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; } .print-logo { display: block; max-height: 34px; max-width: 150px; object-fit: contain; } .print-header-copy { color: #596171; font-size: 11px; text-align: ${headerAlignment}; } h1 { font: 700 23px Georgia, "Noto Serif Devanagari", serif; margin: 0 0 8px; } p { color: #596171; margin: 0 0 20px; } pre { white-space: pre-wrap; overflow-wrap: anywhere; border-top: 1px solid #ded6c8; padding-top: 16px; margin: 0; font: inherit; } footer { align-items: flex-start; border-top: 1px solid #ded6c8; color: #687080; display: grid; font-size: 10px; gap: 16px; grid-template-columns: minmax(0, 1fr) auto; margin-top: 20px; padding-top: 9px; } footer span:first-child { text-align: ${footerAlignment}; } @media print { .print-header, footer { break-inside: avoid; } } ${pageGuideStyles}</style></head><body><header class="print-header">${brand}<div class="print-header-copy">${escapeHtml(header)}</div></header><h1>${escapeHtml(heading)}</h1><p>केवल-पढ़ने योग्य समेकित दृश्य · Scheme Sathi</p><pre>${escapeHtml(summary.contents)}</pre><footer><span>${escapeHtml(footer)}</span><span>दिनांक: ${escapeHtml(dateLabel)}</span></footer></body></html>`;
+  return `<!doctype html><html lang="hi-IN"><head><meta charset="utf-8"><title>${escapeHtml(heading)}</title><style>@page { size: A4; margin: ${printMargin(input.margin)}; } body { color: #18233d; font: 13px "Noto Sans Devanagari", "Nirmala UI", Mangal, Arial, sans-serif; line-height: 1.7; } .print-header { align-items: flex-start; border-bottom: 2px solid #d88728; display: grid; gap: 16px; grid-template-columns: auto minmax(0, 1fr); margin-bottom: 18px; padding-bottom: 12px; } .print-brand { color: #9b5e15; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; } .print-logo { display: block; max-height: 34px; max-width: 150px; object-fit: contain; } .print-header-copy { color: #596171; font-size: ${headerFontSize}; text-align: ${headerAlignment}; } h1 { font: 700 23px Georgia, "Noto Serif Devanagari", serif; margin: 0 0 8px; } p { color: #596171; margin: 0 0 20px; } pre { white-space: pre-wrap; overflow-wrap: anywhere; border-top: 1px solid #ded6c8; padding-top: 16px; margin: 0; font: inherit; } footer { align-items: flex-start; border-top: 1px solid #ded6c8; color: #687080; display: grid; font-size: ${footerFontSize}; gap: 16px; grid-template-columns: minmax(0, 1fr) auto; margin-top: 20px; padding-top: 9px; } footer span:first-child { text-align: ${footerAlignment}; } @media print { .print-header, footer { break-inside: avoid; } } ${pageGuideStyles}</style></head><body><header class="print-header">${brand}<div class="print-header-copy">${escapeHtml(header)}</div></header><h1>${escapeHtml(heading)}</h1><p>केवल-पढ़ने योग्य समेकित दृश्य · Scheme Sathi</p><pre>${escapeHtml(summary.contents)}</pre><footer><span>${escapeHtml(footer)}</span><span>दिनांक: ${escapeHtml(dateLabel)}</span></footer></body></html>`;
 }
 
 export function openHindiPilotDashboardSummaryPdf(

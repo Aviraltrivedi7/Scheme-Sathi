@@ -35,6 +35,7 @@ import {
   getSchemeById,
   getSchemeNote,
   getUserSchemeProfile,
+  importArchivedPilotDashboardViews,
   listDocumentExpiryNotifications,
   listDocumentPdfAnnotations,
   listDocumentReviewAssignmentNotifications,
@@ -160,6 +161,12 @@ const pilotDashboardArchiveRetentionInput = z.union([
   z.literal(30),
   z.literal(60),
 ]);
+const pilotDashboardArchiveImportInput = z.object({
+  name: z.string().trim().min(1).max(60),
+  filters: pilotDashboardViewFiltersInput,
+  folder: z.string().trim().max(40).nullable().optional(),
+  folderColor: pilotDashboardFolderColorInput.nullable().optional(),
+});
 const pilotFeedbackInput = z
   .object({
     role: z.enum(["student", "parent", "collegeStaff", "ngoStaff", "other"]),
@@ -1267,6 +1274,11 @@ export const appRouter = router({
             await restoreArchivedPilotDashboardViews(ctx.user.id, input.viewIds);
             return { restored: true };
           }),
+        importArchived: adminProcedure
+          .input(z.object({ views: z.array(pilotDashboardArchiveImportInput).min(1).max(20) }))
+          .mutation(async ({ ctx, input }) =>
+            importArchivedPilotDashboardViews(ctx.user.id, input.views)
+          ),
         duplicate: adminProcedure
           .input(z.object({ viewId: z.number().int().positive() }))
           .mutation(async ({ ctx, input }) => ({

@@ -96,6 +96,8 @@ describe("read-only dashboard summary export", () => {
       footer: "निजी & समेकित",
       headerAlignment: "center",
       footerAlignment: "right",
+      headerSize: "small",
+      footerSize: "large",
       logo: "custom",
       customLogoUrl: "https://assets.example.org/preview-logo.png",
       dateFormat: "short",
@@ -107,8 +109,9 @@ describe("read-only dashboard summary export", () => {
     expect(html).toContain("निजी &amp; समेकित");
     expect(html).toContain('src="https://assets.example.org/preview-logo.png"');
     expect(html).toContain("@page { size: A4; margin: 12mm; }");
-    expect(html).toContain(".print-header-copy { color: #596171; font-size: 11px; text-align: center; }");
+    expect(html).toContain(".print-header-copy { color: #596171; font-size: 9px; text-align: center; }");
     expect(html).toContain("footer span:first-child { text-align: right; }");
+    expect(html).toContain("footer { align-items: flex-start; border-top: 1px solid #ded6c8; color: #687080; display: grid; font-size: 12px;");
     expect(html).toContain("background-size: 100% 297mm");
     expect(html).toContain("@media screen");
     expect(html).toContain("केवल-पढ़ने योग्य समेकित दृश्य");

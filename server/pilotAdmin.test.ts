@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   setPilotDashboardViewArchived: vi.fn(),
   setPilotDashboardFolderColor: vi.fn(),
   restoreArchivedPilotDashboardViews: vi.fn(),
+  importArchivedPilotDashboardViews: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -171,6 +172,7 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.views.setArchived({ viewId: 3, isArchived: true })).rejects.toThrow();
     await expect(caller.admin.pilot.views.setFolderColor({ folder: "Review", folderColor: "teal" })).rejects.toThrow();
     await expect(caller.admin.pilot.views.restoreArchived({ viewIds: [3, 8] })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.importArchived({ views: [{ name: "Archived", filters: { from: "", to: "", segment: "all", view: "month" }, folder: null, folderColor: null }] })).rejects.toThrow();
     await expect(caller.admin.pilot.views.deleteFolder({ folder: "Review" })).rejects.toThrow();
     await expect(caller.admin.pilot.views.archiveSettings()).rejects.toThrow();
     await expect(caller.admin.pilot.views.setArchiveSettings({ retentionDays: 15 })).rejects.toThrow();
@@ -264,6 +266,22 @@ describe("admin pilot inbox and cohort invites", () => {
     const caller = appRouter.createCaller(context("admin"));
     await caller.admin.pilot.views.restoreArchived({ viewIds: [12, 15] });
     expect(mocks.restoreArchivedPilotDashboardViews).toHaveBeenCalledWith(9, [12, 15]);
+  });
+
+  it("imports a validated local archive only into the authenticated administrator's private views", async () => {
+    const imported = [{
+      name: "College Q2",
+      filters: { from: "2026-04-01", to: "2026-06-30", segment: "college" as const, view: "quarter" as const },
+      folder: "Leadership review",
+      folderColor: "indigo" as const,
+    }];
+    mocks.importArchivedPilotDashboardViews.mockResolvedValue({ restored: [{ id: 19, name: "College Q2 (restored)" }] });
+    const caller = appRouter.createCaller(context("admin"));
+
+    const result = await caller.admin.pilot.views.importArchived({ views: imported });
+
+    expect(mocks.importArchivedPilotDashboardViews).toHaveBeenCalledWith(9, imported);
+    expect(result).toEqual({ restored: [{ id: 19, name: "College Q2 (restored)" }] });
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {
