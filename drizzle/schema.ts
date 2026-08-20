@@ -200,6 +200,7 @@ export const pilotDashboardViews = mysqlTable(
         view: "month" | "quarter";
       }>()
       .notNull(),
+    isPinned: boolean("isPinned").notNull().default(false),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
@@ -210,6 +211,11 @@ export const pilotDashboardViews = mysqlTable(
     ),
     index("pilot_dashboard_views_user_updated_idx").on(
       table.userId,
+      table.updatedAt
+    ),
+    index("pilot_dashboard_views_user_pinned_updated_idx").on(
+      table.userId,
+      table.isPinned,
       table.updatedAt
     ),
   ]

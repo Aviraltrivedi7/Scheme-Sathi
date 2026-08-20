@@ -162,6 +162,13 @@
       "when": 1787167999333,
       "tag": "0022_young_blazing_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1787206266670,
+      "tag": "0023_bizarre_rogue",
+      "breakpoints": true
     }
   ]
 }

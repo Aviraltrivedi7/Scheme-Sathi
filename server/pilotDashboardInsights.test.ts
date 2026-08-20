@@ -36,11 +36,25 @@ describe("read-only dashboard summary export", () => {
       totals: { linkVisits: 30, feedbackSubmissions: 13, accountSignups: 6, feedbackRate: 43.3, signupRate: 20 },
       quarterChange: { previousPeriod: "2026-Q1", currentPeriod: "2026-Q2", feedbackPoints: 12.5, signupPoints: -2 },
     });
-    expect(summary.fileName).toBe("scheme-sathi-dashboard-summary-2026-01-01-to-2026-06-30.txt");
+    expect(summary.fileName).toBe("scheme-sathi-dashboard-summary-en-2026-01-01-to-2026-06-30.txt");
     expect(summary.contents).toContain("Read-only aggregate view");
     expect(summary.contents).toContain("College cohorts");
     expect(summary.contents).toContain("Feedback change: +12.5 percentage points");
     expect(summary.contents).toContain("Signup change: -2.0 percentage points");
+    expect(summary.contents).not.toContain("Pune College Cell");
+  });
+
+  it("renders the aggregate-only summary in Hindi when selected", () => {
+    const summary = createPilotDashboardSummary({
+      language: "hi",
+      filters: { from: "", to: "", segment: "ngo", view: "month" },
+      totals: { linkVisits: 12, feedbackSubmissions: 6, accountSignups: 2, feedbackRate: 50, signupRate: 16.7 },
+      quarterChange: null,
+    });
+    expect(summary.fileName).toContain("-hi-all-time-to-today.txt");
+    expect(summary.contents).toContain("केवल-पढ़ने योग्य समेकित दृश्य");
+    expect(summary.contents).toContain("एनजीओ समूह");
+    expect(summary.contents).toContain("विज़िटर, खाता, संपर्क");
     expect(summary.contents).not.toContain("Pune College Cell");
   });
 });

@@ -78,6 +78,7 @@ import {
   saveUserSchemeProfile,
   saveVerificationHistoryFilter,
   setApplicationDocumentReviewState,
+  setPilotDashboardViewPinned,
   setDefaultVerificationHistoryFilter,
   setDocumentReviewAssignmentDueDate,
   setDocumentReviewEscalation,
@@ -1187,6 +1188,12 @@ export const appRouter = router({
           .mutation(async ({ ctx, input }) => ({
             view: await savePilotDashboardView(ctx.user.id, input.name, input.filters),
           })),
+        setPinned: adminProcedure
+          .input(z.object({ viewId: z.number().int().positive(), isPinned: z.boolean() }))
+          .mutation(async ({ ctx, input }) => {
+            await setPilotDashboardViewPinned(ctx.user.id, input.viewId, input.isPinned);
+            return { updated: true };
+          }),
         delete: adminProcedure
           .input(z.object({ viewId: z.number().int().positive() }))
           .mutation(async ({ ctx, input }) => {

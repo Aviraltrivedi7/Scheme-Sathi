@@ -758,11 +758,12 @@ export async function listPilotDashboardViews(userId: number) {
     .select()
     .from(pilotDashboardViews)
     .where(eq(pilotDashboardViews.userId, userId))
-    .orderBy(desc(pilotDashboardViews.updatedAt));
+    .orderBy(desc(pilotDashboardViews.isPinned), desc(pilotDashboardViews.updatedAt));
   return rows.map(row => ({
     id: row.id,
     name: row.name,
     filters: row.filters,
+    isPinned: row.isPinned,
     updatedAt: row.updatedAt.getTime(),
   }));
 }
@@ -812,8 +813,27 @@ export async function savePilotDashboardView(
     id: view.id,
     name: view.name,
     filters: view.filters,
+    isPinned: view.isPinned,
     updatedAt: view.updatedAt.getTime(),
   };
+}
+
+export async function setPilotDashboardViewPinned(
+  userId: number,
+  viewId: number,
+  isPinned: boolean
+) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  await db
+    .update(pilotDashboardViews)
+    .set({ isPinned, updatedAt: new Date() })
+    .where(
+      and(
+        eq(pilotDashboardViews.id, viewId),
+        eq(pilotDashboardViews.userId, userId)
+      )
+    );
 }
 
 export async function deletePilotDashboardView(userId: number, viewId: number) {

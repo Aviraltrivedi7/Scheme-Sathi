@@ -396,6 +396,22 @@ The new **Export summary** action downloads a read-only plain-text snapshot of t
 
 Applied and verified the new table's user foreign key, owner/name uniqueness, and owner/update index in the development database. Focused coverage validates saved-view ownership, route protection, URL filter validation, tooltip/UI wiring, summary content, and intentional absence of cohort identifiers. The full suite now contains **100 tests** across 33 files; TypeScript, production build, and runtime-log checks passed. No administrator login, saved view, real export, personal data, publishing, or external action occurred.
 
+## Pinned Saved Views, View Search, and Bilingual Summaries
+
+Migration `0023_bizarre_rogue.sql` adds a non-null `isPinned` flag (default `false`) and a `(userId, isPinned, updatedAt)` index to `pilot_dashboard_views`. The administrator-only `admin.pilot.views.setPinned` mutation remains owner-scoped, so one administrator cannot pin or unpin another administrator's view. Saved views now return pinned rows first and then most-recently updated rows. The existing 20-view per-administrator limit and name-upsert behavior remain unchanged.
+
+The Saved dashboard views control adds a private client-side search field that filters only the already owner-scoped names returned to the signed-in administrator. It does not issue a new network request, alter the shareable dashboard URL, or expose view names to non-administrators. The picker marks pinned rows with a text prefix and retains pin, save, load, and delete controls.
+
+The read-only summary export now has an explicit **English / हिन्दी** language selector. Hindi output localizes the heading, scope labels, funnel labels, quarter-change language, aggregate-only disclaimer, and filename suffix while retaining canonical dates and figures for clarity. Both variants remain browser-local plain-text downloads with no cohort names, invite codes, visitor hashes, account/contact identifiers, feedback text, documents, or profile data.
+
+| Capability | Behavior | Privacy boundary |
+| --- | --- | --- |
+| Pinned view | Owner-private flag with pinned-first ordering | Stores a boolean preference only; no analytics result is persisted. |
+| View search | Case-insensitive local filtering over administrator-owned view names | Search input and results never enter URLs or cross account boundaries. |
+| Summary language | English or Hindi aggregate text export | Localizes presentation only; underlying dates/counts remain aggregate-only. |
+
+The development database verified the `isPinned` default of `false` and all three pinned-order index columns. Focused coverage validates owner-scoped pin routing, pinned/search/language UI wiring, and both English/Hindi aggregate summary content. The full suite now contains **102 tests** across 33 files; TypeScript and production build passed. No administrator login, pin action, real export, personal data, publishing, or external action occurred.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

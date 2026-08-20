@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   listPilotDashboardViews: vi.fn(),
   savePilotDashboardView: vi.fn(),
   deletePilotDashboardView: vi.fn(),
+  setPilotDashboardViewPinned: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -168,6 +169,12 @@ describe("admin pilot inbox and cohort invites", () => {
     expect(mocks.listPilotDashboardViews).toHaveBeenCalledWith(9);
     expect(mocks.savePilotDashboardView).toHaveBeenCalledWith(9, "College Q2", filters);
     expect(mocks.deletePilotDashboardView).toHaveBeenCalledWith(9, 3);
+  });
+
+  it("pins a named dashboard view only for the authenticated administrator", async () => {
+    const caller = appRouter.createCaller(context("admin"));
+    await caller.admin.pilot.views.setPinned({ viewId: 3, isPinned: true });
+    expect(mocks.setPilotDashboardViewPinned).toHaveBeenCalledWith(9, 3, true);
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {

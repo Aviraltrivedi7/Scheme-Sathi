@@ -74,5 +74,10 @@ describe("monthly cohort trend UI contract", () => {
     expect(pilotAdmin).toContain("saveCurrentDashboardView");
     expect(pilotAdmin).toContain("createPilotDashboardSummary");
     expect(pilotAdmin).toContain("Export summary");
+    expect(pilotAdmin).toContain("savedViewSearch");
+    expect(pilotAdmin).toContain("visibleSavedViews");
+    expect(pilotAdmin).toContain("setDashboardViewPinned");
+    expect(pilotAdmin).toContain("summaryLanguage");
+    expect(pilotAdmin).toContain('option value="hi"');
   });
 });

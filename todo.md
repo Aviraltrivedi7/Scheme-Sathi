@@ -404,3 +404,12 @@
 - [x] Build QoQ tooltip, saved-view controls, and selected-dashboard summary export interface.
 - [x] Test tooltip accuracy, saved-view ownership and limits, summary export safety, and responsive journeys.
 - [x] Document and checkpoint the development-only dashboard sharing upgrade without publishing.
+
+## Pinned saved views, saved-view search, and bilingual dashboard summary
+
+- [x] Review saved-view persistence, dashboard controls, and current summary export behavior.
+- [x] Define pin ordering, private search behavior, bilingual export content, and data boundaries.
+- [x] Add saved-view pin persistence, protected APIs, search support, and bilingual summary export.
+- [x] Build pin controls, saved-view search interface, and export language toggle.
+- [x] Test pin ownership and ordering, view search, bilingual export safety, and responsive behavior.
+- [x] Document and checkpoint the development-only saved-view usability upgrade without publishing.
