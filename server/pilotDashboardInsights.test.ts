@@ -97,11 +97,13 @@ describe("read-only dashboard summary export", () => {
       logo: "custom",
       customLogoUrl: "https://assets.example.org/preview-logo.png",
       dateFormat: "short",
+      margin: "compact",
     });
     expect(html).toContain("पायलट डैशबोर्ड सारांश");
     expect(html).toContain("पूर्वावलोकन &lt;रिपोर्ट&gt;");
     expect(html).toContain("निजी &amp; समेकित");
     expect(html).toContain('src="https://assets.example.org/preview-logo.png"');
+    expect(html).toContain("@page { size: A4; margin: 12mm; }");
     expect(html).toContain("केवल-पढ़ने योग्य समेकित दृश्य");
     expect(html).not.toContain("Pune College Cell");
   });

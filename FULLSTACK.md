@@ -476,6 +476,22 @@ The Hindi PDF flow now builds the aggregate-only print HTML once through `create
 
 Focused route, print-builder, and UI-contract tests now cover archive/restore forwarding, owner-bound folder colors, preview markup, safe custom logo output, and active/archive controls. The full suite passes **109 tests** across **33 test files**, together with a clean TypeScript check, production build, runtime-log review, migration application, and desktop/375px development renders. The visual test account has no saved views, so populated archive/color states remain covered by protected-route and UI-contract regression tests. No publishing, real saved-view mutation, external logo fetch, PDF save, cohort action, or personal data action was performed.
 
+## Bulk Archived Restore, Folder Color Legend, and PDF Layout Controls
+
+The protected `admin.pilot.views.restoreArchived` mutation restores a distinct non-empty selection of up to 20 views only after verifying that every ID is an archived row owned by the current administrator. Restored rows are explicitly returned to the Active workspace unpinned with no pinned rank. The Archived workspace reuses the existing private multi-select controls and now exposes a clear **Restore selected** action, so recovery does not require repeated one-at-a-time operations.
+
+The saved-view workspace now includes a compact visual legend for the fixed folder palette: saffron, marigold, teal, indigo, plum, and slate. It is explanatory only; it does not create tags, metadata, query parameters, or any cross-account data surface. The legend corresponds directly to the server-validated labels stored with existing owner-private folders and badges.
+
+The live Hindi PDF modal now includes preview zoom values of 75%, 100%, 125%, and 150%, alongside Compact (12 mm), Standard (18 mm), and Spacious (24 mm) margin presets. Margin selection feeds the same safe HTML builder used by the preview and final browser print window, which produces `@page` CSS from the fixed preset map. Zoom affects only the in-modal rendering scale; it does not change printed report data or alter the final metrics scope.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Bulk archived restore | Select archived views and press **Restore selected**. | Server requires a distinct, owner-scoped archived set; restored rows remain unpinned. |
+| Folder color legend | Refer to the six labeled color dots below the folder filter. | Static explanation of the existing fixed palette; no new sharing or data exposure. |
+| Preview zoom and print margins | Adjust preview scale and choose Compact, Standard, or Spacious before final print. | Zoom is local UI state; margins are fixed safe values shared by the sandboxed preview and browser-local print document. |
+
+Focused tests now cover bulk restore routing and administrator-only access, compact margin HTML output, legend/restore/zoom/margin UI wiring, and the prior archive/preview safety contracts. The full suite passes **110 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The visual account remains intentionally empty, so populated archived selection and open preview controls are covered by protected route, helper, and UI-contract regression tests. No publishing, real restoration, external logo fetch, PDF save, cohort action, or personal data action was performed.
+
 ### Reference
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

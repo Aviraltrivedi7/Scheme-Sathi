@@ -71,6 +71,7 @@ import {
   recordPilotCohortSignup,
   recordPilotCohortVisit,
   reorderPinnedPilotDashboardViews,
+  restoreArchivedPilotDashboardViews,
   runApplicationDocumentOcr,
   runBatchDocumentOcr,
   saveComparisonExportPreset,
@@ -1237,6 +1238,12 @@ export const appRouter = router({
           .mutation(async ({ ctx, input }) => {
             await setPilotDashboardViewArchived(ctx.user.id, input.viewId, input.isArchived);
             return { updated: true };
+          }),
+        restoreArchived: adminProcedure
+          .input(z.object({ viewIds: z.array(z.number().int().positive()).min(1).max(20) }))
+          .mutation(async ({ ctx, input }) => {
+            await restoreArchivedPilotDashboardViews(ctx.user.id, input.viewIds);
+            return { restored: true };
           }),
         duplicate: adminProcedure
           .input(z.object({ viewId: z.number().int().positive() }))

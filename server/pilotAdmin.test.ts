@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   duplicatePilotDashboardView: vi.fn(),
   setPilotDashboardViewArchived: vi.fn(),
   setPilotDashboardFolderColor: vi.fn(),
+  restoreArchivedPilotDashboardViews: vi.fn(),
   createPilotCohortInvite: vi.fn(),
   revokePilotCohortInvite: vi.fn(),
   recordPilotCohortSignup: vi.fn(),
@@ -166,6 +167,7 @@ describe("admin pilot inbox and cohort invites", () => {
     await expect(caller.admin.pilot.views.duplicate({ viewId: 3 })).rejects.toThrow();
     await expect(caller.admin.pilot.views.setArchived({ viewId: 3, isArchived: true })).rejects.toThrow();
     await expect(caller.admin.pilot.views.setFolderColor({ folder: "Review", folderColor: "teal" })).rejects.toThrow();
+    await expect(caller.admin.pilot.views.restoreArchived({ viewIds: [3, 8] })).rejects.toThrow();
   });
 
   it("keeps named dashboard views private to the authenticated administrator", async () => {
@@ -232,6 +234,12 @@ describe("admin pilot inbox and cohort invites", () => {
     expect(mocks.setPilotDashboardViewArchived).toHaveBeenNthCalledWith(1, 9, 12, true);
     expect(mocks.setPilotDashboardViewArchived).toHaveBeenNthCalledWith(2, 9, 12, false);
     expect(mocks.setPilotDashboardFolderColor).toHaveBeenCalledWith(9, "Leadership review", "plum");
+  });
+
+  it("bulk-restores only the current administrator's selected archived saved views", async () => {
+    const caller = appRouter.createCaller(context("admin"));
+    await caller.admin.pilot.views.restoreArchived({ viewIds: [12, 15] });
+    expect(mocks.restoreArchivedPilotDashboardViews).toHaveBeenCalledWith(9, [12, 15]);
   });
 
   it("rejects an invalid cohort report date range before it reaches aggregation", async () => {

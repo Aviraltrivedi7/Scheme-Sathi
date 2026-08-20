@@ -1013,6 +1013,40 @@ export async function setPilotDashboardViewArchived(
     );
 }
 
+export async function restoreArchivedPilotDashboardViews(userId: number, viewIds: number[]) {
+  const db = await getDb();
+  if (!db) databaseUnavailable();
+  const requested = new Set(viewIds);
+  if (!viewIds.length || requested.size !== viewIds.length) {
+    throw new Error("Choose one or more distinct archived saved views to restore.");
+  }
+  const archivedRows = await db
+    .select({ id: pilotDashboardViews.id })
+    .from(pilotDashboardViews)
+    .where(
+      and(
+        eq(pilotDashboardViews.userId, userId),
+        eq(pilotDashboardViews.isArchived, true)
+      )
+    );
+  const archivedIds = new Set(archivedRows.map(view => view.id));
+  if (viewIds.some(viewId => !archivedIds.has(viewId))) {
+    throw new Error("You can only restore your own archived saved dashboard views.");
+  }
+  for (let index = 0; index < viewIds.length; index += 1) {
+    await db
+      .update(pilotDashboardViews)
+      .set({ isArchived: false, isPinned: false, pinnedRank: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(pilotDashboardViews.id, viewIds[index]),
+          eq(pilotDashboardViews.userId, userId),
+          eq(pilotDashboardViews.isArchived, true)
+        )
+      );
+  }
+}
+
 export async function setPilotDashboardFolderColor(
   userId: number,
   folder: string,

@@ -450,3 +450,12 @@
 - [x] Build a live Hindi PDF preview modal using the current logo, header/footer, date-format, and aggregate filter scope.
 - [x] Test archive/restore ownership, folder color handling, print preview markup, and responsive controls.
 - [x] Document and checkpoint the development-only saved-view organization and preview upgrade without publishing.
+
+## Bulk archived restore, folder color legend, and PDF layout controls
+
+- [x] Review archived saved-view selection, folder color metadata, and shared Hindi print HTML builder extension points.
+- [x] Add protected owner-private bulk restore support and printable margin settings validation.
+- [x] Build archived-view selection and bulk restore, a visual folder color legend, and PDF preview zoom controls.
+- [x] Add print margin presets to the live preview and final browser print flow.
+- [x] Test bulk restore ownership, color legend mapping, zoom behavior, margin markup, and responsive controls.
+- [x] Document and checkpoint the development-only saved-view recovery and PDF layout upgrade without publishing.
