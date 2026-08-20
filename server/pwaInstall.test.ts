@@ -36,6 +36,21 @@ describe("installable Scheme Sathi PWA", () => {
     expect(offlinePage).toContain("You’re offline");
   });
 
+  it("announces waiting worker updates and lets the user opt into a safe refresh", () => {
+    const main = read("client/src/main.tsx");
+    const worker = read("client/public/sw.js");
+    const app = read("client/src/App.tsx");
+    const prompt = read("client/src/components/PwaUpdatePrompt.tsx");
+    expect(main).toContain('scheme-sathi-update-ready');
+    expect(main).toContain('registration.addEventListener("updatefound"');
+    expect(worker).toContain('const CACHE_NAME = "scheme-sathi-shell-v2"');
+    expect(worker).toContain('event.data?.type === "SKIP_WAITING"');
+    expect(app).toContain("<PwaUpdatePrompt />");
+    expect(prompt).toContain('registration.waiting?.postMessage({ type: "SKIP_WAITING" })');
+    expect(prompt).toContain('controllerchange');
+    expect(prompt).toContain("Update available");
+  });
+
   it("wires a right-side install CTA with prompt, iOS guidance, and installed feedback", () => {
     const html = read("client/index.html");
     const home = read("client/src/pages/Home.tsx");

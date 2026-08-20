@@ -19,7 +19,8 @@
 .scheme-detail-action { background: #1d304d; color: #fffaf1; }
 .scheme-detail-action h2 { font-family: "DM Serif Display", Georgia, serif; font-size: 28px; line-height: 1; }
 .scheme-detail-action p { margin-top: 12px; color: #dfe7f0; font-size: 10px; line-height: 1.55; }
-.scheme-detail-action a { display: inline-flex; gap: 7px; align-items: center; margin-top: 20px; padding: 10px; background: var(--saffron); color: #1d304d; font-size: 9px; font-weight: 900; }
+.scheme-detail-action a, .scheme-detail-action button { display: inline-flex; gap: 7px; align-items: center; margin-top: 20px; padding: 10px; background: var(--saffron); color: #1d304d; font-size: 9px; font-weight: 900; }
+.scheme-detail-action button { width: 100%; margin-top: 8px; background: #edf4fb; color: #214b75; cursor: pointer; }.scheme-detail-action .scheme-detail-whatsapp { margin-top: 8px; background: #e1f6ea; color: #16633f; }
 .scheme-detail-state { display: grid; place-items: center; align-content: center; gap: 12px; min-height: 65vh; text-align: center; color: var(--ink-muted); }
 .scheme-detail-state h1 { color: var(--ink); font-family: "DM Serif Display", Georgia, serif; font-size: 34px; }
 .scheme-detail-state p { max-width: 360px; font-size: 12px; line-height: 1.5; }

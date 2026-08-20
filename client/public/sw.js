@@ -1,4 +1,4 @@
-const CACHE_NAME = "scheme-sathi-shell-v1";
+const CACHE_NAME = "scheme-sathi-shell-v2";
 const OFFLINE_URL = "/offline.html";
 const DEV_WORKER = new URL(self.location.href).searchParams.get("dev") === "1";
 
@@ -7,7 +7,10 @@ self.addEventListener("install", event => {
     self.skipWaiting();
     return;
   }
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.add(OFFLINE_URL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.add(OFFLINE_URL)));
+});
+self.addEventListener("message", event => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", event => {

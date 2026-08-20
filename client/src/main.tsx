@@ -75,7 +75,21 @@ const trpcClient = trpc.createClient({
 if ("serviceWorker" in navigator) {
   const workerUrl = import.meta.env.DEV ? "/sw.js?dev=1" : "/sw.js";
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register(workerUrl).catch(error => {
+    navigator.serviceWorker.register(workerUrl).then(registration => {
+      if (import.meta.env.DEV) return;
+      const announceWaitingWorker = () => {
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          window.dispatchEvent(new CustomEvent("scheme-sathi-update-ready", { detail: { registration } }));
+        }
+      };
+      announceWaitingWorker();
+      registration.addEventListener("updatefound", () => {
+        const installing = registration.installing;
+        installing?.addEventListener("statechange", () => {
+          if (installing.state === "installed") announceWaitingWorker();
+        });
+      });
+    }).catch(error => {
       console.warn("[PWA] Service worker registration failed", error);
     });
   });

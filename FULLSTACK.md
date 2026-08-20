@@ -583,6 +583,25 @@ The root service worker is registered after the page load. In production it cach
 
 Verification covers PWA metadata, service-worker registration, root static endpoint responses, offline fallback wiring, install prompt/iOS/installed UI contracts, 1280 px and 375 px public-header renders, TypeScript, and the production build. The full suite passes **122 tests across 35 files**. The production build retains the existing non-blocking JavaScript chunk-size advisory. No publishing or browser installation was performed during development verification.
 
+## Offline Saved Schemes, Update Prompt, and Scheme Sharing
+
+The public header now includes a **Saved (n)** entry. Scheme Sathi keeps an offline-safe snapshot of only the public guidance for locally saved schemes: names, benefits, eligibility text, documents, steps, official portal URL, review label, category, artwork, and timing metadata. The snapshot deliberately excludes account IDs, session data, profiles, saved notes, feedback, uploaded documents, and any private administrator data. The new **Available offline** screen is reachable from the public navigation and opens saved scheme details, native share, and WhatsApp actions without requiring a live catalogue request.
+
+The service worker now uses a user-controlled update lifecycle. A new production worker fills its own `scheme-sathi-shell-v2` cache and waits rather than immediately replacing an active app shell. The global **Update available** prompt appears only after the browser identifies a waiting worker while an older controller is active. Choosing **Refresh** sends `SKIP_WAITING`, waits for the controller change, then reloads the page. Choosing **Later** dismisses the prompt and preserves the current session. API routes remain excluded from the worker cache.
+
+Scheme cards, the offline saved screen, the matched-detail screen, and direct `/scheme/:schemeId` pages now provide share actions. Where available, the browser’s native share sheet receives a compact bilingual Scheme Sathi detail URL and benefit summary. Browsers without native share fall back to copying the same payload when clipboard support exists. Every route also exposes a WhatsApp URL using encoded Scheme Sathi content, not an account-scoped link or private user data.
+
+| Capability | User interaction | Privacy and lifecycle boundary |
+| --- | --- | --- |
+| Offline saved schemes | Save a scheme while online, then use **Saved (n)** from public navigation. | Browser storage contains public scheme guidance only; no profile, account, or note data is copied into the snapshot. |
+| PWA update | Choose **Refresh** in the update prompt when a new shell is ready. | The app never forces an active session to refresh; update activation is explicit and API responses remain network-only. |
+| Native sharing | Choose the share icon on a card or **Share scheme** in a scheme view. | Shares a public Scheme Sathi deep link and compact public scheme copy only. |
+| WhatsApp sharing | Choose **WhatsApp** in a scheme view. | Opens a user-initiated encoded WhatsApp draft; no message is sent automatically. |
+
+Focused coverage validates offline snapshot privacy and malformed storage rejection, direct URL and bilingual WhatsApp payload creation, worker update signaling and `SKIP_WAITING` handling, direct-detail share wiring, and offline screen/header contracts. The full suite now passes **126 tests across 36 files**, with TypeScript and production build verification complete. The existing production bundle chunk-size advisory remains non-blocking. No publishing, live sharing action, worker refresh, or personal-data operation was performed during verification.
+
 > PWA visual verification: the right-side **Install app** control is visible and aligned with the public header actions at 1280 px. At 375 px it deliberately condenses into a labelled-by-accessibility saffron download icon, preserving room for account, language, appearance, and menu controls without horizontal clipping.
+
+> Offline/update/share visual verification: the desktop header now shows the private-device **Saved (0)** access beside Install app without crowding navigation. At 375 px, the compact action rail retains available width and the Saved entry remains reachable in the mobile navigation drawer. Direct-detail capture reached its expected asynchronous loading state; native/WhatsApp share controls remain covered by route and UI contracts because no live scheme request or share target was invoked during verification.
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

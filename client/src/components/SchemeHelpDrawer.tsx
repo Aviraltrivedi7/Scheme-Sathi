@@ -3,7 +3,7 @@ import { FormEvent, useMemo, useState } from "react";
 import type { Scheme, UserProfile } from "@/lib/schemes";
 
 type Language = "en" | "hi";
-type Screen = "home" | "profile" | "results" | "details";
+type Screen = "home" | "profile" | "results" | "details" | "offlineSaved";
 type HelpMessage = { role: "assistant" | "user"; content: string };
 const languageText = (language: Language, english: string, hindi: string) => language === "hi" ? hindi : english;
 const promptsByScreen: Record<Screen, [string, string, string]> = {
@@ -11,12 +11,14 @@ const promptsByScreen: Record<Screen, [string, string, string]> = {
   profile: ["Why do you ask about household income?", "Which profile details are optional?", "How will my answers affect matches?"],
   results: ["Why is this scheme a strong match?", "Which documents should I prepare first?", "How should I compare my top matches?"],
   details: ["What should I verify before applying?", "Which documents should I keep ready?", "What is the next application step?"],
+  offlineSaved: ["How are these schemes available offline?", "What data is kept on this device?", "How do I refresh saved schemes?"],
 };
 const promptsByScreenHi: Record<Screen, [string, string, string]> = {
   home: ["सही योजनाएँ खोजने के लिए कौन-सी जानकारी मदद करती है?", "Scheme Sathi मेरी जानकारी को कैसे सुरक्षित रखता है?", "मुझे कहाँ से शुरू करना चाहिए?"],
   profile: ["आप घरेलू आय के बारे में क्यों पूछते हैं?", "कौन-सी प्रोफाइल जानकारी वैकल्पिक है?", "मेरे जवाब मिलान को कैसे प्रभावित करेंगे?"],
   results: ["यह योजना मेरे लिए मजबूत मिलान क्यों है?", "मुझे पहले कौन-से दस्तावेज़ तैयार करने चाहिए?", "मैं अपने अच्छे मिलानों की तुलना कैसे करूँ?"],
   details: ["आवेदन से पहले मुझे क्या जाँचना चाहिए?", "कौन-से दस्तावेज़ तैयार रखने चाहिए?", "आवेदन का अगला कदम क्या है?"],
+  offlineSaved: ["ये योजनाएँ ऑफ़लाइन कैसे उपलब्ध हैं?", "इस डिवाइस पर कौन-सा डेटा रखा जाता है?", "मैं सहेजी योजनाएँ कैसे अपडेट करूँ?"],
 };
 
 export function SchemeHelpDrawer({ language, screen, profile, selectedScheme, onClose }: { language: Language; screen: Screen; profile: UserProfile; selectedScheme: (Scheme & { score?: number; factors?: string[] }) | null; onClose: () => void }) {

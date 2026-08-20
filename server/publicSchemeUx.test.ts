@@ -21,13 +21,20 @@ describe("public scheme score and engagement UX", () => {
     expect(getDeadlineUrgency(null, now)).toMatchObject({ state: "none", days: null });
   });
 
-  it("wires WhatsApp sharing, bounded comparison, and mobile hero order into the public UI", () => {
+  it("wires native/WhatsApp sharing, offline favorites, bounded comparison, and mobile hero order into the public UI", () => {
     const home = readFileSync(resolve(process.cwd(), "client/src/pages/Home.tsx"), "utf8");
     const comparison = readFileSync(resolve(process.cwd(), "client/src/components/SchemeComparisonModal.tsx"), "utf8");
     const dashboardNotes = readFileSync(resolve(process.cwd(), "client/src/components/SavedSchemeNotesPanel.tsx"), "utf8");
     const directDetail = readFileSync(resolve(process.cwd(), "client/src/pages/SchemeDetail.tsx"), "utf8");
+    const sharing = readFileSync(resolve(process.cwd(), "client/src/lib/schemeSharing.ts"), "utf8");
     const css = readFileSync(resolve(process.cwd(), "client/src/index.css"), "utf8");
-    expect(home).toContain("https://wa.me/?text=");
+    expect(home).toContain("shareScheme(scheme, language)");
+    expect(home).toContain("createWhatsAppSchemeShareUrl(scheme, language)");
+    expect(home).toContain("OfflineSavedSchemesScreen");
+    expect(home).toContain("offlineSavedSnapshot");
+    expect(sharing).toContain("https://wa.me/?text=");
+    expect(sharing).toContain("navigator.share");
+    expect(sharing).toContain("/scheme/${encodeURIComponent(schemeId)}");
     expect(home).toContain("current.length >= 3");
     expect(home).toContain("ScoreExplanationModal");
     expect(home).toContain("SchemeComparisonModal");
@@ -45,6 +52,7 @@ describe("public scheme score and engagement UX", () => {
     expect(dashboardNotes).toContain("trpc.saved.upsertNote");
     expect(dashboardNotes).toContain("trpc.saved.deleteNote");
     expect(directDetail).toContain("trpc.schemes.byId");
+    expect(directDetail).toContain("Share scheme");
     expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
     expect(css).toContain("height: 100dvh");
     expect(css).toContain("flex: 1 1 auto");

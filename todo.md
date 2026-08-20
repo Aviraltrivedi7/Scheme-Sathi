@@ -504,3 +504,12 @@
 - [x] Add install-state feedback for accepted, dismissed, unavailable, and already-installed states without claiming a downloadable native APK/IPA.
 - [x] Test PWA metadata, service-worker registration, install prompt behavior, responsive placement, offline fallback, TypeScript, production build, and browser rendering.
 - [x] Document, checkpoint, and deliver the development-only PWA upgrade without publishing.
+
+## Offline favorites, update prompt, and scheme sharing
+
+- [x] Review current saved-scheme persistence, public page routing, PWA worker registration, and existing scheme card/detail actions.
+- [x] Add a local offline-safe saved-scheme snapshot and a readable offline favorites screen that does not expose account data.
+- [x] Implement service-worker update detection with a user-controlled update-available prompt and safe refresh action.
+- [x] Add native share and WhatsApp fallback actions for scheme cards and scheme detail pages with compact, translated copy.
+- [x] Test offline snapshot boundaries, update prompt lifecycle, share URL/message construction, responsive actions, TypeScript, full build, and PWA rendering.
+- [x] Document, checkpoint, and deliver the development-only offline, update, and sharing enhancement without publishing.

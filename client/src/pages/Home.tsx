@@ -18,6 +18,7 @@ import {
   MessageCircle,
   Moon,
   Search,
+  Share2,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -47,10 +48,12 @@ import { ScoreExplanationModal } from "@/components/ScoreExplanationModal";
 import { SchemeComparisonModal } from "@/components/SchemeComparisonModal";
 import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { createDeadlineCalendarIcs, downloadTextFile } from "@/lib/schemeExports";
+import { createOfflineSavedSchemesSnapshot, readOfflineSavedSchemesSnapshot, writeOfflineSavedSchemesSnapshot, type OfflineSavedSchemesSnapshot } from "@/lib/offlineSavedSchemes";
+import { createSchemeShareUrl, createWhatsAppSchemeShareUrl, shareScheme } from "@/lib/schemeSharing";
 import "./SchemeActionEnhancements.css";
 
 type Language = "en" | "hi";
-type Screen = "home" | "profile" | "results" | "details";
+type Screen = "home" | "profile" | "results" | "details" | "offlineSaved";
 type MatchedScheme = Scheme & { score: number; factors: string[] };
 const text = (language: Language, english: string, hindi: string) =>
   language === "hi" ? hindi : english;
@@ -135,6 +138,8 @@ function AppHeader({
   setDark,
   onHome,
   onStart,
+  onOfflineSaved,
+  offlineSavedCount,
   authenticated,
   name,
   onLogout,
@@ -145,6 +150,8 @@ function AppHeader({
   setDark: (value: boolean) => void;
   onHome: () => void;
   onStart: () => void;
+  onOfflineSaved: () => void;
+  offlineSavedCount: number;
   authenticated: boolean;
   name?: string | null;
   onLogout: () => void;
@@ -198,6 +205,15 @@ function AppHeader({
           <a href="#how-it-works" onClick={() => setOpen(false)}>
             {text(language, "How it works", "कैसे काम करता है")}
           </a>
+          <button
+            onClick={() => {
+              onOfflineSaved();
+              setOpen(false);
+            }}
+            aria-label={text(language, "Open saved schemes available offline", "ऑफ़लाइन सहेजी योजनाएँ खोलें")}
+          >
+            <Bookmark size={14} /> {text(language, `Saved (${offlineSavedCount})`, `सहेजी गई (${offlineSavedCount})`)}
+          </button>
         </nav>
         <div className="header-actions">
           <PwaInstallButton language={language} />
@@ -871,6 +887,17 @@ function SchemeCard({
   lead?: boolean;
 }) {
   const urgency = getDeadlineUrgency(scheme.applicationDeadline);
+  const shareCardScheme = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    try {
+      const result = await shareScheme(scheme, language);
+      if (result === "copied") {
+        toast.success(text(language, "Scheme link copied for sharing.", "शेयर करने के लिए योजना लिंक कॉपी हो गया।"));
+      }
+    } catch {
+      toast.error(text(language, "We could not open sharing. Try WhatsApp from the scheme details.", "शेयर विकल्प नहीं खुल सका। योजना विवरण से WhatsApp आज़माएँ।"));
+    }
+  };
   return (
     <article
       className={`scheme-card ${lead ? "scheme-card-lead" : ""} ${urgency.state === "closed" ? "scheme-closed" : ""}`}
@@ -916,10 +943,17 @@ function SchemeCard({
               saved ? "Remove saved scheme" : "Save scheme",
               saved ? "सहेजी योजना हटाएँ" : "योजना सहेजें"
             )}
-          >
-            <Bookmark size={17} fill={saved ? "currentColor" : "none"} />
-          </button>
-        </div>
+            >
+              <Bookmark size={17} fill={saved ? "currentColor" : "none"} />
+            </button>
+            <button
+              className="share-scheme-card"
+              onClick={shareCardScheme}
+              aria-label={text(language, `Share ${scheme.name}`, `${scheme.nameHindi} साझा करें`)}
+            >
+              <Share2 size={16} />
+            </button>
+          </div>
       </div>
       <div className="scheme-card-content">
         <div className="scheme-card-copy">
@@ -1362,22 +1396,15 @@ function DetailsScreen({
   const documents =
     language === "hi" ? scheme.documentsHindi : scheme.documents;
   const steps = language === "hi" ? scheme.stepsHindi : scheme.steps;
-  const shareWhatsApp = () => {
-    const deadline = scheme.applicationDeadline
-      ? closed
-        ? text(language, "Applications closed", "आवेदन बंद हो चुके हैं")
-        : `${text(language, "Deadline", "अंतिम तिथि")}: ${dateFormat.format(new Date(scheme.applicationDeadline))}`
-      : text(
-          language,
-          "Check official portal for application dates",
-          "आवेदन तारीख के लिए आधिकारिक पोर्टल देखें"
-        );
-    const message = `*${text(language, scheme.name, scheme.nameHindi)}*\n${text(language, scheme.benefits, scheme.benefitsHindi).split(".").slice(0, 2).join(".")}\n${deadline}\n${scheme.portalUrl}`;
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(message)}`,
-      "_blank",
-      "noopener,noreferrer"
-    );
+  const shareWhatsApp = () => window.open(createWhatsAppSchemeShareUrl(scheme, language), "_blank", "noopener,noreferrer");
+  const shareCurrentScheme = async () => {
+    try {
+      const result = await shareScheme(scheme, language);
+      if (result === "shared") toast.success(text(language, "Share options opened.", "शेयर विकल्प खुल गए हैं।"));
+      if (result === "copied") toast.success(text(language, "Scheme link copied for sharing.", "शेयर करने के लिए योजना लिंक कॉपी हो गया।"));
+    } catch {
+      toast.error(text(language, "We could not open sharing. Try WhatsApp instead.", "शेयर विकल्प नहीं खुल सका। WhatsApp आज़माएँ।"));
+    }
   };
   const addDeadlineToCalendar = () => {
     if (!calendarEvent) return;
@@ -1592,6 +1619,13 @@ function DetailsScreen({
               )}
             </a>
             <button
+              className="button share-scheme-button full-button"
+              onClick={shareCurrentScheme}
+              aria-label={text(language, "Share scheme", "योजना साझा करें")}
+            >
+              <Share2 size={16} /> {text(language, "Share scheme", "योजना साझा करें")}
+            </button>
+            <button
               className="button whatsapp-button full-button"
               onClick={shareWhatsApp}
               aria-label={text(
@@ -1631,12 +1665,12 @@ function DetailsScreen({
             <button
               className="share-link"
               onClick={() => {
-                navigator.clipboard?.writeText(scheme.portalUrl);
+                navigator.clipboard?.writeText(createSchemeShareUrl(scheme.id));
                 toast.success(
                   text(
                     language,
-                    "Official scheme link copied.",
-                    "आधिकारिक योजना लिंक कॉपी हो गया।"
+                    "Scheme Sathi link copied.",
+                    "Scheme Sathi लिंक कॉपी हो गया।"
                   )
                 );
               }}
@@ -1647,7 +1681,7 @@ function DetailsScreen({
               )}
             >
               <ArrowRight size={15} />
-              {text(language, "Copy a shareable link", "शेयर लिंक कॉपी करें")}
+              {text(language, "Copy Scheme Sathi link", "Scheme Sathi लिंक कॉपी करें")}
             </button>
           </div>
           <div className="profile-note">
@@ -1719,6 +1753,29 @@ function DetailsScreen({
   );
 }
 
+function OfflineSavedSchemesScreen({
+  language,
+  snapshot,
+  onBack,
+  onOpen,
+}: {
+  language: Language;
+  snapshot: OfflineSavedSchemesSnapshot | null;
+  onBack: () => void;
+  onOpen: (scheme: Scheme) => void;
+}) {
+  const savedSchemes = snapshot?.schemes ?? [];
+  const shareSavedScheme = async (scheme: Scheme) => {
+    try {
+      const result = await shareScheme(scheme, language);
+      if (result === "copied") toast.success(text(language, "Scheme link copied for sharing.", "शेयर करने के लिए योजना लिंक कॉपी हो गया।"));
+    } catch {
+      toast.error(text(language, "We could not open sharing.", "शेयर विकल्प नहीं खुल सका।"));
+    }
+  };
+  return <main className="offline-saved-page"><div className="offline-saved-intro"><button className="back-link" onClick={onBack}><ArrowLeft size={16} /> {text(language, "Back home", "होम पर वापस जाएँ")}</button><p className="eyebrow"><Bookmark size={14} /> {text(language, "AVAILABLE OFFLINE", "ऑफ़लाइन उपलब्ध")}</p><h1>{text(language, "Your saved schemes, ready without a connection.", "आपकी सहेजी योजनाएँ, बिना इंटरनेट के भी तैयार।")}</h1><p>{text(language, "This device keeps only public scheme guidance here. Personal profiles, notes, and account data stay out of the offline snapshot.", "इस डिवाइस पर यहाँ केवल सार्वजनिक योजना जानकारी रखी जाती है। निजी प्रोफाइल, नोट और अकाउंट डेटा ऑफ़लाइन स्नैपशॉट में नहीं आते।")}</p>{snapshot && <small>{text(language, "Last updated", "अंतिम अपडेट")}: {new Date(snapshot.savedAt).toLocaleString(language === "hi" ? "hi-IN" : "en-IN")}</small>}</div>{savedSchemes.length ? <div className="offline-saved-grid">{savedSchemes.map(scheme => <article key={scheme.id} className="offline-saved-card"><span className={`category-tag ${scheme.accent}`}>{text(language, scheme.category, scheme.categoryHindi)}</span><h2>{text(language, scheme.name, scheme.nameHindi)}</h2><p>{text(language, scheme.benefits, scheme.benefitsHindi)}</p><div><button type="button" onClick={() => onOpen(scheme)}>{text(language, "Open details", "विवरण खोलें")} <ArrowRight size={15} /></button><button type="button" className="offline-share-button" onClick={() => shareSavedScheme(scheme)}><Share2 size={15} /> {text(language, "Share", "साझा करें")}</button></div><a href={createWhatsAppSchemeShareUrl(scheme, language)} target="_blank" rel="noreferrer">WhatsApp</a></article>)}</div> : <section className="offline-saved-empty"><Bookmark size={26} /><h2>{text(language, "No saved schemes on this device yet", "इस डिवाइस पर अभी कोई सहेजी योजना नहीं है")}</h2><p>{text(language, "Save a scheme while you are online and it will appear here for later access.", "ऑनलाइन रहते हुए कोई योजना सहेजें और वह बाद में यहाँ उपलब्ध होगी।")}</p><button onClick={onBack}>{text(language, "Browse schemes", "योजनाएँ देखें")}</button></section>}</main>;
+}
+
 export default function Home() {
   const { user, isAuthenticated, logout } = useAuth();
   const utils = trpc.useUtils();
@@ -1752,9 +1809,11 @@ export default function Home() {
     }
   });
   const [selected, setSelected] = useState<MatchedScheme | null>(null);
+  const [detailBackScreen, setDetailBackScreen] = useState<Screen>("results");
   const [savedIds, setSavedIds] = useState<string[]>(() =>
     JSON.parse(localStorage.getItem("scheme-saved") || "[]")
   );
+  const [offlineSavedSnapshot, setOfflineSavedSnapshot] = useState<OfflineSavedSchemesSnapshot | null>(() => readOfflineSavedSchemesSnapshot(localStorage));
   const [helpOpen, setHelpOpen] = useState(false);
   const [browseCategory, setBrowseCategory] = useState("all");
   const [detailScoreOpen, setDetailScoreOpen] = useState(false);
@@ -1811,6 +1870,11 @@ export default function Home() {
     localStorage.setItem("scheme-saved", JSON.stringify(savedIds));
   }, [savedIds]);
   useEffect(() => {
+    const snapshot = createOfflineSavedSchemesSnapshot(catalog, savedIds);
+    writeOfflineSavedSchemesSnapshot(localStorage, snapshot);
+    setOfflineSavedSnapshot(snapshot);
+  }, [catalog, savedIds]);
+  useEffect(() => {
     if (accountProfileQuery.data?.profile)
       setProfile(accountProfileQuery.data.profile);
   }, [accountProfileQuery.data]);
@@ -1844,6 +1908,7 @@ export default function Home() {
   const home = () => {
     setScreen("home");
     setSelected(null);
+    setDetailBackScreen("results");
     setBrowseCategory("all");
   };
   return (
@@ -1855,6 +1920,8 @@ export default function Home() {
         setDark={setDark}
         onHome={home}
         onStart={() => setScreen("profile")}
+        onOfflineSaved={() => setScreen("offlineSaved")}
+        offlineSavedCount={offlineSavedSnapshot?.schemes.length ?? 0}
         authenticated={isAuthenticated}
         name={user?.name}
         onLogout={logout}
@@ -1913,6 +1980,7 @@ export default function Home() {
           onSave={toggleSave}
           onOpen={scheme => {
             setSelected(scheme);
+            setDetailBackScreen("results");
             setScreen("details");
           }}
           onBack={() => setScreen("profile")}
@@ -1926,11 +1994,12 @@ export default function Home() {
           profile={profile}
           saved={savedIds.includes(selected.id)}
           authenticated={isAuthenticated}
-          onBack={() => setScreen("results")}
+          onBack={() => { setSelected(null); setScreen(detailBackScreen); }}
           onSave={() => toggleSave(selected.id)}
           onExplain={() => setDetailScoreOpen(true)}
         />
       )}
+      {screen === "offlineSaved" && <OfflineSavedSchemesScreen language={language} snapshot={offlineSavedSnapshot} onBack={home} onOpen={scheme => { setSelected({ ...scheme, ...scoreScheme(profile, scheme) }); setDetailBackScreen("offlineSaved"); setScreen("details"); }} />}
       {detailScoreOpen && selected && (
         <ScoreExplanationModal
           scheme={selected}
