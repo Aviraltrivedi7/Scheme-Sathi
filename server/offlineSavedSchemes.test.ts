@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createOfflineSavedSchemesSnapshot, offlineSavedSchemesStorageKey, readOfflineSavedSchemesSnapshot, sortOfflineSavedSchemes, writeOfflineSavedSchemesSnapshot } from "../client/src/lib/offlineSavedSchemes";
 import { createSchemeShareText, createSchemeShareUrl, createWhatsAppSchemeShareUrl, getSchemeShareNoteTemplate, maxCustomSchemeShareNoteLength, normalizeCustomSchemeShareNote } from "../client/src/lib/schemeSharing";
-import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminderCandidates, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, offlineSchemeReminderLeadDays, offlineSchemeReminderStorageKey, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings } from "../client/src/lib/offlineSchemeReminders";
+import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminderCandidates, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, maxOfflineSchemeReminderSnoozeHistoryEntries, offlineSchemeReminderLeadDays, offlineSchemeReminderStorageKey, readOfflineSchemeReminderSettings, recordOfflineSchemeReminderSnoozeAction, writeOfflineSchemeReminderSettings } from "../client/src/lib/offlineSchemeReminders";
 import { buildOfflineSavedDeadlineCalendar, getOfflineDeadlineTiming } from "../client/src/lib/offlineSavedDeadlineCalendar";
 import { createOfflineSavedDeadlineCalendarPrintHtml } from "../client/src/lib/offlineSavedDeadlineCalendarPrint";
-import { createCustomSchemeShareTemplateBackup, customSchemeShareTemplatesStorageKey, normalizeCustomSchemeShareTemplate, parseCustomSchemeShareTemplateBackup, readCustomSchemeShareTemplates, writeCustomSchemeShareTemplates } from "../client/src/lib/customSchemeShareTemplates";
+import { createOfflineSavedDeadlineCalendarCsv } from "../client/src/lib/offlineSavedDeadlineCalendarCsv";
+import { createCustomSchemeShareTemplateBackup, customSchemeShareTemplatesStorageKey, normalizeCustomSchemeShareTemplate, parseCustomSchemeShareTemplateBackup, planCustomSchemeShareTemplateImport, readCustomSchemeShareTemplates, writeCustomSchemeShareTemplates } from "../client/src/lib/customSchemeShareTemplates";
 import type { Scheme } from "../client/src/lib/schemes";
 
 const scheme: Scheme = {
@@ -81,7 +82,7 @@ describe("offline saved schemes and sharing", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
     values.set(offlineSchemeReminderStorageKey, JSON.stringify({ version: 1, enabled: true, leadDays: 7, notifiedDeadlineBySchemeId: {} }));
-    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 5, enabled: true, leadDays: [7], disabledSchemeIds: [], snoozedUntilBySchemeId: {} });
+    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 6, enabled: true, leadDays: [7], disabledSchemeIds: [], snoozedUntilBySchemeId: {}, snoozeHistory: [] });
     expect(offlineSchemeReminderLeadDays).toEqual([1, 3, 7, 14, 30]);
     const now = Date.UTC(2026, 7, 1);
     const threeDays = { ...scheme, applicationDeadline: now + 3 * 86_400_000 };
@@ -164,6 +165,19 @@ describe("offline saved schemes and sharing", () => {
     expect(settings.leadDays).toEqual([3]);
   });
 
+  it("records a bounded local snooze and resume history while migrating v5 settings safely", () => {
+    const now = Date.UTC(2026, 7, 1, 9);
+    const initial = { ...defaultOfflineSchemeReminderSettings(), snoozedUntilBySchemeId: { [scheme.id]: now + 3_600_000 } };
+    const snoozed = recordOfflineSchemeReminderSnoozeAction(initial, { schemeId: scheme.id, action: "snoozed", occurredAt: now, snoozedUntil: now + 3_600_000 });
+    const resumed = recordOfflineSchemeReminderSnoozeAction(snoozed, { schemeId: scheme.id, action: "resumed", occurredAt: now + 1 });
+    expect(resumed.snoozeHistory).toEqual([expect.objectContaining({ action: "resumed" }), expect.objectContaining({ action: "snoozed", snoozedUntil: now + 3_600_000 })]);
+    expect(maxOfflineSchemeReminderSnoozeHistoryEntries).toBe(24);
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
+    values.set(offlineSchemeReminderStorageKey, JSON.stringify({ version: 5, enabled: true, leadDays: [7], notifiedDeadlineByScheduleKey: {}, disabledSchemeIds: [], snoozedUntilBySchemeId: { [scheme.id]: now } }));
+    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 6, snoozedUntilBySchemeId: { [scheme.id]: now }, snoozeHistory: [] });
+  });
+
   it("keeps bounded valid custom templates only in browser-local storage", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
@@ -175,11 +189,15 @@ describe("offline saved schemes and sharing", () => {
     expect(normalizeCustomSchemeShareTemplate({ name: "", note: "message" })).toBeNull();
   });
 
-  it("exports strict local template backups and imports collision-safe names", () => {
+  it("exports strict local template backups with a chosen duplicate strategy", () => {
     const existing = [{ id: "original", name: "Family note", note: "Existing" }];
     const backup = createCustomSchemeShareTemplateBackup([{ id: "backup", name: "Family note", note: "Imported" }], 1);
     const restored = parseCustomSchemeShareTemplateBackup(JSON.stringify(backup), existing);
     expect(restored).toEqual([...existing, expect.objectContaining({ name: "Family note (2)", note: "Imported" })]);
+    const skipped = planCustomSchemeShareTemplateImport(JSON.stringify(backup), existing, "skip");
+    expect(skipped.templates).toEqual(existing);
+    expect(skipped.imported).toEqual([]);
+    expect(skipped.skipped).toEqual([{ name: "Family note", reason: "duplicate" }]);
     expect(() => parseCustomSchemeShareTemplateBackup(JSON.stringify({ ...backup, version: 2 }), existing)).toThrow("Backup version");
   });
 
@@ -192,5 +210,17 @@ describe("offline saved schemes and sharing", () => {
     expect(html).toContain("Education");
     expect(html).not.toContain("Later");
     expect(createOfflineSavedDeadlineCalendarPrintHtml({ schemes: [otherMonth], month, language: "en", categoryLabel: "Education" })).toContain("No saved deadlines");
+  });
+
+  it("exports category-scoped deadline CSV with formula-safe public fields only", () => {
+    const month = new Date(2026, 7, 1);
+    const education = { ...scheme, applicationDeadline: Date.UTC(2026, 7, 10), name: "=SUM(1,1)" };
+    const otherMonth = { ...scheme, id: "later", applicationDeadline: Date.UTC(2026, 8, 2), name: "Later" };
+    const csv = createOfflineSavedDeadlineCalendarCsv({ schemes: [education], month, language: "en" });
+    expect(csv).toContain('"\'=SUM(1,1)"');
+    expect(csv).toContain('"2026-08-10"');
+    expect(csv).toContain('"https://example.gov.in"');
+    expect(csv).not.toContain("Later");
+    expect(csv).not.toContain("userId");
   });
 });

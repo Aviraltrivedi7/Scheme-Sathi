@@ -568,3 +568,12 @@
 - [x] Stage parsed template imports in a preview modal that summarizes content/conflicts and requires explicit confirmation before browser-local persistence.
 - [x] Test snooze duration candidates, print HTML safety/filter scope, staged import confirmation/collision behavior, responsive controls, TypeScript, full build, and browser rendering.
 - [x] Document, checkpoint, and deliver the development-only configurable snooze, calendar export, and import preview enhancement without publishing.
+
+## Snooze history, calendar CSV, and import duplicate strategy
+
+- [x] Review v5 local reminder storage, current calendar filtering/print output, template parser, and GitHub repository state.
+- [x] Add bounded browser-local per-scheme snooze action history with readable timestamp, duration, and resume information.
+- [x] Add browser-local category-scoped calendar deadline CSV export with safe spreadsheet escaping and public-data-only fields.
+- [x] Add a staged template-import duplicate strategy chooser supporting skip existing names or collision-safe rename behavior.
+- [x] Test history retention and migration, CSV output/filter scope/escaping, duplicate strategy behavior, responsive controls, TypeScript, full build, and browser rendering.
+- [ ] Document, checkpoint, and push the verified development project to the requested GitHub repository.

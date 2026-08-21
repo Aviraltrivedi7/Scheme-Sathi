@@ -3,24 +3,29 @@ import type { Scheme } from "@/lib/schemes";
 const dayMs = 86_400_000;
 export const offlineSchemeReminderStorageKey = "scheme-sathi-offline-deadline-reminders-v1";
 export const offlineSchemeReminderLeadDays = [1, 3, 7, 14, 30] as const;
+export const maxOfflineSchemeReminderSnoozeHistoryEntries = 24;
 export type OfflineSchemeReminderLeadDays = (typeof offlineSchemeReminderLeadDays)[number];
+export type OfflineSchemeReminderSnoozeAction = "snoozed" | "resumed";
+export type OfflineSchemeReminderSnoozeHistoryEntry = { schemeId: string; action: OfflineSchemeReminderSnoozeAction; occurredAt: number; snoozedUntil?: number };
 
 export type OfflineSchemeReminderSettings = {
-  version: 5;
+  version: 6;
   enabled: boolean;
   leadDays: OfflineSchemeReminderLeadDays[];
   notifiedDeadlineByScheduleKey: Record<string, number>;
   disabledSchemeIds: string[];
   snoozedUntilBySchemeId: Record<string, number>;
+  snoozeHistory: OfflineSchemeReminderSnoozeHistoryEntry[];
 };
 
 export type OfflineSchemeReminderCandidate = { scheme: Scheme; leadDays: OfflineSchemeReminderLeadDays };
-export const defaultOfflineSchemeReminderSettings = (): OfflineSchemeReminderSettings => ({ version: 5, enabled: false, leadDays: [7], notifiedDeadlineByScheduleKey: {}, disabledSchemeIds: [], snoozedUntilBySchemeId: {} });
+export const defaultOfflineSchemeReminderSettings = (): OfflineSchemeReminderSettings => ({ version: 6, enabled: false, leadDays: [7], notifiedDeadlineByScheduleKey: {}, disabledSchemeIds: [], snoozedUntilBySchemeId: {}, snoozeHistory: [] });
 
 export function isOfflineSchemeReminderLeadDays(value: unknown): value is OfflineSchemeReminderLeadDays { return typeof value === "number" && offlineSchemeReminderLeadDays.includes(value as OfflineSchemeReminderLeadDays); }
 export function normalizeOfflineSchemeReminderLeadDays(value: unknown): OfflineSchemeReminderLeadDays[] { return Array.isArray(value) ? Array.from(new Set(value.filter(isOfflineSchemeReminderLeadDays))).sort((left, right) => left - right) : []; }
 function safeNotificationLedger(value: unknown) { return value && typeof value === "object" ? value as Record<string, number> : {}; }
 function safeSnoozes(value: unknown) { return value && typeof value === "object" ? Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([, until]) => typeof until === "number" && Number.isFinite(until))) as Record<string, number> : {}; }
+function safeSnoozeHistory(value: unknown): OfflineSchemeReminderSnoozeHistoryEntry[] { if (!Array.isArray(value)) return []; return value.flatMap(item => { if (!item || typeof item !== "object") return []; const entry = item as Partial<OfflineSchemeReminderSnoozeHistoryEntry>; if (typeof entry.schemeId !== "string" || !entry.schemeId || entry.schemeId.length > 120 || (entry.action !== "snoozed" && entry.action !== "resumed") || typeof entry.occurredAt !== "number" || !Number.isFinite(entry.occurredAt)) return []; if (entry.snoozedUntil !== undefined && (typeof entry.snoozedUntil !== "number" || !Number.isFinite(entry.snoozedUntil))) return []; return [{ schemeId: entry.schemeId, action: entry.action, occurredAt: entry.occurredAt, ...(entry.snoozedUntil === undefined ? {} : { snoozedUntil: entry.snoozedUntil }) }]; }).sort((left, right) => right.occurredAt - left.occurredAt).slice(0, maxOfflineSchemeReminderSnoozeHistoryEntries); }
 
 export function readOfflineSchemeReminderSettings(storage: Pick<Storage, "getItem">): OfflineSchemeReminderSettings {
   try {
@@ -28,15 +33,15 @@ export function readOfflineSchemeReminderSettings(storage: Pick<Storage, "getIte
     if (!raw) return defaultOfflineSchemeReminderSettings();
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return defaultOfflineSchemeReminderSettings();
-    const settings = parsed as { version?: unknown; enabled?: unknown; leadDays?: unknown; notifiedDeadlineBySchemeId?: unknown; notifiedDeadlineByScheduleKey?: unknown; disabledSchemeIds?: unknown; snoozedUntilBySchemeId?: unknown };
+    const settings = parsed as { version?: unknown; enabled?: unknown; leadDays?: unknown; notifiedDeadlineBySchemeId?: unknown; notifiedDeadlineByScheduleKey?: unknown; disabledSchemeIds?: unknown; snoozedUntilBySchemeId?: unknown; snoozeHistory?: unknown };
     if ((settings.version === 1 || settings.version === 2) && typeof settings.enabled === "boolean" && isOfflineSchemeReminderLeadDays(settings.leadDays)) {
       const legacyLedger = safeNotificationLedger(settings.notifiedDeadlineBySchemeId);
-      return { version: 5, enabled: settings.enabled, leadDays: [settings.leadDays], notifiedDeadlineByScheduleKey: Object.fromEntries(Object.entries(legacyLedger).map(([schemeId, deadline]) => [`${schemeId}:${settings.leadDays}`, deadline])), disabledSchemeIds: [], snoozedUntilBySchemeId: {} };
+      return { version: 6, enabled: settings.enabled, leadDays: [settings.leadDays], notifiedDeadlineByScheduleKey: Object.fromEntries(Object.entries(legacyLedger).map(([schemeId, deadline]) => [`${schemeId}:${settings.leadDays}`, deadline])), disabledSchemeIds: [], snoozedUntilBySchemeId: {}, snoozeHistory: [] };
     }
     const leadDays = normalizeOfflineSchemeReminderLeadDays(settings.leadDays);
-    if ((settings.version === 3 || settings.version === 4) && typeof settings.enabled === "boolean" && leadDays.length && settings.notifiedDeadlineByScheduleKey && typeof settings.notifiedDeadlineByScheduleKey === "object") return { version: 5, enabled: settings.enabled, leadDays, notifiedDeadlineByScheduleKey: safeNotificationLedger(settings.notifiedDeadlineByScheduleKey), disabledSchemeIds: Array.isArray(settings.disabledSchemeIds) ? settings.disabledSchemeIds.filter((item): item is string => typeof item === "string") : [], snoozedUntilBySchemeId: {} };
-    if (settings.version !== 5 || typeof settings.enabled !== "boolean" || !leadDays.length || !settings.notifiedDeadlineByScheduleKey || typeof settings.notifiedDeadlineByScheduleKey !== "object" || !Array.isArray(settings.disabledSchemeIds) || !settings.disabledSchemeIds.every(item => typeof item === "string")) return defaultOfflineSchemeReminderSettings();
-    return { version: 5, enabled: settings.enabled, leadDays, notifiedDeadlineByScheduleKey: safeNotificationLedger(settings.notifiedDeadlineByScheduleKey), disabledSchemeIds: settings.disabledSchemeIds, snoozedUntilBySchemeId: safeSnoozes(settings.snoozedUntilBySchemeId) };
+    if ((settings.version === 3 || settings.version === 4 || settings.version === 5) && typeof settings.enabled === "boolean" && leadDays.length && settings.notifiedDeadlineByScheduleKey && typeof settings.notifiedDeadlineByScheduleKey === "object") return { version: 6, enabled: settings.enabled, leadDays, notifiedDeadlineByScheduleKey: safeNotificationLedger(settings.notifiedDeadlineByScheduleKey), disabledSchemeIds: Array.isArray(settings.disabledSchemeIds) ? settings.disabledSchemeIds.filter((item): item is string => typeof item === "string") : [], snoozedUntilBySchemeId: safeSnoozes(settings.snoozedUntilBySchemeId), snoozeHistory: [] };
+    if (settings.version !== 6 || typeof settings.enabled !== "boolean" || !leadDays.length || !settings.notifiedDeadlineByScheduleKey || typeof settings.notifiedDeadlineByScheduleKey !== "object" || !Array.isArray(settings.disabledSchemeIds) || !settings.disabledSchemeIds.every(item => typeof item === "string")) return defaultOfflineSchemeReminderSettings();
+    return { version: 6, enabled: settings.enabled, leadDays, notifiedDeadlineByScheduleKey: safeNotificationLedger(settings.notifiedDeadlineByScheduleKey), disabledSchemeIds: settings.disabledSchemeIds, snoozedUntilBySchemeId: safeSnoozes(settings.snoozedUntilBySchemeId), snoozeHistory: safeSnoozeHistory(settings.snoozeHistory) };
   } catch { return defaultOfflineSchemeReminderSettings(); }
 }
 
@@ -44,6 +49,7 @@ export function writeOfflineSchemeReminderSettings(storage: Pick<Storage, "setIt
 export function offlineSchemeReminderScheduleKey(schemeId: string, leadDays: OfflineSchemeReminderLeadDays) { return `${schemeId}:${leadDays}`; }
 export function isOfflineSchemeReminderEnabled(settings: OfflineSchemeReminderSettings, schemeId: string) { return !settings.disabledSchemeIds.includes(schemeId); }
 export function isOfflineSchemeReminderSnoozed(settings: OfflineSchemeReminderSettings, schemeId: string, now = Date.now()) { return (settings.snoozedUntilBySchemeId[schemeId] ?? 0) > now; }
+export function recordOfflineSchemeReminderSnoozeAction(settings: OfflineSchemeReminderSettings, entry: OfflineSchemeReminderSnoozeHistoryEntry): OfflineSchemeReminderSettings { return { ...settings, snoozeHistory: safeSnoozeHistory([entry, ...settings.snoozeHistory]) }; }
 
 export function getDueOfflineSchemeDeadlineReminderCandidates(schemes: Scheme[], settings: OfflineSchemeReminderSettings, now = Date.now()): OfflineSchemeReminderCandidate[] {
   return schemes.flatMap(scheme => settings.leadDays.map(leadDays => ({ scheme, leadDays }))).filter(({ scheme, leadDays }) => {
