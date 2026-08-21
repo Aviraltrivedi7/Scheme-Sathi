@@ -30,6 +30,7 @@ describe("public scheme score and engagement UX", () => {
     const offlineReminders = readFileSync(resolve(process.cwd(), "client/src/components/OfflineSavedDeadlineReminders.tsx"), "utf8");
     const offlineCalendar = readFileSync(resolve(process.cwd(), "client/src/components/OfflineSavedDeadlineCalendar.tsx"), "utf8");
     const customTemplates = readFileSync(resolve(process.cwd(), "client/src/lib/customSchemeShareTemplates.ts"), "utf8");
+    const calendarPrint = readFileSync(resolve(process.cwd(), "client/src/lib/offlineSavedDeadlineCalendarPrint.ts"), "utf8");
     const sharing = readFileSync(resolve(process.cwd(), "client/src/lib/schemeSharing.ts"), "utf8");
     const css = readFileSync(resolve(process.cwd(), "client/src/index.css"), "utf8");
     expect(home).toContain("sharePreviewScheme");
@@ -73,12 +74,16 @@ describe("public scheme score and engagement UX", () => {
     expect(offlineReminders).toContain("offlineSchemeReminderLeadDays");
     expect(offlineReminders).toContain("getDueOfflineSchemeDeadlineReminderCandidates");
     expect(offlineReminders).toContain("role=\"switch\"");
-    expect(offlineReminders).toContain("Snooze 1 day");
+    expect(offlineReminders).toContain("Snooze for");
     expect(offlineCalendar).toContain("DEADLINE CALENDAR");
     expect(offlineCalendar).toContain("offline-calendar-legend");
     expect(offlineCalendar).toContain("Category filter");
+    expect(offlineCalendar).toContain("Print / PDF");
     expect(customTemplates).toContain("customSchemeShareTemplatesStorageKey");
     expect(customTemplates).toContain("customSchemeShareTemplateBackupFormat");
+    expect(calendarPrint).toContain("print-color-adjust:exact");
+    expect(sharePreview).toContain("Review before import");
+    expect(sharePreview).toContain("Confirm import");
     expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
     expect(css).toContain("height: 100dvh");
     expect(css).toContain("flex: 1 1 auto");

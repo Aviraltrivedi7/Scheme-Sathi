@@ -695,4 +695,22 @@ Focused coverage validates v4-to-v5 migration, snooze candidate suppression and 
 
 > Snooze/category-filter/template-backup visual verification: the desktop Saved entry remains aligned with the public action rail and the 375 px compact header remains unclipped. Populated snooze controls, calendar category selection, and template import/export controls are covered by helper and UI-contract tests because the visual session had no saved schemes, notification permission request, template file, or live share action.
 
+## Configurable Snooze, Calendar Print/PDF, and Import Review
+
+The device-local version 5 reminder settings now let a person pick a snooze duration of **1 hour, 1 day, 3 days, or 1 week** before snoozing a single future saved scheme. The resulting per-scheme timestamp remains in `snoozedUntilBySchemeId`; it suppresses only that scheme’s candidate reminders until expiry or an explicit resume. Its selected lead-time schedules, master enabled state, and notification ledger are unchanged. Earlier version 1–4 reminder records still migrate safely into version 5 with no active snoozes. Reminder evaluation remains limited to the open, visible Saved workspace and does not create background jobs, web push, or server-side reminder state.
+
+The current month calendar now offers **Print / PDF**. It opens a browser-local print document prepared from the displayed category-filtered public deadline set, uses an A4 layout with the selected month and category label, and leaves final printing or Save as PDF entirely to the browser’s print dialog. Scheme names, categories, labels, and dates are HTML-escaped before entering the print document. The output contains public saved-scheme deadline guidance only; it excludes accounts, profile attributes, reminder preferences, notes, template IDs, and any other private data.
+
+Local custom-template import is now staged. Selecting a valid backup parses and collision-plans the bounded template names in browser memory, then opens **Review before import** with each proposed name and note. Nothing is persisted until the person selects **Confirm import**; cancellation clears the pending proposal. The existing strict version, field-length, capacity, 50 KB file-size, and collision-safe restore checks are preserved, with no file upload or server call.
+
+| Capability | User interaction | Data and execution boundary |
+| --- | --- | --- |
+| Configurable snooze | Choose 1h, 1d, 3d, or 1w, then snooze a specific saved scheme. | Only a device-local per-scheme timestamp changes; schedules, master state, and prior notification ledger remain intact. |
+| Calendar print/PDF | Select **Print / PDF** after choosing a calendar category. | A category-scoped A4 HTML document is assembled locally; the browser controls printing and PDF saving. |
+| Import review | Select a backup, inspect the proposed template list, then confirm or cancel. | Parsed content stays staged in memory until explicit confirmation; no network transfer occurs. |
+
+Focused regression coverage validates a one-hour snooze candidate boundary, escaped category-scoped print output, no-deadline print messaging, and UI contracts for duration selection, print markup, review-before-import, and confirmation. The full suite passes **141 tests across 36 test files**; `pnpm check` is clean and the production build passes with the existing non-blocking chunk-size advisory. Desktop 1280 px and compact 375 px public-header screenshots remain aligned without clipping. No notification permission, browser notification, print/PDF save, template-file import/export, live sharing, publishing, deployment, or personal-data action was performed during verification.
+
+> Configurable snooze/print/import visual verification: desktop and 375 px public headers continue to preserve an unclipped Saved entry point and action rail. The populated duration selector, category-scoped print flow, and staged import modal are covered by pure helper and UI-contract tests because the visual session had no saved schemes or local backup file, and no browser print dialog or import confirmation was invoked.
+
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

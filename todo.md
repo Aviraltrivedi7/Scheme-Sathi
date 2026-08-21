@@ -559,3 +559,12 @@
 - [x] Add browser-local JSON export and strict local JSON import for custom share-note templates, with bounded validation and collision-safe names.
 - [x] Test snooze candidate exclusion/resumption, calendar category filtering, template backup validation/collision handling, responsive controls, TypeScript, full build, and browser rendering.
 - [x] Document, checkpoint, and deliver the development-only snooze, calendar filter, and template backup enhancement without publishing.
+
+## Configurable snooze, calendar print export, and import preview
+
+- [x] Review v5 local snooze state, saved calendar rendering, and strict custom-template backup parsing flow.
+- [x] Add validated device-local snooze duration choices that delay only the selected scheme without changing schedules or master state.
+- [x] Add a browser-local monthly calendar print/PDF export that uses the rendered current category-filtered deadline set and excludes personal data.
+- [x] Stage parsed template imports in a preview modal that summarizes content/conflicts and requires explicit confirmation before browser-local persistence.
+- [x] Test snooze duration candidates, print HTML safety/filter scope, staged import confirmation/collision behavior, responsive controls, TypeScript, full build, and browser rendering.
+- [x] Document, checkpoint, and deliver the development-only configurable snooze, calendar export, and import preview enhancement without publishing.

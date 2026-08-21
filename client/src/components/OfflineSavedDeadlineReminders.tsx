@@ -7,56 +7,23 @@ import { OfflineSavedDeadlineCalendar } from "@/components/OfflineSavedDeadlineC
 
 type Language = "en" | "hi";
 const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
+const snoozeDurations = [{ value: 3_600_000, en: "1 hour", hi: "1 घंटा" }, { value: 86_400_000, en: "1 day", hi: "1 दिन" }, { value: 3 * 86_400_000, en: "3 days", hi: "3 दिन" }, { value: 7 * 86_400_000, en: "1 week", hi: "1 सप्ताह" }] as const;
 
 export function OfflineSavedDeadlineReminders({ schemes, language, onOpen }: { schemes: Scheme[]; language: Language; onOpen?: (scheme: Scheme) => void }) {
   const [settings, setSettings] = useState<OfflineSchemeReminderSettings>(() => readOfflineSchemeReminderSettings(localStorage));
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() => typeof Notification === "undefined" ? "unsupported" : Notification.permission);
   const [requesting, setRequesting] = useState(false);
+  const [snoozeDuration, setSnoozeDuration] = useState<number>(86_400_000);
   const isHindi = language === "hi";
   const saveSettings = (next: OfflineSchemeReminderSettings) => { writeOfflineSchemeReminderSettings(localStorage, next); setSettings(next); };
-
-  useEffect(() => {
-    if (!settings.enabled || permission !== "granted" || document.visibilityState === "hidden") return;
-    const candidates = getDueOfflineSchemeDeadlineReminderCandidates(schemes, settings);
-    if (!candidates.length) return;
-    candidates.forEach(({ scheme, leadDays }) => {
-      const name = isHindi ? scheme.nameHindi : scheme.name;
-      const deadline = dateFormat.format(new Date(scheme.applicationDeadline!));
-      new Notification(isHindi ? `${name} की समयसीमा` : `${name} deadline`, { body: isHindi ? `आवेदन की अंतिम तिथि ${deadline} है। ${leadDays} दिन पहले की रिमाइंडर।` : `Apply by ${deadline}. ${leadDays}-day reminder.`, tag: `scheme-sathi-deadline-${scheme.id}-${leadDays}` });
-    });
-    saveSettings(markOfflineSchemeDeadlineReminderCandidates(settings, candidates));
-  }, [schemes, settings, permission, isHindi]);
-
-  const toggleLeadDays = (leadDays: OfflineSchemeReminderLeadDays) => {
-    const selected = settings.leadDays.includes(leadDays);
-    if (selected && settings.leadDays.length === 1) return;
-    saveSettings({ ...settings, leadDays: selected ? settings.leadDays.filter(item => item !== leadDays) : [...settings.leadDays, leadDays].sort((left, right) => left - right) });
-  };
-  const toggleScheme = (schemeId: string) => {
-    const enabled = isOfflineSchemeReminderEnabled(settings, schemeId);
-    saveSettings({ ...settings, disabledSchemeIds: enabled ? [...settings.disabledSchemeIds, schemeId] : settings.disabledSchemeIds.filter(item => item !== schemeId) });
-  };
-  const toggleSnooze = (schemeId: string) => {
-    const snoozed = isOfflineSchemeReminderSnoozed(settings, schemeId);
-    const snoozedUntilBySchemeId = { ...settings.snoozedUntilBySchemeId };
-    if (snoozed) delete snoozedUntilBySchemeId[schemeId];
-    else snoozedUntilBySchemeId[schemeId] = Date.now() + 86_400_000;
-    saveSettings({ ...settings, snoozedUntilBySchemeId });
-  };
-  const enableReminders = async () => {
-    if (typeof Notification === "undefined") return;
-    setRequesting(true);
-    try {
-      const nextPermission = await Notification.requestPermission();
-      setPermission(nextPermission);
-      if (nextPermission !== "granted") { toast.message(isHindi ? "सूचनाओं की अनुमति नहीं मिली। आप इसे ब्राउज़र सेटिंग्स से बाद में बदल सकते हैं।" : "Notification permission was not granted. You can change it later in browser settings."); return; }
-      saveSettings({ ...settings, enabled: true });
-      toast.success(isHindi ? "चुनी हुई डिवाइस रिमाइंडर चालू हैं।" : "Selected device-only reminders are on.");
-    } finally { setRequesting(false); }
-  };
+  useEffect(() => { if (!settings.enabled || permission !== "granted" || document.visibilityState === "hidden") return; const candidates = getDueOfflineSchemeDeadlineReminderCandidates(schemes, settings); if (!candidates.length) return; candidates.forEach(({ scheme, leadDays }) => { const name = isHindi ? scheme.nameHindi : scheme.name; const deadline = dateFormat.format(new Date(scheme.applicationDeadline!)); new Notification(isHindi ? `${name} की समयसीमा` : `${name} deadline`, { body: isHindi ? `आवेदन की अंतिम तिथि ${deadline} है। ${leadDays} दिन पहले की रिमाइंडर।` : `Apply by ${deadline}. ${leadDays}-day reminder.`, tag: `scheme-sathi-deadline-${scheme.id}-${leadDays}` }); }); saveSettings(markOfflineSchemeDeadlineReminderCandidates(settings, candidates)); }, [schemes, settings, permission, isHindi]);
+  const toggleLeadDays = (leadDays: OfflineSchemeReminderLeadDays) => { const selected = settings.leadDays.includes(leadDays); if (selected && settings.leadDays.length === 1) return; saveSettings({ ...settings, leadDays: selected ? settings.leadDays.filter(item => item !== leadDays) : [...settings.leadDays, leadDays].sort((left, right) => left - right) }); };
+  const toggleScheme = (schemeId: string) => { const enabled = isOfflineSchemeReminderEnabled(settings, schemeId); saveSettings({ ...settings, disabledSchemeIds: enabled ? [...settings.disabledSchemeIds, schemeId] : settings.disabledSchemeIds.filter(item => item !== schemeId) }); };
+  const toggleSnooze = (schemeId: string) => { const snoozed = isOfflineSchemeReminderSnoozed(settings, schemeId); const snoozedUntilBySchemeId = { ...settings.snoozedUntilBySchemeId }; if (snoozed) delete snoozedUntilBySchemeId[schemeId]; else snoozedUntilBySchemeId[schemeId] = Date.now() + snoozeDuration; saveSettings({ ...settings, snoozedUntilBySchemeId }); };
+  const enableReminders = async () => { if (typeof Notification === "undefined") return; setRequesting(true); try { const nextPermission = await Notification.requestPermission(); setPermission(nextPermission); if (nextPermission !== "granted") { toast.message(isHindi ? "सूचनाओं की अनुमति नहीं मिली। आप इसे ब्राउज़र सेटिंग्स से बाद में बदल सकते हैं।" : "Notification permission was not granted. You can change it later in browser settings."); return; } saveSettings({ ...settings, enabled: true }); toast.success(isHindi ? "चुनी हुई डिवाइस रिमाइंडर चालू हैं।" : "Selected device-only reminders are on."); } finally { setRequesting(false); } };
   if (!schemes.some(scheme => scheme.applicationDeadline && scheme.applicationDeadline > Date.now())) return null;
   const scheduleSelector = <div className="offline-reminder-schedules" role="group" aria-label={isHindi ? "रिमाइंडर समय" : "Reminder schedules"}><span>{isHindi ? "हर सहेजी योजना के लिए" : "For every saved scheme"}</span><div>{offlineSchemeReminderLeadDays.map(leadDays => <button type="button" key={leadDays} className={settings.leadDays.includes(leadDays) ? "active" : ""} aria-pressed={settings.leadDays.includes(leadDays)} onClick={() => toggleLeadDays(leadDays)}>{settings.leadDays.includes(leadDays) && <Check size={11} />}{isHindi ? `${leadDays} दिन` : `${leadDays} days`}</button>)}</div></div>;
-  const schemeMasterControls = <div className="offline-reminder-scheme-controls"><span>{isHindi ? "योजना रिमाइंडर" : "Scheme reminders"}</span>{schemes.filter(scheme => scheme.applicationDeadline && scheme.applicationDeadline > Date.now()).map(scheme => { const enabled = isOfflineSchemeReminderEnabled(settings, scheme.id); const snoozed = isOfflineSchemeReminderSnoozed(settings, scheme.id); return <div key={scheme.id}><button type="button" role="switch" aria-checked={enabled} onClick={() => toggleScheme(scheme.id)}><i className={enabled ? "on" : ""} /><strong>{isHindi ? scheme.nameHindi : scheme.name}</strong><small>{enabled ? (isHindi ? "चालू" : "On") : (isHindi ? "बंद" : "Off")}</small></button><button type="button" className="offline-reminder-snooze" onClick={() => toggleSnooze(scheme.id)} disabled={!enabled}>{snoozed ? (isHindi ? "रिमाइंडर फिर चालू करें" : "Resume reminders") : (isHindi ? "1 दिन के लिए स्नूज़" : "Snooze 1 day")}</button></div>; })}</div>;
+  const schemeMasterControls = <div className="offline-reminder-scheme-controls"><span>{isHindi ? "योजना रिमाइंडर" : "Scheme reminders"}</span><label className="offline-reminder-snooze-duration"><span>{isHindi ? "स्नूज़ अवधि" : "Snooze for"}</span><select value={snoozeDuration} onChange={event => setSnoozeDuration(Number(event.target.value))}>{snoozeDurations.map(duration => <option key={duration.value} value={duration.value}>{isHindi ? duration.hi : duration.en}</option>)}</select></label>{schemes.filter(scheme => scheme.applicationDeadline && scheme.applicationDeadline > Date.now()).map(scheme => { const enabled = isOfflineSchemeReminderEnabled(settings, scheme.id); const snoozed = isOfflineSchemeReminderSnoozed(settings, scheme.id); return <div key={scheme.id}><button type="button" role="switch" aria-checked={enabled} onClick={() => toggleScheme(scheme.id)}><i className={enabled ? "on" : ""} /><strong>{isHindi ? scheme.nameHindi : scheme.name}</strong><small>{enabled ? (isHindi ? "चालू" : "On") : (isHindi ? "बंद" : "Off")}</small></button><button type="button" className="offline-reminder-snooze" onClick={() => toggleSnooze(scheme.id)} disabled={!enabled}>{snoozed ? (isHindi ? "रिमाइंडर फिर चालू करें" : "Resume reminders") : (isHindi ? "स्नूज़ करें" : "Snooze")}</button></div>; })}</div>;
   const calendar = <OfflineSavedDeadlineCalendar schemes={schemes} language={language} onOpen={onOpen} />;
   if (permission === "unsupported") return <>{calendar}<div className="offline-reminder-card unsupported"><BellOff size={17} /><span>{isHindi ? "इस ब्राउज़र में डिवाइस रिमाइंडर उपलब्ध नहीं हैं।" : "This browser does not support device notifications."}</span></div></>;
   if (settings.enabled && permission === "granted") return <>{calendar}<div className="offline-reminder-card enabled"><Bell size={17} /><div><strong>{isHindi ? "एक से अधिक रिमाइंडर समय चालू हैं" : "Multiple reminder schedules are on"}</strong><small>{isHindi ? "हर चुने समय के लिए हर योजना को अलग रिमाइंडर मिल सकती है। ऐप खुला या सक्रिय होने पर ही जाँच होती है।" : "Each saved scheme can notify at every selected lead time. Checks run only while this app is open or active."}</small>{scheduleSelector}{schemeMasterControls}</div><button type="button" onClick={() => saveSettings({ ...settings, enabled: false })}>{isHindi ? "बंद करें" : "Turn off"}</button></div></>;
