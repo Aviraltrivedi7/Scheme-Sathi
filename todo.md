@@ -513,3 +513,13 @@
 - [x] Add native share and WhatsApp fallback actions for scheme cards and scheme detail pages with compact, translated copy.
 - [x] Test offline snapshot boundaries, update prompt lifecycle, share URL/message construction, responsive actions, TypeScript, full build, and PWA rendering.
 - [x] Document, checkpoint, and deliver the development-only offline, update, and sharing enhancement without publishing.
+
+## Offline saved discovery, local reminders, and bilingual share preview
+
+- [x] Deliver the user-selected device-only reminder mode: permission-gated notifications while the app is open or active, with no server scheduler, web push subscription, or publishing requirement.
+- [x] Review offline saved snapshot fields, existing deadline data, browser notification permission boundaries, and current share controls.
+- [x] Add browser-local search and category/level filters to the offline saved-schemes screen without expanding stored data.
+- [x] Implement opt-in local deadline reminders for saved schemes with permission states, safe timing rules, and no remote notification delivery.
+- [x] Replace immediate sharing with a bilingual preview card that lets users choose Hindi or English before native or WhatsApp sharing.
+- [x] Test local filters, reminder scheduling/permission boundaries, preview language selection, share payloads, responsive behavior, TypeScript, full build, and browser rendering.
+- [x] Document, checkpoint, and deliver the development-only offline discovery, reminders, and share preview enhancement without publishing.

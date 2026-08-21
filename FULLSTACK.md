@@ -600,8 +600,27 @@ Scheme cards, the offline saved screen, the matched-detail screen, and direct `/
 
 Focused coverage validates offline snapshot privacy and malformed storage rejection, direct URL and bilingual WhatsApp payload creation, worker update signaling and `SKIP_WAITING` handling, direct-detail share wiring, and offline screen/header contracts. The full suite now passes **126 tests across 36 files**, with TypeScript and production build verification complete. The existing production bundle chunk-size advisory remains non-blocking. No publishing, live sharing action, worker refresh, or personal-data operation was performed during verification.
 
+## Offline Saved Discovery, Device-Only Reminders, and Bilingual Share Preview
+
+The offline Saved workspace now supports browser-local **text search**, **category**, and **Central/State level** filters. Matching runs only against the existing offline public-scheme snapshot; it does not fetch a catalogue, restore an account, or store any new private fields. The result count and clear-filter state are part of the same saved-screen experience, including the empty result state when no public saved scheme matches.
+
+The user selected **device-only** deadline reminders. The Saved screen offers a clear permission-gated **Enable** action for seven-day deadline notices. Once allowed, the browser checks current saved public scheme deadlines only while the Saved screen is visible and the app is active, then shows at most one notification per scheme deadline version. The local settings record contains only the enabled flag, fixed seven-day lead period, and deadline timestamps already notified. There is no server scheduler, web-push subscription, remote delivery, background guarantee, or publishing requirement. The notice explains this visible-app boundary and can be turned off locally at any time.
+
+Every card-level and detail-level share action now opens a **Preview before sharing** card instead of immediately launching a target. Users select **English** or **Hindi**, inspect the public scheme name, benefit summary, and Scheme Sathi link, then choose browser share options, WhatsApp, or copy. This preview is also used by the direct scheme route. Content remains limited to public scheme guidance and a public deep link; no account, profile, saved-note, or device reminder data enters a share payload.
+
+| Capability | User interaction | Boundary |
+| --- | --- | --- |
+| Offline saved filters | Use search, Category, and Level controls on **Saved (n)**. | Filters run entirely in browser memory over public offline snapshot data. |
+| Device-only reminder | Choose **Enable** and grant the browser permission. | Seven-day alert is checked only while the saved screen is visible and active; no exact background-time promise. |
+| Reminder disable | Choose **Turn off** in the active reminder card. | Local setting changes immediately; browser permission is not changed by the app. |
+| Share preview | Choose Share on a card or scheme page, select English/हिंदी, then choose target. | User must make the final browser/WhatsApp/copy action; public content only. |
+
+Focused coverage now validates seven-day candidate selection, expired/future exclusion, no-repeat deadline marking, invalid reminder-storage recovery, visible-app reminder gating, offline filter and preview wiring, and bilingual preview controls. The full suite passes **128 tests across 36 files**, TypeScript is clean, and the production build passes with the existing non-blocking chunk-size advisory. No notification permission, browser notification, live share, background reminder, publishing, or personal-data action was performed during verification.
+
 > PWA visual verification: the right-side **Install app** control is visible and aligned with the public header actions at 1280 px. At 375 px it deliberately condenses into a labelled-by-accessibility saffron download icon, preserving room for account, language, appearance, and menu controls without horizontal clipping.
 
 > Offline/update/share visual verification: the desktop header now shows the private-device **Saved (0)** access beside Install app without crowding navigation. At 375 px, the compact action rail retains available width and the Saved entry remains reachable in the mobile navigation drawer. Direct-detail capture reached its expected asynchronous loading state; native/WhatsApp share controls remain covered by route and UI contracts because no live scheme request or share target was invoked during verification.
+
+> Offline discovery/reminder/preview visual verification: the desktop Saved entry remains aligned with the public header action rail, and the 375 px header keeps the existing compact controls free of clipping. The populated offline filters, permission-gated reminder card, and open share-preview dialog are covered by pure helper plus UI-contract coverage because the inspected account had no saved schemes, no browser permission request, and no live sharing interaction was invoked.
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

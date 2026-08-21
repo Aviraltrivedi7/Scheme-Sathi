@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createOfflineSavedSchemesSnapshot, offlineSavedSchemesStorageKey, readOfflineSavedSchemesSnapshot, writeOfflineSavedSchemesSnapshot } from "../client/src/lib/offlineSavedSchemes";
 import { createSchemeShareText, createSchemeShareUrl, createWhatsAppSchemeShareUrl } from "../client/src/lib/schemeSharing";
+import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, offlineSchemeReminderStorageKey, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings } from "../client/src/lib/offlineSchemeReminders";
 import type { Scheme } from "../client/src/lib/schemes";
 
 const scheme: Scheme = {
@@ -49,5 +50,27 @@ describe("offline saved schemes and sharing", () => {
     expect(createSchemeShareText(scheme, "hi", "https://scheme.example")).toContain("शिक्षा सहायता");
     expect(createSchemeShareText(scheme, "hi", "https://scheme.example")).toContain("https://scheme.example/scheme/education-support");
     expect(createWhatsAppSchemeShareUrl(scheme, "en", "https://scheme.example")).toMatch(/^https:\/\/wa\.me\/\?text=/);
+  });
+
+  it("creates device-only seven-day reminder candidates once per saved deadline", () => {
+    const now = Date.UTC(2026, 7, 1, 9);
+    const reminderScheme = { ...scheme, applicationDeadline: now + 5 * 86_400_000 };
+    const tooEarly = { ...scheme, id: "later", applicationDeadline: now + 8 * 86_400_000 };
+    const settings = defaultOfflineSchemeReminderSettings();
+    expect(getDueOfflineSchemeDeadlineReminders([reminderScheme, tooEarly], settings, now)).toEqual([reminderScheme]);
+    const marked = markOfflineSchemeDeadlineReminders(settings, [reminderScheme]);
+    expect(getDueOfflineSchemeDeadlineReminders([reminderScheme], marked, now)).toEqual([]);
+    expect(getDueOfflineSchemeDeadlineReminders([{ ...reminderScheme, applicationDeadline: now - 1 }], settings, now)).toEqual([]);
+  });
+
+  it("persists only local reminder settings and recovers safely from invalid values", () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
+    const enabled = { ...defaultOfflineSchemeReminderSettings(), enabled: true };
+    writeOfflineSchemeReminderSettings(storage, enabled);
+    expect(values.has(offlineSchemeReminderStorageKey)).toBe(true);
+    expect(readOfflineSchemeReminderSettings(storage)).toEqual(enabled);
+    values.set(offlineSchemeReminderStorageKey, JSON.stringify({ version: 1, enabled: true, leadDays: 5 }));
+    expect(readOfflineSchemeReminderSettings(storage)).toEqual(defaultOfflineSchemeReminderSettings());
   });
 });
