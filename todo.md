@@ -550,3 +550,12 @@
 - [x] Add bounded custom share-template create, edit, delete, and selection flows that remain device-local and populate the preview only on explicit choice.
 - [x] Test legend classification, master toggle delivery exclusion/restoration, custom template validation and selection, responsive controls, TypeScript, full build, and browser rendering.
 - [x] Document, checkpoint, and deliver the development-only legend, reminder control, and template management enhancement without publishing.
+
+## Reminder snooze, calendar categories, and template backups
+
+- [x] Review v4 browser-local reminder timing, calendar deadline category data, and custom template local-storage boundaries.
+- [x] Add a validated per-scheme device-local snooze preference that delays only selected scheme notifications without changing reminder schedules or master state.
+- [x] Add offline calendar category filter controls that derive options from the public saved snapshot and filter displayed deadline entries.
+- [x] Add browser-local JSON export and strict local JSON import for custom share-note templates, with bounded validation and collision-safe names.
+- [x] Test snooze candidate exclusion/resumption, calendar category filtering, template backup validation/collision handling, responsive controls, TypeScript, full build, and browser rendering.
+- [x] Document, checkpoint, and deliver the development-only snooze, calendar filter, and template backup enhancement without publishing.

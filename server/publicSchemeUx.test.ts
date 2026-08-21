@@ -73,9 +73,12 @@ describe("public scheme score and engagement UX", () => {
     expect(offlineReminders).toContain("offlineSchemeReminderLeadDays");
     expect(offlineReminders).toContain("getDueOfflineSchemeDeadlineReminderCandidates");
     expect(offlineReminders).toContain("role=\"switch\"");
+    expect(offlineReminders).toContain("Snooze 1 day");
     expect(offlineCalendar).toContain("DEADLINE CALENDAR");
     expect(offlineCalendar).toContain("offline-calendar-legend");
+    expect(offlineCalendar).toContain("Category filter");
     expect(customTemplates).toContain("customSchemeShareTemplatesStorageKey");
+    expect(customTemplates).toContain("customSchemeShareTemplateBackupFormat");
     expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
     expect(css).toContain("height: 100dvh");
     expect(css).toContain("flex: 1 1 auto");

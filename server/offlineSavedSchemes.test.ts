@@ -3,7 +3,7 @@ import { createOfflineSavedSchemesSnapshot, offlineSavedSchemesStorageKey, readO
 import { createSchemeShareText, createSchemeShareUrl, createWhatsAppSchemeShareUrl, getSchemeShareNoteTemplate, maxCustomSchemeShareNoteLength, normalizeCustomSchemeShareNote } from "../client/src/lib/schemeSharing";
 import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminderCandidates, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, offlineSchemeReminderLeadDays, offlineSchemeReminderStorageKey, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings } from "../client/src/lib/offlineSchemeReminders";
 import { buildOfflineSavedDeadlineCalendar, getOfflineDeadlineTiming } from "../client/src/lib/offlineSavedDeadlineCalendar";
-import { customSchemeShareTemplatesStorageKey, normalizeCustomSchemeShareTemplate, readCustomSchemeShareTemplates, writeCustomSchemeShareTemplates } from "../client/src/lib/customSchemeShareTemplates";
+import { createCustomSchemeShareTemplateBackup, customSchemeShareTemplatesStorageKey, normalizeCustomSchemeShareTemplate, parseCustomSchemeShareTemplateBackup, readCustomSchemeShareTemplates, writeCustomSchemeShareTemplates } from "../client/src/lib/customSchemeShareTemplates";
 import type { Scheme } from "../client/src/lib/schemes";
 
 const scheme: Scheme = {
@@ -80,7 +80,7 @@ describe("offline saved schemes and sharing", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
     values.set(offlineSchemeReminderStorageKey, JSON.stringify({ version: 1, enabled: true, leadDays: 7, notifiedDeadlineBySchemeId: {} }));
-    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 4, enabled: true, leadDays: [7], disabledSchemeIds: [] });
+    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 5, enabled: true, leadDays: [7], disabledSchemeIds: [], snoozedUntilBySchemeId: {} });
     expect(offlineSchemeReminderLeadDays).toEqual([1, 3, 7, 14, 30]);
     const now = Date.UTC(2026, 7, 1);
     const threeDays = { ...scheme, applicationDeadline: now + 3 * 86_400_000 };
@@ -145,6 +145,15 @@ describe("offline saved schemes and sharing", () => {
     expect(disabled.disabledSchemeIds).toEqual([due.id]);
   });
 
+  it("excludes a snoozed scheme until its local snooze time ends without changing schedules", () => {
+    const now = Date.UTC(2026, 7, 1);
+    const due = { ...scheme, applicationDeadline: now + 3 * 86_400_000 };
+    const settings = { ...defaultOfflineSchemeReminderSettings(), leadDays: [3] as const, snoozedUntilBySchemeId: { [due.id]: now + 86_400_000 } };
+    expect(getDueOfflineSchemeDeadlineReminderCandidates([due], settings, now)).toEqual([]);
+    expect(getDueOfflineSchemeDeadlineReminderCandidates([due], settings, now + 86_400_000)).toHaveLength(1);
+    expect(settings.leadDays).toEqual([3]);
+  });
+
   it("keeps bounded valid custom templates only in browser-local storage", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
@@ -154,5 +163,13 @@ describe("offline saved schemes and sharing", () => {
     expect(readCustomSchemeShareTemplates(storage)).toEqual([{ id: "family-1", ...template! }]);
     expect(values.has(customSchemeShareTemplatesStorageKey)).toBe(true);
     expect(normalizeCustomSchemeShareTemplate({ name: "", note: "message" })).toBeNull();
+  });
+
+  it("exports strict local template backups and imports collision-safe names", () => {
+    const existing = [{ id: "original", name: "Family note", note: "Existing" }];
+    const backup = createCustomSchemeShareTemplateBackup([{ id: "backup", name: "Family note", note: "Imported" }], 1);
+    const restored = parseCustomSchemeShareTemplateBackup(JSON.stringify(backup), existing);
+    expect(restored).toEqual([...existing, expect.objectContaining({ name: "Family note (2)", note: "Imported" })]);
+    expect(() => parseCustomSchemeShareTemplateBackup(JSON.stringify({ ...backup, version: 2 }), existing)).toThrow("Backup version");
   });
 });

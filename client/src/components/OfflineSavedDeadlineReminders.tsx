@@ -2,7 +2,7 @@ import { Bell, BellOff, Check, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Scheme } from "@/lib/schemes";
-import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminderCandidates, isOfflineSchemeReminderEnabled, markOfflineSchemeDeadlineReminderCandidates, offlineSchemeReminderLeadDays, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings, type OfflineSchemeReminderLeadDays, type OfflineSchemeReminderSettings } from "@/lib/offlineSchemeReminders";
+import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminderCandidates, isOfflineSchemeReminderEnabled, isOfflineSchemeReminderSnoozed, markOfflineSchemeDeadlineReminderCandidates, offlineSchemeReminderLeadDays, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings, type OfflineSchemeReminderLeadDays, type OfflineSchemeReminderSettings } from "@/lib/offlineSchemeReminders";
 import { OfflineSavedDeadlineCalendar } from "@/components/OfflineSavedDeadlineCalendar";
 
 type Language = "en" | "hi";
@@ -36,6 +36,13 @@ export function OfflineSavedDeadlineReminders({ schemes, language, onOpen }: { s
     const enabled = isOfflineSchemeReminderEnabled(settings, schemeId);
     saveSettings({ ...settings, disabledSchemeIds: enabled ? [...settings.disabledSchemeIds, schemeId] : settings.disabledSchemeIds.filter(item => item !== schemeId) });
   };
+  const toggleSnooze = (schemeId: string) => {
+    const snoozed = isOfflineSchemeReminderSnoozed(settings, schemeId);
+    const snoozedUntilBySchemeId = { ...settings.snoozedUntilBySchemeId };
+    if (snoozed) delete snoozedUntilBySchemeId[schemeId];
+    else snoozedUntilBySchemeId[schemeId] = Date.now() + 86_400_000;
+    saveSettings({ ...settings, snoozedUntilBySchemeId });
+  };
   const enableReminders = async () => {
     if (typeof Notification === "undefined") return;
     setRequesting(true);
@@ -49,7 +56,7 @@ export function OfflineSavedDeadlineReminders({ schemes, language, onOpen }: { s
   };
   if (!schemes.some(scheme => scheme.applicationDeadline && scheme.applicationDeadline > Date.now())) return null;
   const scheduleSelector = <div className="offline-reminder-schedules" role="group" aria-label={isHindi ? "रिमाइंडर समय" : "Reminder schedules"}><span>{isHindi ? "हर सहेजी योजना के लिए" : "For every saved scheme"}</span><div>{offlineSchemeReminderLeadDays.map(leadDays => <button type="button" key={leadDays} className={settings.leadDays.includes(leadDays) ? "active" : ""} aria-pressed={settings.leadDays.includes(leadDays)} onClick={() => toggleLeadDays(leadDays)}>{settings.leadDays.includes(leadDays) && <Check size={11} />}{isHindi ? `${leadDays} दिन` : `${leadDays} days`}</button>)}</div></div>;
-  const schemeMasterControls = <div className="offline-reminder-scheme-controls"><span>{isHindi ? "योजना रिमाइंडर" : "Scheme reminders"}</span>{schemes.filter(scheme => scheme.applicationDeadline && scheme.applicationDeadline > Date.now()).map(scheme => { const enabled = isOfflineSchemeReminderEnabled(settings, scheme.id); return <button key={scheme.id} type="button" role="switch" aria-checked={enabled} onClick={() => toggleScheme(scheme.id)}><i className={enabled ? "on" : ""} /><strong>{isHindi ? scheme.nameHindi : scheme.name}</strong><small>{enabled ? (isHindi ? "चालू" : "On") : (isHindi ? "बंद" : "Off")}</small></button>; })}</div>;
+  const schemeMasterControls = <div className="offline-reminder-scheme-controls"><span>{isHindi ? "योजना रिमाइंडर" : "Scheme reminders"}</span>{schemes.filter(scheme => scheme.applicationDeadline && scheme.applicationDeadline > Date.now()).map(scheme => { const enabled = isOfflineSchemeReminderEnabled(settings, scheme.id); const snoozed = isOfflineSchemeReminderSnoozed(settings, scheme.id); return <div key={scheme.id}><button type="button" role="switch" aria-checked={enabled} onClick={() => toggleScheme(scheme.id)}><i className={enabled ? "on" : ""} /><strong>{isHindi ? scheme.nameHindi : scheme.name}</strong><small>{enabled ? (isHindi ? "चालू" : "On") : (isHindi ? "बंद" : "Off")}</small></button><button type="button" className="offline-reminder-snooze" onClick={() => toggleSnooze(scheme.id)} disabled={!enabled}>{snoozed ? (isHindi ? "रिमाइंडर फिर चालू करें" : "Resume reminders") : (isHindi ? "1 दिन के लिए स्नूज़" : "Snooze 1 day")}</button></div>; })}</div>;
   const calendar = <OfflineSavedDeadlineCalendar schemes={schemes} language={language} onOpen={onOpen} />;
   if (permission === "unsupported") return <>{calendar}<div className="offline-reminder-card unsupported"><BellOff size={17} /><span>{isHindi ? "इस ब्राउज़र में डिवाइस रिमाइंडर उपलब्ध नहीं हैं।" : "This browser does not support device notifications."}</span></div></>;
   if (settings.enabled && permission === "granted") return <>{calendar}<div className="offline-reminder-card enabled"><Bell size={17} /><div><strong>{isHindi ? "एक से अधिक रिमाइंडर समय चालू हैं" : "Multiple reminder schedules are on"}</strong><small>{isHindi ? "हर चुने समय के लिए हर योजना को अलग रिमाइंडर मिल सकती है। ऐप खुला या सक्रिय होने पर ही जाँच होती है।" : "Each saved scheme can notify at every selected lead time. Checks run only while this app is open or active."}</small>{scheduleSelector}{schemeMasterControls}</div><button type="button" onClick={() => saveSettings({ ...settings, enabled: false })}>{isHindi ? "बंद करें" : "Turn off"}</button></div></>;
