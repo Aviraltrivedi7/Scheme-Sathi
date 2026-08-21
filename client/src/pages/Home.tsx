@@ -1763,6 +1763,11 @@ function OfflineSavedSchemesScreen({
   const [category, setCategory] = useState("all");
   const [level, setLevel] = useState("all");
   const [sort, setSort] = useState<"saved" | "deadlineAsc">("saved");
+  useEffect(() => {
+    const openOfflineScheme = (event: Event) => onOpen((event as CustomEvent<Scheme>).detail);
+    window.addEventListener("scheme-sathi-open-offline-saved", openOfflineScheme);
+    return () => window.removeEventListener("scheme-sathi-open-offline-saved", openOfflineScheme);
+  }, [onOpen]);
   const categories = useMemo(() => Array.from(new Set(savedSchemes.map(scheme => scheme.category))).sort(), [savedSchemes]);
   const visibleSchemes = useMemo(() => {
     const term = query.trim().toLocaleLowerCase();

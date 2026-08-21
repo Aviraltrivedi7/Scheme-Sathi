@@ -532,3 +532,12 @@
 - [x] Add a bounded optional custom note field to the share preview and include it only in the user-selected public share payload.
 - [x] Test lead-time migration and candidate timing, deadline sort rules, custom note message safety, responsive controls, TypeScript, full build, and browser rendering.
 - [x] Document, checkpoint, and deliver the development-only timing, sorting, and custom share-note enhancement without publishing.
+
+## Saved deadline calendar, multiple schedules, and share-note templates
+
+- [x] Review offline saved deadline fields, existing device-only reminder preference migration, and share preview composition flow.
+- [x] Add a browser-local saved-schemes calendar view for dated upcoming deadlines with accessible month navigation and scheme detail entry points.
+- [x] Replace the single reminder lead time with a validated set of multiple device-only lead-time schedules while preventing duplicate notices per deadline and schedule.
+- [x] Add Family, College, and NGO share-note templates that populate the bounded preview field only on explicit user selection.
+- [x] Test calendar month layout/navigation, multi-schedule migration and delivery candidates, template payload behavior, responsive controls, TypeScript, full build, and browser rendering.
+- [x] Document, checkpoint, and deliver the development-only calendar, schedules, and template enhancement without publishing.

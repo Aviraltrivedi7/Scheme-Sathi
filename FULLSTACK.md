@@ -633,6 +633,22 @@ The bilingual share preview includes a bounded, optional **Personal note** field
 
 Focused coverage validates legacy preference migration, exact selected lead-time candidates, stable upcoming/no-deadline/closed ordering, and bounded custom share-note construction. The suite passes **131 tests across 36 files**; TypeScript and the production build remain clean with the existing non-blocking chunk-size advisory. No notification permission, browser notification, live share, background reminder, personal-data operation, publishing, or deployment was performed during verification.
 
+## Saved Deadline Calendar, Multi-Schedule Reminders, and Audience Templates
+
+The offline Saved workspace now includes a **Monday-first month calendar** for future saved-scheme deadlines. Month controls are accessible, past deadlines are excluded, and each deadline item opens the existing in-memory offline scheme detail flow rather than requiring a new account or catalogue fetch. The calendar consumes only the current public offline snapshot; it does not persist calendar state, create calendar events, or expose private data.
+
+Device-only reminder preferences now use a browser-local version 3 record. A user can select any combination of **1, 3, 7, 14, and 30 days** for each saved scheme. Each `(scheme, deadline, lead-time)` schedule receives at most one notification, so multiple selected schedules can notify independently without duplicate delivery for the same schedule. Version 1 and 2 preferences migrate to a single selected lead time and retain their equivalent notification ledger. Checks still occur only while the Saved screen is visible and the app is active; there is no server scheduler, background-time guarantee, web push, remote delivery, or deployment requirement.
+
+The share preview now provides optional **Family**, **College**, and **NGO** note templates in English and Hindi. Selecting a template fills the existing 240-character personal-note field; users can then edit it before choosing native share, WhatsApp, or copy. Templates are public generic text and are included only in the selected outbound payload. They are never stored in accounts, the offline snapshot, reminder settings, analytics, or server logs.
+
+| Capability | User interaction | Privacy and delivery boundary |
+| --- | --- | --- |
+| Deadline calendar | Use month arrows; select a scheme deadline item to open its saved detail. | Current public offline snapshot only; no account or remote calendar required. |
+| Multi-schedule reminders | Toggle one or more 1/3/7/14/30-day chips. | One local notice per scheme/deadline/lead-time while Saved is open and active. |
+| Audience templates | Select Family, College, or NGO, then edit if needed. | Fills the local preview field only; outbound only after an explicit share action. |
+
+Focused coverage validates Monday-first six-week calendar grouping, future-only deadlines, per-lead schedule candidates, v1/v2-to-v3 preference migration, and bilingual audience template content. The suite passes **134 tests across 36 files**, with TypeScript and production build verification complete. The existing bundle-size advisory remains non-blocking. No notification permission, browser notification, live share, calendar event, background reminder, personal-data action, publishing, or deployment was performed during verification.
+
 > PWA visual verification: the right-side **Install app** control is visible and aligned with the public header actions at 1280 px. At 375 px it deliberately condenses into a labelled-by-accessibility saffron download icon, preserving room for account, language, appearance, and menu controls without horizontal clipping.
 
 > Offline/update/share visual verification: the desktop header now shows the private-device **Saved (0)** access beside Install app without crowding navigation. At 375 px, the compact action rail retains available width and the Saved entry remains reachable in the mobile navigation drawer. Direct-detail capture reached its expected asynchronous loading state; native/WhatsApp share controls remain covered by route and UI contracts because no live scheme request or share target was invoked during verification.
@@ -640,5 +656,7 @@ Focused coverage validates legacy preference migration, exact selected lead-time
 > Offline discovery/reminder/preview visual verification: the desktop Saved entry remains aligned with the public header action rail, and the 375 px header keeps the existing compact controls free of clipping. The populated offline filters, permission-gated reminder card, and open share-preview dialog are covered by pure helper plus UI-contract coverage because the inspected account had no saved schemes, no browser permission request, and no live sharing interaction was invoked.
 
 > Reminder timing/sort/note visual verification: the desktop Saved access continues to fit cleanly in the public action rail, while the 375 px compact header stays unclipped. Populated lead-time, upcoming-deadline sort, and custom-note controls are covered by pure-helper and UI-contract coverage because the visual session had no saved schemes and no notification permission or share target was invoked.
+
+> Calendar/multi-schedule/template visual verification: desktop Saved access remains aligned with the public action rail and the 375 px compact header remains unclipped. The populated month grid, multi-schedule chips, and quick-template controls are helper and UI-contract covered because the visual session had no saved schemes, no notification permission request, and no share target invocation.
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

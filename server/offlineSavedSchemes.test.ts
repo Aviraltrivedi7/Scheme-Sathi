@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createOfflineSavedSchemesSnapshot, offlineSavedSchemesStorageKey, readOfflineSavedSchemesSnapshot, sortOfflineSavedSchemes, writeOfflineSavedSchemesSnapshot } from "../client/src/lib/offlineSavedSchemes";
-import { createSchemeShareText, createSchemeShareUrl, createWhatsAppSchemeShareUrl, maxCustomSchemeShareNoteLength, normalizeCustomSchemeShareNote } from "../client/src/lib/schemeSharing";
-import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, offlineSchemeReminderLeadDays, offlineSchemeReminderStorageKey, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings } from "../client/src/lib/offlineSchemeReminders";
+import { createSchemeShareText, createSchemeShareUrl, createWhatsAppSchemeShareUrl, getSchemeShareNoteTemplate, maxCustomSchemeShareNoteLength, normalizeCustomSchemeShareNote } from "../client/src/lib/schemeSharing";
+import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminderCandidates, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, offlineSchemeReminderLeadDays, offlineSchemeReminderStorageKey, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings } from "../client/src/lib/offlineSchemeReminders";
+import { buildOfflineSavedDeadlineCalendar } from "../client/src/lib/offlineSavedDeadlineCalendar";
 import type { Scheme } from "../client/src/lib/schemes";
 
 const scheme: Scheme = {
@@ -78,11 +79,11 @@ describe("offline saved schemes and sharing", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
     values.set(offlineSchemeReminderStorageKey, JSON.stringify({ version: 1, enabled: true, leadDays: 7, notifiedDeadlineBySchemeId: {} }));
-    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 2, enabled: true, leadDays: 7 });
+    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 3, enabled: true, leadDays: [7] });
     expect(offlineSchemeReminderLeadDays).toEqual([1, 3, 7, 14, 30]);
     const now = Date.UTC(2026, 7, 1);
     const threeDays = { ...scheme, applicationDeadline: now + 3 * 86_400_000 };
-    const settings = { ...defaultOfflineSchemeReminderSettings(), leadDays: 3 as const };
+    const settings = { ...defaultOfflineSchemeReminderSettings(), leadDays: [3] as const };
     expect(getDueOfflineSchemeDeadlineReminders([threeDays], settings, now)).toEqual([threeDays]);
   });
 
@@ -101,5 +102,29 @@ describe("offline saved schemes and sharing", () => {
     expect(normalizeCustomSchemeShareNote(note)).toBe("Suggested for your family.");
     expect(normalizeCustomSchemeShareNote("x".repeat(maxCustomSchemeShareNoteLength + 12))).toHaveLength(maxCustomSchemeShareNoteLength);
     expect(createSchemeShareText(scheme, "en", "https://scheme.example", note)).toContain("Suggested for your family.\n\nEducation Support");
+  });
+
+  it("creates one due candidate per selected schedule and keeps each schedule distinct", () => {
+    const now = Date.UTC(2026, 7, 1);
+    const deadlineScheme = { ...scheme, applicationDeadline: now + 3 * 86_400_000 };
+    const settings = { ...defaultOfflineSchemeReminderSettings(), leadDays: [1, 3, 7] as const };
+    const candidates = getDueOfflineSchemeDeadlineReminderCandidates([deadlineScheme], settings, now);
+    expect(candidates.map(candidate => candidate.leadDays)).toEqual([3, 7]);
+  });
+
+  it("builds a Monday-first calendar grid with upcoming saved deadlines only", () => {
+    const now = Date.UTC(2026, 7, 1);
+    const upcoming = { ...scheme, id: "upcoming", applicationDeadline: Date.UTC(2026, 7, 5, 12) };
+    const closed = { ...scheme, id: "closed", applicationDeadline: now - 1 };
+    const calendar = buildOfflineSavedDeadlineCalendar([upcoming, closed], new Date(2026, 7, 1), now);
+    expect(calendar).toHaveLength(42);
+    expect(calendar[0]?.date.getDay()).toBe(1);
+    expect(calendar.find(day => day.date.getDate() === 5 && day.isCurrentMonth)?.schemes.map(item => item.id)).toEqual(["upcoming"]);
+  });
+
+  it("provides bounded public audience templates in both supported languages", () => {
+    expect(getSchemeShareNoteTemplate("family", "en")).toContain("family");
+    expect(getSchemeShareNoteTemplate("college", "hi")).toContain("कॉलेज");
+    expect(getSchemeShareNoteTemplate("ngo", "en").length).toBeLessThan(maxCustomSchemeShareNoteLength);
   });
 });

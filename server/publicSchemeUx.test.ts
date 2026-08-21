@@ -28,6 +28,7 @@ describe("public scheme score and engagement UX", () => {
     const directDetail = readFileSync(resolve(process.cwd(), "client/src/pages/SchemeDetail.tsx"), "utf8");
     const sharePreview = readFileSync(resolve(process.cwd(), "client/src/components/SchemeSharePreviewCard.tsx"), "utf8");
     const offlineReminders = readFileSync(resolve(process.cwd(), "client/src/components/OfflineSavedDeadlineReminders.tsx"), "utf8");
+    const offlineCalendar = readFileSync(resolve(process.cwd(), "client/src/components/OfflineSavedDeadlineCalendar.tsx"), "utf8");
     const sharing = readFileSync(resolve(process.cwd(), "client/src/lib/schemeSharing.ts"), "utf8");
     const css = readFileSync(resolve(process.cwd(), "client/src/index.css"), "utf8");
     expect(home).toContain("sharePreviewScheme");
@@ -64,9 +65,12 @@ describe("public scheme score and engagement UX", () => {
     expect(sharePreview).toContain("हिंदी");
     expect(sharePreview).toContain("Personal note (optional)");
     expect(sharePreview).toContain("maxCustomSchemeShareNoteLength");
+    expect(sharePreview).toContain("QUICK TEMPLATES");
     expect(offlineReminders).toContain("Notification.requestPermission");
     expect(offlineReminders).toContain('document.visibilityState === "hidden"');
     expect(offlineReminders).toContain("offlineSchemeReminderLeadDays");
+    expect(offlineReminders).toContain("getDueOfflineSchemeDeadlineReminderCandidates");
+    expect(offlineCalendar).toContain("DEADLINE CALENDAR");
     expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
     expect(css).toContain("height: 100dvh");
     expect(css).toContain("flex: 1 1 auto");
