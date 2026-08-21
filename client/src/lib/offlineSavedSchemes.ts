@@ -8,6 +8,21 @@ export type OfflineSavedSchemesSnapshot = {
   schemes: Scheme[];
 };
 
+export type OfflineSavedSchemesSort = "saved" | "deadlineAsc";
+
+/** Upcoming deadlines come first; schemes without a deadline follow, then closed schemes. Within equal groups, snapshot order stays stable. */
+export function sortOfflineSavedSchemes(schemes: Scheme[], sort: OfflineSavedSchemesSort, now = Date.now()) {
+  if (sort === "saved") return schemes;
+  return schemes.map((scheme, index) => ({ scheme, index })).sort((left, right) => {
+    const rank = (item: Scheme) => !item.applicationDeadline ? 1 : item.applicationDeadline > now ? 0 : 2;
+    const leftRank = rank(left.scheme);
+    const rightRank = rank(right.scheme);
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    if (leftRank === 0 && left.scheme.applicationDeadline !== right.scheme.applicationDeadline) return left.scheme.applicationDeadline! - right.scheme.applicationDeadline!;
+    return left.index - right.index;
+  }).map(item => item.scheme);
+}
+
 /** Stores only public scheme guidance, never account, profile, note, or session data. */
 export function createOfflineSavedSchemesSnapshot(
   catalog: Scheme[],

@@ -37,6 +37,7 @@ describe("public scheme score and engagement UX", () => {
     expect(home).toContain("offline-saved-discovery");
     expect(home).toContain("OfflineSavedDeadlineReminders");
     expect(home).toContain("SchemeSharePreviewCard");
+    expect(home).toContain("Upcoming deadline");
     expect(sharing).toContain("https://wa.me/?text=");
     expect(sharing).toContain("navigator.share");
     expect(sharing).toContain("/scheme/${encodeURIComponent(schemeId)}");
@@ -61,8 +62,11 @@ describe("public scheme score and engagement UX", () => {
     expect(sharePreview).toContain("PREVIEW BEFORE SHARING");
     expect(sharePreview).toContain("English");
     expect(sharePreview).toContain("हिंदी");
+    expect(sharePreview).toContain("Personal note (optional)");
+    expect(sharePreview).toContain("maxCustomSchemeShareNoteLength");
     expect(offlineReminders).toContain("Notification.requestPermission");
     expect(offlineReminders).toContain('document.visibilityState === "hidden"');
+    expect(offlineReminders).toContain("offlineSchemeReminderLeadDays");
     expect(css).toMatch(/\.hero-art-wrap\s*\{[\s\S]*?order:\s*-1/);
     expect(css).toContain("height: 100dvh");
     expect(css).toContain("flex: 1 1 auto");

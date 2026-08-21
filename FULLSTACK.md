@@ -617,10 +617,28 @@ Every card-level and detail-level share action now opens a **Preview before shar
 
 Focused coverage now validates seven-day candidate selection, expired/future exclusion, no-repeat deadline marking, invalid reminder-storage recovery, visible-app reminder gating, offline filter and preview wiring, and bilingual preview controls. The full suite passes **128 tests across 36 files**, TypeScript is clean, and the production build passes with the existing non-blocking chunk-size advisory. No notification permission, browser notification, live share, background reminder, publishing, or personal-data action was performed during verification.
 
+## Reminder Lead Time, Upcoming Deadline Sort, and Custom Share Note
+
+The device-only reminder preference is now a browser-local version 2 record. The Saved workspace lets users choose one of the validated lead-time presets: **1, 3, 7, 14, or 30 days** before a current deadline. Existing version 1 local settings migrate safely to the version 2 seven-day default. Changing the lead time does not clear the deadline-version notification ledger, so a saved scheme remains limited to one notification for the same deadline even if the user changes preferences later. The existing visible-and-active Saved-screen requirement remains unchanged; this is not an exact-time background reminder mechanism.
+
+The Saved discovery strip now includes **Upcoming deadline** sorting in addition to saved order. Upcoming dated schemes sort ascending by deadline, schemes with no announced deadline follow in their preserved saved order, and closed schemes appear last in their preserved order. Search, category, and Central/State filters apply first, then sorting is derived in browser memory from the same public offline snapshot.
+
+The bilingual share preview includes a bounded, optional **Personal note** field with a 240-character counter. The note is trimmed and used only in the immediate user-selected share payload; native share, WhatsApp, and copy use the same chosen English/Hindi scheme content plus the optional note. It is not written to the account, offline snapshot, reminder preference, database, analytics, or server logs.
+
+| Capability | User control | Data boundary |
+| --- | --- | --- |
+| Reminder timing | Select 1, 3, 7, 14, or 30 days in Saved reminders. | Browser-local setting; one notice per unchanged scheme deadline while Saved is visible and active. |
+| Deadline order | Select **Upcoming deadline** in Saved sort. | Derived entirely from public offline snapshot data; no fetch or account restore. |
+| Share note | Enter up to 240 characters in the bilingual preview before selecting a target. | Included only in the immediate public outbound payload; never persisted by Scheme Sathi. |
+
+Focused coverage validates legacy preference migration, exact selected lead-time candidates, stable upcoming/no-deadline/closed ordering, and bounded custom share-note construction. The suite passes **131 tests across 36 files**; TypeScript and the production build remain clean with the existing non-blocking chunk-size advisory. No notification permission, browser notification, live share, background reminder, personal-data operation, publishing, or deployment was performed during verification.
+
 > PWA visual verification: the right-side **Install app** control is visible and aligned with the public header actions at 1280 px. At 375 px it deliberately condenses into a labelled-by-accessibility saffron download icon, preserving room for account, language, appearance, and menu controls without horizontal clipping.
 
 > Offline/update/share visual verification: the desktop header now shows the private-device **Saved (0)** access beside Install app without crowding navigation. At 375 px, the compact action rail retains available width and the Saved entry remains reachable in the mobile navigation drawer. Direct-detail capture reached its expected asynchronous loading state; native/WhatsApp share controls remain covered by route and UI contracts because no live scheme request or share target was invoked during verification.
 
 > Offline discovery/reminder/preview visual verification: the desktop Saved entry remains aligned with the public header action rail, and the 375 px header keeps the existing compact controls free of clipping. The populated offline filters, permission-gated reminder card, and open share-preview dialog are covered by pure helper plus UI-contract coverage because the inspected account had no saved schemes, no browser permission request, and no live sharing interaction was invoked.
+
+> Reminder timing/sort/note visual verification: the desktop Saved access continues to fit cleanly in the public action rail, while the 375 px compact header stays unclipped. Populated lead-time, upcoming-deadline sort, and custom-note controls are covered by pure-helper and UI-contract coverage because the visual session had no saved schemes and no notification permission or share target was invoked.
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

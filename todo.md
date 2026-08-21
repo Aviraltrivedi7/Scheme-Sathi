@@ -523,3 +523,12 @@
 - [x] Replace immediate sharing with a bilingual preview card that lets users choose Hindi or English before native or WhatsApp sharing.
 - [x] Test local filters, reminder scheduling/permission boundaries, preview language selection, share payloads, responsive behavior, TypeScript, full build, and browser rendering.
 - [x] Document, checkpoint, and deliver the development-only offline discovery, reminders, and share preview enhancement without publishing.
+
+## Reminder timing, offline deadline sorting, and custom share notes
+
+- [x] Review the browser-local reminder preference format, offline filtered list derivation, and bilingual share payload builder.
+- [x] Add a browser-local reminder lead-time selector with safe preset validation and one-notification-per-deadline behavior.
+- [x] Add stable offline favorites sorting with an upcoming-deadline option that handles no-deadline and closed schemes predictably.
+- [x] Add a bounded optional custom note field to the share preview and include it only in the user-selected public share payload.
+- [x] Test lead-time migration and candidate timing, deadline sort rules, custom note message safety, responsive controls, TypeScript, full build, and browser rendering.
+- [x] Document, checkpoint, and deliver the development-only timing, sorting, and custom share-note enhancement without publishing.

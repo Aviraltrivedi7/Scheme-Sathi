@@ -2,7 +2,7 @@ import { Bell, BellOff, Check, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Scheme } from "@/lib/schemes";
-import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings, type OfflineSchemeReminderSettings } from "@/lib/offlineSchemeReminders";
+import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, offlineSchemeReminderLeadDays, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings, type OfflineSchemeReminderLeadDays, type OfflineSchemeReminderSettings } from "@/lib/offlineSchemeReminders";
 
 type Language = "en" | "hi";
 
@@ -51,8 +51,15 @@ export function OfflineSavedDeadlineReminders({ schemes, language }: { schemes: 
     writeOfflineSchemeReminderSettings(localStorage, next);
     setSettings(next);
   };
+  const updateLeadDays = (leadDays: OfflineSchemeReminderLeadDays) => {
+    const next = { ...settings, leadDays };
+    writeOfflineSchemeReminderSettings(localStorage, next);
+    setSettings(next);
+  };
+  const leadLabel = isHindi ? `${settings.leadDays} दिन पहले` : `${settings.leadDays} days before`;
   if (!schemes.some(scheme => scheme.applicationDeadline && scheme.applicationDeadline > Date.now())) return null;
   if (permission === "unsupported") return <div className="offline-reminder-card unsupported"><BellOff size={17} /><span>{isHindi ? "इस ब्राउज़र में डिवाइस रिमाइंडर उपलब्ध नहीं हैं।" : "This browser does not support device notifications."}</span></div>;
-  if (settings.enabled && permission === "granted") return <div className="offline-reminder-card enabled"><Bell size={17} /><div><strong>{isHindi ? "7 दिन पहले की रिमाइंडर चालू हैं" : "7-day deadline reminders are on"}</strong><small>{isHindi ? "ऐप खुला या सक्रिय होने पर ही इस डिवाइस पर जाँच होती है।" : "They are checked only while this app is open or active on this device."}</small></div><button type="button" onClick={disableReminders}>{isHindi ? "बंद करें" : "Turn off"}</button></div>;
-  return <div className="offline-reminder-card"><Bell size={17} /><div><strong>{isHindi ? "समयसीमा रिमाइंडर चालू करें" : "Turn on deadline reminders"}</strong><small>{isHindi ? "सहेजी योजनाओं के लिए अंतिम तिथि से 7 दिन पहले। केवल इस डिवाइस पर, ऐप खुला/सक्रिय होने पर।" : "For saved schemes, 7 days before deadline. Only on this device while the app is open or active."}</small></div><button type="button" onClick={enableReminders} disabled={requesting}>{requesting ? <Loader2 className="spin" size={14} /> : <Check size={14} />} {isHindi ? "अनुमति दें" : "Enable"}</button></div>;
+  const leadControl = <label className="offline-reminder-lead"><span>{isHindi ? "कितने दिन पहले" : "Notify before"}</span><select value={settings.leadDays} onChange={event => updateLeadDays(Number(event.target.value) as OfflineSchemeReminderLeadDays)}>{offlineSchemeReminderLeadDays.map(days => <option key={days} value={days}>{isHindi ? `${days} दिन` : `${days} days`}</option>)}</select></label>;
+  if (settings.enabled && permission === "granted") return <div className="offline-reminder-card enabled"><Bell size={17} /><div><strong>{isHindi ? `${leadLabel} की रिमाइंडर चालू हैं` : `${leadLabel} reminders are on`}</strong><small>{isHindi ? "ऐप खुला या सक्रिय होने पर ही इस डिवाइस पर जाँच होती है।" : "They are checked only while this app is open or active on this device."}</small>{leadControl}</div><button type="button" onClick={disableReminders}>{isHindi ? "बंद करें" : "Turn off"}</button></div>;
+  return <div className="offline-reminder-card"><Bell size={17} /><div><strong>{isHindi ? "समयसीमा रिमाइंडर चालू करें" : "Turn on deadline reminders"}</strong><small>{isHindi ? "सहेजी योजनाओं के लिए चुने गए समय से पहले। केवल इस डिवाइस पर, ऐप खुला/सक्रिय होने पर।" : "For saved schemes at your selected lead time. Only on this device while the app is open or active."}</small>{leadControl}</div><button type="button" onClick={enableReminders} disabled={requesting}>{requesting ? <Loader2 className="spin" size={14} /> : <Check size={14} />} {isHindi ? "अनुमति दें" : "Enable"}</button></div>;
 }
