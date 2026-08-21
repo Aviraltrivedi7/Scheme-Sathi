@@ -576,4 +576,4 @@
 - [x] Add browser-local category-scoped calendar deadline CSV export with safe spreadsheet escaping and public-data-only fields.
 - [x] Add a staged template-import duplicate strategy chooser supporting skip existing names or collision-safe rename behavior.
 - [x] Test history retention and migration, CSV output/filter scope/escaping, duplicate strategy behavior, responsive controls, TypeScript, full build, and browser rendering.
-- [ ] Document, checkpoint, and push the verified development project to the requested GitHub repository.
+- [x] Document, checkpoint, and push the verified development project to the requested GitHub repository.
