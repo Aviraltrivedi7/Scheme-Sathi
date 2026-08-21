@@ -1,6 +1,14 @@
 import type { Scheme } from "@/lib/schemes";
 
 export type OfflineDeadlineCalendarDay = { date: Date; schemes: Scheme[]; isCurrentMonth: boolean };
+export type OfflineDeadlineTiming = "urgent" | "soon" | "later";
+
+export function getOfflineDeadlineTiming(deadline: number, now = Date.now()): OfflineDeadlineTiming {
+  const days = Math.ceil((deadline - now) / 86_400_000);
+  if (days <= 7) return "urgent";
+  if (days <= 30) return "soon";
+  return "later";
+}
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;

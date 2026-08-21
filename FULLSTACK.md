@@ -649,6 +649,22 @@ The share preview now provides optional **Family**, **College**, and **NGO** not
 
 Focused coverage validates Monday-first six-week calendar grouping, future-only deadlines, per-lead schedule candidates, v1/v2-to-v3 preference migration, and bilingual audience template content. The suite passes **134 tests across 36 files**, with TypeScript and production build verification complete. The existing bundle-size advisory remains non-blocking. No notification permission, browser notification, live share, calendar event, background reminder, personal-data action, publishing, or deployment was performed during verification.
 
+## Deadline Legend, Scheme Reminder Master Switches, and Custom Templates
+
+The Saved deadline calendar now explains its time-to-deadline colors through an accessible legend: **within 7 days** uses the urgent treatment, **8–30 days** uses the upcoming treatment, and **after 30 days** uses the later treatment. The same deterministic deadline classifier is used on individual calendar deadline entries, so the legend remains aligned with what a user sees. It is display-only and does not modify the public offline snapshot, deadline data, or reminders.
+
+Browser-local reminder preferences now use version 4. Each future saved scheme exposes a switch that turns all of its configured lead-time schedules on or off together. Disabling a scheme appends only its public scheme ID to `disabledSchemeIds`; it leaves selected lead times and the existing per-schedule notification ledger intact. Re-enabling the scheme restores the prior schedules without creating a new account preference, background job, remote notification, or server-side state. Version 1–3 records migrate safely with all scheme switches initially enabled.
+
+The share preview includes a device-local **Your templates** manager. Users can save up to twelve templates, each with a name limited to 40 characters and an existing bounded 240-character note. A template can be selected, edited, updated, or deleted. Only a template selected by the user fills the preview note; the note is still included only in an explicit native share, WhatsApp, or copy action. Templates are not written to user accounts, the offline snapshot, reminder settings, analytics, or server logs.
+
+| Capability | User interaction | Privacy and delivery boundary |
+| --- | --- | --- |
+| Deadline legend | Refer to urgent, upcoming, and later dots above the calendar grid. | Pure visual interpretation of public deadline timestamps. |
+| Scheme master switch | Toggle a scheme in **Scheme reminders** to disable or restore all its lead-time schedules. | Device-local opt-out; global schedule preferences and prior notification ledger remain intact. |
+| Custom templates | Save, use, edit, or delete a named note from **Your templates**. | Up to 12 local templates; sent externally only through an explicit share target. |
+
+Focused coverage validates the three deadline-color thresholds, v3-to-v4 preference migration, candidate exclusion for disabled schemes, and valid bounded template storage/recovery. The suite passes **137 tests across 36 files**, TypeScript and production build checks pass, and the existing bundle-size advisory remains non-blocking. No notification permission, browser notification, live share, calendar event, background reminder, personal-data action, publishing, or deployment was performed during verification.
+
 > PWA visual verification: the right-side **Install app** control is visible and aligned with the public header actions at 1280 px. At 375 px it deliberately condenses into a labelled-by-accessibility saffron download icon, preserving room for account, language, appearance, and menu controls without horizontal clipping.
 
 > Offline/update/share visual verification: the desktop header now shows the private-device **Saved (0)** access beside Install app without crowding navigation. At 375 px, the compact action rail retains available width and the Saved entry remains reachable in the mobile navigation drawer. Direct-detail capture reached its expected asynchronous loading state; native/WhatsApp share controls remain covered by route and UI contracts because no live scheme request or share target was invoked during verification.
@@ -658,5 +674,7 @@ Focused coverage validates Monday-first six-week calendar grouping, future-only 
 > Reminder timing/sort/note visual verification: the desktop Saved access continues to fit cleanly in the public action rail, while the 375 px compact header stays unclipped. Populated lead-time, upcoming-deadline sort, and custom-note controls are covered by pure-helper and UI-contract coverage because the visual session had no saved schemes and no notification permission or share target was invoked.
 
 > Calendar/multi-schedule/template visual verification: desktop Saved access remains aligned with the public action rail and the 375 px compact header remains unclipped. The populated month grid, multi-schedule chips, and quick-template controls are helper and UI-contract covered because the visual session had no saved schemes, no notification permission request, and no share target invocation.
+
+> Legend/master-switch/custom-template visual verification: the desktop Saved entry remains aligned in the public action rail and the 375 px header remains unclipped. Populated legend colors, per-scheme switches, and custom-template rows are covered by helper and UI-contract tests because the visual session had no saved schemes, notification permission request, or live share action.
 
 [1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

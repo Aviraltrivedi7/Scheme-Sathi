@@ -6,23 +6,22 @@ export const offlineSchemeReminderLeadDays = [1, 3, 7, 14, 30] as const;
 export type OfflineSchemeReminderLeadDays = (typeof offlineSchemeReminderLeadDays)[number];
 
 export type OfflineSchemeReminderSettings = {
-  version: 3;
+  version: 4;
   enabled: boolean;
   leadDays: OfflineSchemeReminderLeadDays[];
   notifiedDeadlineByScheduleKey: Record<string, number>;
+  disabledSchemeIds: string[];
 };
 
 export type OfflineSchemeReminderCandidate = { scheme: Scheme; leadDays: OfflineSchemeReminderLeadDays };
-
-export const defaultOfflineSchemeReminderSettings = (): OfflineSchemeReminderSettings => ({ version: 3, enabled: false, leadDays: [7], notifiedDeadlineByScheduleKey: {} });
+export const defaultOfflineSchemeReminderSettings = (): OfflineSchemeReminderSettings => ({ version: 4, enabled: false, leadDays: [7], notifiedDeadlineByScheduleKey: {}, disabledSchemeIds: [] });
 
 export function isOfflineSchemeReminderLeadDays(value: unknown): value is OfflineSchemeReminderLeadDays {
   return typeof value === "number" && offlineSchemeReminderLeadDays.includes(value as OfflineSchemeReminderLeadDays);
 }
 
 export function normalizeOfflineSchemeReminderLeadDays(value: unknown): OfflineSchemeReminderLeadDays[] {
-  if (!Array.isArray(value)) return [];
-  return Array.from(new Set(value.filter(isOfflineSchemeReminderLeadDays))).sort((left, right) => left - right);
+  return Array.isArray(value) ? Array.from(new Set(value.filter(isOfflineSchemeReminderLeadDays))).sort((left, right) => left - right) : [];
 }
 
 function safeNotificationLedger(value: unknown) {
@@ -35,32 +34,29 @@ export function readOfflineSchemeReminderSettings(storage: Pick<Storage, "getIte
     if (!raw) return defaultOfflineSchemeReminderSettings();
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return defaultOfflineSchemeReminderSettings();
-    const settings = parsed as { version?: unknown; enabled?: unknown; leadDays?: unknown; notifiedDeadlineBySchemeId?: unknown; notifiedDeadlineByScheduleKey?: unknown };
+    const settings = parsed as { version?: unknown; enabled?: unknown; leadDays?: unknown; notifiedDeadlineBySchemeId?: unknown; notifiedDeadlineByScheduleKey?: unknown; disabledSchemeIds?: unknown };
     if ((settings.version === 1 || settings.version === 2) && typeof settings.enabled === "boolean" && isOfflineSchemeReminderLeadDays(settings.leadDays)) {
       const legacyLedger = safeNotificationLedger(settings.notifiedDeadlineBySchemeId);
-      return { version: 3, enabled: settings.enabled, leadDays: [settings.leadDays], notifiedDeadlineByScheduleKey: Object.fromEntries(Object.entries(legacyLedger).map(([schemeId, deadline]) => [`${schemeId}:${settings.leadDays}`, deadline])) };
+      return { version: 4, enabled: settings.enabled, leadDays: [settings.leadDays], notifiedDeadlineByScheduleKey: Object.fromEntries(Object.entries(legacyLedger).map(([schemeId, deadline]) => [`${schemeId}:${settings.leadDays}`, deadline])), disabledSchemeIds: [] };
     }
     const leadDays = normalizeOfflineSchemeReminderLeadDays(settings.leadDays);
-    if (settings.version !== 3 || typeof settings.enabled !== "boolean" || !leadDays.length || !settings.notifiedDeadlineByScheduleKey || typeof settings.notifiedDeadlineByScheduleKey !== "object") return defaultOfflineSchemeReminderSettings();
-    return { version: 3, enabled: settings.enabled, leadDays, notifiedDeadlineByScheduleKey: safeNotificationLedger(settings.notifiedDeadlineByScheduleKey) };
-  } catch {
-    return defaultOfflineSchemeReminderSettings();
-  }
+    if (settings.version === 3 && typeof settings.enabled === "boolean" && leadDays.length && settings.notifiedDeadlineByScheduleKey && typeof settings.notifiedDeadlineByScheduleKey === "object") return { version: 4, enabled: settings.enabled, leadDays, notifiedDeadlineByScheduleKey: safeNotificationLedger(settings.notifiedDeadlineByScheduleKey), disabledSchemeIds: [] };
+    if (settings.version !== 4 || typeof settings.enabled !== "boolean" || !leadDays.length || !settings.notifiedDeadlineByScheduleKey || typeof settings.notifiedDeadlineByScheduleKey !== "object" || !Array.isArray(settings.disabledSchemeIds) || !settings.disabledSchemeIds.every(item => typeof item === "string")) return defaultOfflineSchemeReminderSettings();
+    return { version: 4, enabled: settings.enabled, leadDays, notifiedDeadlineByScheduleKey: safeNotificationLedger(settings.notifiedDeadlineByScheduleKey), disabledSchemeIds: settings.disabledSchemeIds };
+  } catch { return defaultOfflineSchemeReminderSettings(); }
 }
 
 export function writeOfflineSchemeReminderSettings(storage: Pick<Storage, "setItem">, settings: OfflineSchemeReminderSettings) {
   storage.setItem(offlineSchemeReminderStorageKey, JSON.stringify(settings));
 }
 
-export function offlineSchemeReminderScheduleKey(schemeId: string, leadDays: OfflineSchemeReminderLeadDays) {
-  return `${schemeId}:${leadDays}`;
-}
+export function offlineSchemeReminderScheduleKey(schemeId: string, leadDays: OfflineSchemeReminderLeadDays) { return `${schemeId}:${leadDays}`; }
+export function isOfflineSchemeReminderEnabled(settings: OfflineSchemeReminderSettings, schemeId: string) { return !settings.disabledSchemeIds.includes(schemeId); }
 
 export function getDueOfflineSchemeDeadlineReminderCandidates(schemes: Scheme[], settings: OfflineSchemeReminderSettings, now = Date.now()): OfflineSchemeReminderCandidate[] {
   return schemes.flatMap(scheme => settings.leadDays.map(leadDays => ({ scheme, leadDays }))).filter(({ scheme, leadDays }) => {
     const deadline = scheme.applicationDeadline;
-    if (!deadline || deadline <= now || settings.notifiedDeadlineByScheduleKey[offlineSchemeReminderScheduleKey(scheme.id, leadDays)] === deadline) return false;
-    return deadline - leadDays * dayMs <= now;
+    return Boolean(deadline && deadline > now && isOfflineSchemeReminderEnabled(settings, scheme.id) && settings.notifiedDeadlineByScheduleKey[offlineSchemeReminderScheduleKey(scheme.id, leadDays)] !== deadline && deadline - leadDays * dayMs <= now);
   });
 }
 
@@ -70,13 +66,10 @@ export function getDueOfflineSchemeDeadlineReminders(schemes: Scheme[], settings
 
 export function markOfflineSchemeDeadlineReminderCandidates(settings: OfflineSchemeReminderSettings, candidates: OfflineSchemeReminderCandidate[]): OfflineSchemeReminderSettings {
   const notifiedDeadlineByScheduleKey = { ...settings.notifiedDeadlineByScheduleKey };
-  candidates.forEach(({ scheme, leadDays }) => {
-    if (scheme.applicationDeadline) notifiedDeadlineByScheduleKey[offlineSchemeReminderScheduleKey(scheme.id, leadDays)] = scheme.applicationDeadline;
-  });
+  candidates.forEach(({ scheme, leadDays }) => { if (scheme.applicationDeadline) notifiedDeadlineByScheduleKey[offlineSchemeReminderScheduleKey(scheme.id, leadDays)] = scheme.applicationDeadline; });
   return { ...settings, notifiedDeadlineByScheduleKey };
 }
 
 export function markOfflineSchemeDeadlineReminders(settings: OfflineSchemeReminderSettings, schemes: Pick<Scheme, "id" | "applicationDeadline">[]): OfflineSchemeReminderSettings {
-  const candidates = schemes.flatMap(scheme => settings.leadDays.map(leadDays => ({ scheme: scheme as Scheme, leadDays })));
-  return markOfflineSchemeDeadlineReminderCandidates(settings, candidates);
+  return markOfflineSchemeDeadlineReminderCandidates(settings, schemes.flatMap(scheme => settings.leadDays.map(leadDays => ({ scheme: scheme as Scheme, leadDays }))));
 }

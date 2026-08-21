@@ -541,3 +541,12 @@
 - [x] Add Family, College, and NGO share-note templates that populate the bounded preview field only on explicit user selection.
 - [x] Test calendar month layout/navigation, multi-schedule migration and delivery candidates, template payload behavior, responsive controls, TypeScript, full build, and browser rendering.
 - [x] Document, checkpoint, and deliver the development-only calendar, schedules, and template enhancement without publishing.
+
+## Calendar legend, scheme reminder master controls, and custom share templates
+
+- [x] Review calendar deadline states, v3 device-only reminder settings, and built-in template preview behavior.
+- [x] Add an accessible color legend that explains upcoming deadline timing categories in the saved deadline calendar.
+- [x] Add a browser-local per-scheme master reminder toggle that disables or restores all configured schedules without deleting preference data.
+- [x] Add bounded custom share-template create, edit, delete, and selection flows that remain device-local and populate the preview only on explicit choice.
+- [x] Test legend classification, master toggle delivery exclusion/restoration, custom template validation and selection, responsive controls, TypeScript, full build, and browser rendering.
+- [x] Document, checkpoint, and deliver the development-only legend, reminder control, and template management enhancement without publishing.

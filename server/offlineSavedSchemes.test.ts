@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createOfflineSavedSchemesSnapshot, offlineSavedSchemesStorageKey, readOfflineSavedSchemesSnapshot, sortOfflineSavedSchemes, writeOfflineSavedSchemesSnapshot } from "../client/src/lib/offlineSavedSchemes";
 import { createSchemeShareText, createSchemeShareUrl, createWhatsAppSchemeShareUrl, getSchemeShareNoteTemplate, maxCustomSchemeShareNoteLength, normalizeCustomSchemeShareNote } from "../client/src/lib/schemeSharing";
 import { defaultOfflineSchemeReminderSettings, getDueOfflineSchemeDeadlineReminderCandidates, getDueOfflineSchemeDeadlineReminders, markOfflineSchemeDeadlineReminders, offlineSchemeReminderLeadDays, offlineSchemeReminderStorageKey, readOfflineSchemeReminderSettings, writeOfflineSchemeReminderSettings } from "../client/src/lib/offlineSchemeReminders";
-import { buildOfflineSavedDeadlineCalendar } from "../client/src/lib/offlineSavedDeadlineCalendar";
+import { buildOfflineSavedDeadlineCalendar, getOfflineDeadlineTiming } from "../client/src/lib/offlineSavedDeadlineCalendar";
+import { customSchemeShareTemplatesStorageKey, normalizeCustomSchemeShareTemplate, readCustomSchemeShareTemplates, writeCustomSchemeShareTemplates } from "../client/src/lib/customSchemeShareTemplates";
 import type { Scheme } from "../client/src/lib/schemes";
 
 const scheme: Scheme = {
@@ -79,7 +80,7 @@ describe("offline saved schemes and sharing", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
     values.set(offlineSchemeReminderStorageKey, JSON.stringify({ version: 1, enabled: true, leadDays: 7, notifiedDeadlineBySchemeId: {} }));
-    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 3, enabled: true, leadDays: [7] });
+    expect(readOfflineSchemeReminderSettings(storage)).toMatchObject({ version: 4, enabled: true, leadDays: [7], disabledSchemeIds: [] });
     expect(offlineSchemeReminderLeadDays).toEqual([1, 3, 7, 14, 30]);
     const now = Date.UTC(2026, 7, 1);
     const threeDays = { ...scheme, applicationDeadline: now + 3 * 86_400_000 };
@@ -126,5 +127,32 @@ describe("offline saved schemes and sharing", () => {
     expect(getSchemeShareNoteTemplate("family", "en")).toContain("family");
     expect(getSchemeShareNoteTemplate("college", "hi")).toContain("कॉलेज");
     expect(getSchemeShareNoteTemplate("ngo", "en").length).toBeLessThan(maxCustomSchemeShareNoteLength);
+  });
+
+  it("classifies calendar deadline colors consistently", () => {
+    const now = Date.UTC(2026, 7, 1);
+    expect(getOfflineDeadlineTiming(now + 7 * 86_400_000, now)).toBe("urgent");
+    expect(getOfflineDeadlineTiming(now + 8 * 86_400_000, now)).toBe("soon");
+    expect(getOfflineDeadlineTiming(now + 31 * 86_400_000, now)).toBe("later");
+  });
+
+  it("excludes a reminder-disabled scheme without deleting its schedule preferences", () => {
+    const now = Date.UTC(2026, 7, 1);
+    const due = { ...scheme, applicationDeadline: now + 3 * 86_400_000 };
+    const disabled = { ...defaultOfflineSchemeReminderSettings(), leadDays: [3] as const, disabledSchemeIds: [due.id] };
+    expect(getDueOfflineSchemeDeadlineReminderCandidates([due], disabled, now)).toEqual([]);
+    expect(disabled.leadDays).toEqual([3]);
+    expect(disabled.disabledSchemeIds).toEqual([due.id]);
+  });
+
+  it("keeps bounded valid custom templates only in browser-local storage", () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
+    const template = normalizeCustomSchemeShareTemplate({ name: "Family note", note: "  Please review this benefit. " });
+    expect(template).toEqual({ name: "Family note", note: "Please review this benefit." });
+    writeCustomSchemeShareTemplates(storage, [{ id: "family-1", ...template! }]);
+    expect(readCustomSchemeShareTemplates(storage)).toEqual([{ id: "family-1", ...template! }]);
+    expect(values.has(customSchemeShareTemplatesStorageKey)).toBe(true);
+    expect(normalizeCustomSchemeShareTemplate({ name: "", note: "message" })).toBeNull();
   });
 });
