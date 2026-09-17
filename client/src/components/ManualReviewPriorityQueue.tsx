@@ -1,0 +1,12 @@
+import { buildManualReviewPriorityQueue, type ManualReviewCandidate } from "@/lib/manualReviewPriority";
+import { trpc } from "@/lib/trpc";
+import { AlertTriangle, ArrowRight, ListOrdered } from "lucide-react";
+import { useMemo } from "react";
+import "./ManualReviewPriorityQueue.css";
+
+export function ManualReviewPriorityQueue() {
+  const applications = trpc.applications.list.useQuery();
+  const queue = useMemo(() => { const candidates: ManualReviewCandidate[] = (applications.data?.applications ?? []).flatMap((application) => (application.documents ?? []).filter((document) => document.needsManualReview).map((document) => { const history = [...(document.ocrConfidenceHistory ?? [])].sort((a, b) => b.createdAt - a.createdAt); const current = history[0]; const previous = history[1]; const trend = !previous ? "baseline" : current.confidence === previous.confidence ? "steady" : ({ low: 1, medium: 2, high: 3 }[current.confidence] < { low: 1, medium: 2, high: 3 }[previous.confidence] ? "lower" : "improving"); return { documentId: document.id, documentName: document.documentName, fileName: document.fileName, schemeName: application.scheme?.name ?? application.schemeId, confidence: current?.confidence ?? document.ocrExtraction?.confidence ?? null, concernCount: current?.concernCount ?? document.ocrExtraction?.concerns.length ?? 0, trend, updatedAt: current?.createdAt ?? document.uploadedAt }; })); return buildManualReviewPriorityQueue(candidates); }, [applications.data]);
+  if (!queue.length) return null;
+  return <section className="manual-review-priority"><header><div><span className="desk-kicker"><ListOrdered size={14} /> MANUAL REVIEW QUEUE</span><h2>Review the most uncertain files first.</h2><p>Priority uses current server-provided manual-review state, confidence snapshots, concerns, and a downward trend. It is guidance, not a decision.</p></div><strong>{queue.length} queued</strong></header><ol>{queue.map((item, index) => <li key={item.documentId}><span>{index + 1}</span><div><strong>{item.documentName}</strong><small>{item.schemeName} · {item.fileName}</small><p><AlertTriangle size={12} />{item.reasons.join(" · ")}</p></div><button type="button" onClick={() => Array.from(document.querySelectorAll<HTMLElement>(".desk-document-item")).find((node) => node.textContent?.includes(item.documentName))?.scrollIntoView({ behavior: "smooth", block: "center" })}>Review <ArrowRight size={13} /></button></li>)}</ol></section>;
+}

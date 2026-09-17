@@ -1,0 +1,55 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: scheme-sathi-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: scheme-sathi
+      MYSQL_DATABASE: scheme_sathi
+    ports:
+      - "3306:3306"
+    volumes:
+      - scheme-sathi-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pscheme-sathi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.standalone
+    container_name: scheme-sathi-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://root:scheme-sathi@mysql:3306/scheme_sathi
+      NODE_ENV: production
+      PORT: "3000"
+      # Set a real secret in production deployments:
+      # JWT_SECRET: change-me-to-a-long-random-string
+      # Set to "1" only when running behind your own nginx/Caddy/load
+      # balancer (real client IPs for rate limits + Secure cookies):
+      # TRUST_PROXY: "1"
+      # OPTIONAL LLM for OCR + help chat:
+      # LLM_BASE_URL: https://api.openai.com
+      # LLM_API_KEY: sk-...
+    ports:
+      - "3000:3000"
+    volumes:
+      - scheme-sathi-storage:/app/local-storage
+    healthcheck:
+      # /api/health returns 503 when the database is unreachable, so an
+      # unhealthy container is reported instead of silently serving errors.
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  scheme-sathi-mysql:
+  scheme-sathi-storage:

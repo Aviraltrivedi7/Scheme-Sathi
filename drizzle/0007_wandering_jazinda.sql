@@ -1,0 +1,1 @@
+ALTER TABLE `saved_verification_history_filters` ADD `isDefault` boolean DEFAULT false NOT NULL;

@@ -1,0 +1,1 @@
+ALTER TABLE `scheme_catalog` MODIFY COLUMN `verificationStatus` enum('officialDirectory','eligibilityVerified','officialNotice') NOT NULL DEFAULT 'officialDirectory';

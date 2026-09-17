@@ -1,0 +1,40 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+describe("review collaboration and PDF note UI contracts", () => {
+  it("contains an unread sidebar invitation badge plus private page-note and audit controls", () => {
+    const layout = readFileSync(resolve(process.cwd(), "client/src/components/DashboardLayout.tsx"), "utf8");
+    const workspace = readFileSync(resolve(process.cwd(), "client/src/components/DocumentReviewWorkspace.tsx"), "utf8");
+    const preferences = readFileSync(resolve(process.cwd(), "client/src/components/ReviewerAlertPreferences.tsx"), "utf8");
+    const dueDates = readFileSync(resolve(process.cwd(), "client/src/components/ReviewerDueDateManager.tsx"), "utf8");
+    const workload = readFileSync(resolve(process.cwd(), "client/src/components/ReviewerWorkloadDashboard.tsx"), "utf8");
+    const escalations = readFileSync(resolve(process.cwd(), "client/src/components/OwnerOverdueEscalations.tsx"), "utf8");
+    const snooze = readFileSync(resolve(process.cwd(), "client/src/components/ReviewerReminderSnooze.tsx"), "utf8");
+    expect(layout).toContain("pendingInvitationCount");
+    expect(layout).toContain("Family invitations");
+    expect(layout).toContain("family-invitations");
+    expect(workspace).toContain("PRIVATE NOTES");
+    expect(workspace).toContain("onPageChange");
+    expect(workspace).toContain("Save private note");
+    expect(workspace).toContain("Review audit trail");
+    expect(workspace).toContain("Assign secure review");
+    expect(workspace).toContain("REVIEW ALERTS");
+    expect(workspace).toContain("Event status");
+    expect(workspace).toContain("Clear filters");
+    expect(layout).toContain("Review alerts");
+    expect(preferences).toContain("New assignment alerts");
+    expect(preferences).toContain("Due-date reminders");
+    expect(dueDates).toContain("Set a clear review deadline");
+    expect(dueDates).toContain("Automatic delivery starts after the project is published");
+    expect(workload).toContain("MY REVIEW WORKLOAD");
+    expect(escalations).toContain("OWNER ESCALATIONS");
+    expect(snooze).toContain("REMINDER SNOOZE");
+    expect(preferences).toContain("Maximum active reviews");
+    expect(escalations).toContain("Private follow-up templates");
+    const helpDrawer = readFileSync(resolve(process.cwd(), "client/src/components/SchemeHelpDrawer.tsx"), "utf8");
+    expect(helpDrawer).toContain("/api/help/stream");
+    expect(helpDrawer).toContain("promptsByScreen");
+    expect(helpDrawer).toContain("Scheme Sathi is typing");
+  });
+});

@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- Jan Seva Editorial reminder: metadata should make the civic utility legible before the app renders. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f3eb" />
+    <meta name="description" content="Scheme Sathi helps Indian households discover government schemes with clear eligibility guidance." />
+    <meta name="application-name" content="Scheme Sathi" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/images/scheme-sathi-pwa-icon.png" />
+    <title>Scheme Sathi — Government schemes, made clear.</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script defer src="%VITE_ANALYTICS_ENDPOINT%/umami" data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
+  </body>
+</html>

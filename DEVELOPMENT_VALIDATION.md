@@ -1,0 +1,39 @@
+# Development Validation Notes
+
+## Cohort conversion and scholarship navigation — 19 August 2026
+
+The first desktop visual capture confirmed that the expanded Discover filter stack is present with **Scheme level**, **Provider area**, **Source status**, deadline, and sorting controls. The capture occurred before the client query cycle completed, so it displayed the intended loading state with a zero-count placeholder rather than rendered catalog rows. The authenticated `/admin/pilot` capture did not complete its page body in the same initial capture window.
+
+The warm Discover recheck completed successfully. It rendered **42** catalog records and populated the Provider area menu from the catalog, including the scholarship providers. The page also rendered the source-status labels on records and showed the new provider-area sort option. The admin conversion screen still needs a warm authenticated visual recheck before the feature checkpoint.
+
+The sandbox browser correctly stopped at the existing **Sign in to continue** boundary for `/admin/pilot`; no account login was performed for visual inspection. The admin funnel is nevertheless covered by protected router tests, and the page compiles in the production build. The mobile Discover recheck rendered the complete new filter stack and all result cards without a runtime error. It preserves the existing single-column mobile discovery flow, with controls preceding the results.
+
+## Hindi discovery and cohort reporting — 19 August 2026
+
+The warm Discover recheck rendered the Hindi-first scholarship discovery screen and all **42** catalog records. Provider-area filter options, category/filter labels, source-status labels, scholarship cards, and official actions display Hindi labels while retaining the canonical English values for server filtering. The visible language control restores the English interface on demand. The administrator report screen remains behind the existing sign-in boundary in the sandbox browser, so its aggregate date-range query and CSV export are validated through protected router contracts and focused export tests rather than a real administrator login.
+
+## Hindi state names and monthly cohort trend — 19 August 2026
+
+The settled Discover browser render showed all currently offered state choices in Hindi, including **आंध्र प्रदेश**, **बिहार**, **दिल्ली**, **मध्य प्रदेश**, **महाराष्ट्र**, **तमिलनाडु**, **उत्तर प्रदेश**, and **पश्चिम बंगाल**, while returning the seeded 42-record catalog. The protected administrator chart cannot be rendered without an administrator session in the sandbox; its aggregate-only monthly query, date-range validation, no-visit handling, chart binding, and responsive CSS are covered by server and UI-contract tests. The CSV summary row is validated through its browser-local export helper and includes recalculated totals/rates rather than summing per-cohort rounded rates.
+
+## Cohort segment trend filter and monthly CSV detail — 19 August 2026
+
+The development implementation adds a segment selector to the protected monthly chart for all, college, or NGO cohorts; it passes only an optional enumerated type plus the existing date bounds to the admin API. The server joins cohort events to their invite before aggregating, retaining the existing exclusion of public feedback without an invite. The chart formatter uses `hi-IN` for visual months while the export preserves machine-sortable `YYYY-MM` data in a separate monthly trend section. Focused tests and the full regression suite validate the selector, Hindi formatter, server contract, date-range behavior, CSV monthly rows, totals, and formula escaping. Recent runtime logs show HMR updates only and no current client errors or failed API requests.
+
+## Shared segment funnel and quarterly trend — 19 August 2026
+
+The admin reporting update now drives both the conversion funnel table and trend query from one memoized date-range plus cohort-type input. Quarterly mode aggregates event counts over calendar quarters before recomputing conversion rates, protecting against percentage averaging errors. The client renders Hindi quarter labels and retains `YYYY-Qn` values internally for stable API/export ordering. The role-protected dashboard cannot be rendered without an administrator session in the sandbox, so the shared query input, quarterly toggle, Hindi label formatter, aggregation math, and CSV naming behavior are validated by router, pure-helper, and source contract tests. Full regression and production-build validation passed; recent logs contain HMR entries only and no current errors.
+
+## Dashboard insight badges and shared URL state — 19 August 2026
+
+The latest refinement adds quarter-over-quarter percentage-point badges only when the selected quarterly series contains two or more reported periods. Segment totals are calculated client-side from the protected aggregate rows and recompute their rates from summed counts. Dashboard URL state is parsed and normalized locally; it serializes only date bounds, all/college/NGO segment, and monthly/quarterly view, never analytics responses, invite codes, account identifiers, feedback content, or contact details. The copy action uses the canonical URL and does not make a network request. Protected dashboard visual inspection remains unavailable without an administrator session in the sandbox; pure-helper, URL-state, UI-contract, full regression, production-build, and runtime-log validation passed with no current client error or failed API request.
+
+## Saved dashboard views and read-only summary — 19 August 2026
+
+The development implementation added owner-private named dashboard filter storage with schema migration `0022`, an admin-only typed CRUD router, a 20-view per-administrator cap, and source/UI contract coverage. The client shows the new saved-view controls alongside the date range so loaded filters rehydrate both dashboard query inputs and its canonical share URL. The quarterly rate badges now use Radix tooltips that explicitly describe percentage-point math; current chart tooltips remain distinct and continue to use Recharts. The summary download is browser-local plain text and is verified to contain scope/aggregate totals and exclude cohort identifiers. A stale 19:36 Vite HMR error from the temporary Tooltip import name collision remains in historical console logs, but the conflict was resolved by aliasing the Recharts Tooltip; subsequent TypeScript, focused tests, full regression, and production build passed.
+
+## Pinned views, private name search, and bilingual summary — 20 August 2026
+
+The development implementation adds the owner-scoped `isPinned` preference to saved dashboard views with a safe false default and a compound ordering index. The client filters the already private saved-view list locally by name and continues to sync only the selected dashboard filters—not view names, pins, or language choice—to the URL. The summary selector generates a browser-local aggregate-only English or Hindi text file; unit coverage verifies Hindi labels and preservation of the aggregate-only exclusion boundary. The protected administrator screen was not entered in the sandbox without an administrator session; pin mutation ownership, UI wiring, full regression, TypeScript, production build, and database schema checks passed.
+
+The completed non-visual checks at this point are the focused cohort/catalog tests, the full 88-test suite, TypeScript validation, and the production build.

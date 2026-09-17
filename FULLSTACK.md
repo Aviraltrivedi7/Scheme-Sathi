@@ -1,0 +1,734 @@
+# Scheme Sathi Full-Stack Architecture
+
+Scheme Sathi now runs as a **React + Express + tRPC + Drizzle** application. The public experience remains available without sign-in, while authenticated visitors gain persistent profiles and saved schemes.
+
+| Layer | Responsibility | Implementation |
+| --- | --- | --- |
+| Public catalog | Bilingual scheme discovery, filters and detail information | `scheme_catalog` database table, seeded idempotently by the server from `shared/schemeCatalog.ts` |
+| Matching | Deterministic, explainable eligibility ranking | `server/schemeMatching.ts` and `matching.run` tRPC mutation |
+| Profile | One private profile per signed-in user | `user_scheme_profiles` table and `profile.mine` / `profile.save` procedures |
+| Saved schemes | Saved scheme IDs per signed-in user | `saved_schemes` table and `saved.list` / `saved.toggle` procedures |
+| Authentication | OAuth session, current-user context and role support | Manus OAuth template with `protectedProcedure` |
+| Frontend | Loading, retry, anonymous fallback and account sync | `client/src/pages/Home.tsx` via typed `trpc.*` hooks |
+
+## API Contract
+
+Public callers can use `schemes.list`, `schemes.byId`, and `matching.run`. The matching mutation accepts a non-sensitive profile payload—age, location, social category, household income, occupation, gender and optional statuses—and returns ranked schemes with plain-language factor codes. Server-side hard gates prevent an explicitly state-, gender-, occupation- or status-restricted scheme from appearing for a mismatched profile.
+
+Authenticated callers can use `profile.mine`, `profile.save`, `saved.list`, and `saved.toggle`. The application does not store Aadhaar, uploaded documents, bank account information or other identity documents.
+
+## Catalog Seeding
+
+The 11 reviewed scheme records are maintained in `shared/schemeCatalog.ts`. The `ensureSchemeCatalog()` helper uses an idempotent upsert when catalog APIs are called, so a deployment safely initializes and refreshes these records without duplicating them. Administrative editing can be added later through role-gated procedures that modify the same table.
+
+## Operational Notes
+
+The database migration is present in `drizzle/0000_purple_skrulls.sql` and has been applied. Run `pnpm test`, `pnpm check`, and `pnpm build` before releases. Anonymous visitors can still discover schemes and receive matches; their profile and saved schemes remain on the current device until they select **Sign in**, after which data persists against their authenticated account.
+
+## Verification Record
+
+The live browser flow was checked with an anonymous Maharashtra farmer profile. The three-step form completed successfully and the frontend called the server-side `matching.run` procedure, returning four ranked matches with an explained **Strong match** result. The public `schemes.list` API seeded and served 11 database-backed catalog records. Unit tests cover a strong farmer match and the exclusion of state-mismatched schemes; the full test suite, type check, and production build passed.
+
+The same live flow opened the backend-backed Ayushman Bharat PM-JAY detail view, including match factors, document checklist, application steps and official portal action. Selecting **Save scheme** as an anonymous visitor changed the control to **Saved** and confirmed the local-device fallback through a toast; authenticated save/unsave operations are routed to the protected database procedures.
+
+After a browser reload, the saved detail state still displayed **Saved**, confirming anonymous local persistence. Signed-in persistence is implemented through the protected database APIs and is ready to activate once a visitor selects the built-in sign-in control.
+
+## Application Desk and Deadline Reminders
+
+Authenticated visitors can add schemes to a private **Application Desk**, move them through considering, preparing, submitted, approved, not-approved, or closed states, save a reference number, and view a scheme deadline or add their own. Advanced Discovery supports state, category, deadline-window, and deadline-based sorting.
+
+Each reminder is a user-owned Heartbeat job tied to an `application_reminders.scheduleCronTaskUid` value. The callback at `/api/scheduled/application-reminder` authenticates cron identity, looks up the reminder by that task UID, marks it delivered, and disables the annual cron after its first run. The delivered reminder status remains visible in the dashboard. Because platform-scheduled jobs target the production site, create a checkpoint and use the **Publish** control before a user schedules their first live reminder.
+
+### Verification
+
+Advanced Discovery was visually reviewed at `/discover`; it correctly shows state/category/deadline controls, deadline-first sorting, and the verified NSP deadline. A live tRPC smoke test for the `closingSoon` 90-day window returned only the NSP record. Application Desk was visually reviewed in both protected account-prompt and authenticated-preview states. Unit coverage validates UTC reminder cron generation, rejects non-cron callbacks, and verifies the task-UID-driven delivery lifecycle including one-time job disable. The full test suite, TypeScript check, and production build pass.
+
+## Document Checklist and Scheme Administration
+
+The Application Desk now derives every tracked scheme's required files from its catalog checklist. Each listed item accepts a replacement PDF, JPG, or PNG of up to 5 MB. File bytes are stored with the configured S3 helper; the database retains only checklist identity, original filename, MIME type, storage key, storage URL, and timestamps. The `documents.upload` and `documents.remove` procedures verify that the current user owns the tracked application before changing its files.
+
+Administrators receive an additional **Manage schemes** navigation entry. The role-gated `admin.schemes` API permits updates to scheme titles, administering body, bilingual benefit summaries, official link, deadline date/label, and review note. It does not expose eligibility-rule or user-record updates. Application status changes use an optimistic client cache update with rollback on failure, saving feedback, a responsive hover lift, and independent upload states. Unit coverage validates upload type constraints, authenticated document ownership routing, and admin-only scheme editing. The document table and deadline columns were confirmed in the database; 12 tests, the TypeScript check, and production build pass.
+
+### Development Verification Boundary
+
+The dashboard and administrator UI were rendered against an authenticated project-preview account, and storage/schema/authorization behavior is covered by focused unit tests and database structure checks. No end-user file was uploaded and no production database edit was performed during development verification, so no personal documents or live catalogue data were introduced. The next signed-in user action will exercise the same protected upload and admin mutation paths that were validated by these contracts.
+
+## Document Expiry and Hindi Checklist Support
+
+Each uploaded checklist file can now carry an optional expiry date. The dashboard classifies it as valid, expiring soon during the final **14 days**, expired, or without an expiry date. A file in either follow-up state can be re-uploaded, its expiry date can be corrected, and the dashboard displays a private document-action notice. The daily `/api/scheduled/document-expiry-reminders` handler is idempotent: it authenticates the Heartbeat task, checks its durable task UID, creates at most one unread notification per document/state, and records its last completed scan.
+
+The document checklist has an English/Hindi toggle. It keeps the stable English item ID for upload authorization and storage, while displaying the corresponding `documentsHindi` label, progress count, expiry state, and upload/re-upload guidance in Hindi when selected. Catalogue integrity testing confirms that each shipped English document item has a matching non-empty Hindi label.
+
+The production-only daily Heartbeat job is exposed under the administrator's **Document Automation** section. It deliberately remains uncreated in this development-only project: the user must publish in the future and then select **Enable after publish** for the daily 03:00 UTC scan. Local verification covers the expiry classifier, idempotent callback path, non-cron rejection, bilingual label alignment, database schema, dashboard/admin rendering, TypeScript, and the complete **17-test** suite; no live cron job, user upload, or production data mutation was created.
+
+## Secure Preview and AI OCR Review
+
+Each uploaded document now has an owner-scoped **Preview** action. The protected API verifies the current user owns the tracked application and returns a short-lived signed storage URL only for that document. Images render in an in-dashboard preview modal; PDFs render through an embedded viewer. The stable storage key is never returned to the browser by the preview API.
+
+Users may select **Extract details** to run a server-side multimodal OCR pass. The vision model receives only the short-lived signed URL and returns structured document type, detected name, reference values, dates, key details, concerns, and confidence. Results are marked `notRequested`, `processing`, `complete`, or `failed`; errors remain retryable, and every complete result explicitly asks the user to compare the extracted details with the preview before submission. OCR does **not** determine legal validity, identity authenticity, or scheme eligibility.
+
+OCR output is private metadata attached to the document record. A document re-upload resets its OCR output; removing its application-document record removes its OCR metadata through the same record lifecycle. The deployed storage provider retains file bytes according to its own storage policy, so do not use this feature for documents the user is not authorized to upload. Development verification covered owner-scoped preview/extraction router contracts, extraction-field bounds, storage/schema integration, loading/failure/manual-review UI paths, and the complete **19-test** suite. No real user file was sent to the AI service during development.
+
+### OCR Status Badges
+
+Each uploaded document now exposes a non-color-only OCR status label alongside an icon. **Green — Details extracted** appears when a complete extraction has no model-reported concern and is not low confidence. **Amber — OCR pending** or **OCR in progress** marks an unrequested or currently running extraction. **Red — Manual review needed** appears for a failed extraction, a low-confidence result, or a result with OCR concerns. The badge text is bilingual with the checklist toggle and points the user to the applicable next action: start/retry extraction or manually compare the preview before submission.
+
+## Document Activity, OCR Policy, and User Approval
+
+Each application document now maintains an immutable activity timeline. Server-side actions append concise events for upload/re-upload, expiry updates, OCR start/completion/failure, and the owner's final manual verification. The timeline is returned only inside the authenticated user's own tracked application data and is deleted with the document record.
+
+An authenticated owner may select **I verified these details** only after OCR has completed. This records a `userVerifiedAt` timestamp and a timeline event, confirming the user reviewed the extracted summary against the private document preview. It does not make a legal, identity, or eligibility claim.
+
+Administrators can set the singleton OCR minimum confidence policy to **low**, **medium**, or **high**. The backend applies this policy while serializing each document's authoritative `needsManualReview` state: any model concern is flagged regardless of confidence, and confidence below the configured threshold also requires manual review. The client consumes the policy for explanatory badges, while the server-provided state prevents downstream features from recalculating review rules independently. Development verification covers timeline event creation/order, approval persistence payload, admin-only policy controls, threshold variation, concern-driven review, and **31 automated tests** plus TypeScript and production build checks.
+
+## Verification History Export and Batch OCR Review
+
+Authenticated users can search their private document activity using an optional inclusive date range and newest/oldest ordering. The same selected filter is used by **Export PDF**, which returns a browser download containing up to 200 owner-scoped verification-history events: timestamp, scheme, document/checklist item, action, and available event note. It contains metadata only—never original file bytes, storage URLs, OCR prompt content, or other users' documents.
+
+The **Batch Review** panel selects several uploaded documents at once. OCR batches are capped at **five** documents to limit workload; batch approval accepts up to ten completed OCR records. Each backend action is processed per document and returns individual success/failure outcomes, so an unreadable or unauthorized file does not invalidate other selected results. The dashboard refreshes results and leaves failed items available for individual retry or manual review.
+
+Development verification parses generated PDFs and confirms scheme, document, and activity text are present; it also tests inclusive date-range filtering plus newest/oldest ordering, owner-scoped export routing, batch deduplication, batch partial-failure outcomes, and batch UI controls. The full suite contains **35 tests**, with TypeScript and the production build passing.
+
+## Verification History Search, Hover Preview, and Batch Progress
+
+The Verification History panel now accepts a short, debounced keyword query without changing the server's owner-scoped date-filter contract. It searches the already-returned private event metadata—document/checklist name, uploaded filename, scheme name, human-readable activity label, and event note—and preserves the selected date range and sort order. PDF export intentionally continues to reflect the date and sort selection rather than the transient dashboard text search.
+
+Each history row carries only its document ID and MIME metadata in addition to its existing activity fields. The **Quick glance** control is a keyboard-accessible hover/focus card that calls the same owner-checked `documents.preview` procedure used by the full dashboard preview. A signed URL is requested only while the card is open; the browser never receives the storage key or a durable direct URL.
+
+Batch OCR now runs each selected document sequentially in the dashboard, providing a live percentage indicator, current-file message, completed/failed counts, and retained per-document outcome messages. This makes progress visible during a long-running extraction while retaining independent failure handling and the five-document safety cap. Automated coverage verifies quick-search matching, history preview contract metadata and owner-bound preview routing, hover-preview loading/unavailable feedback, and queued/running/success/failure progress calculations. The complete suite now has **38 tests**, alongside clean TypeScript and production-build checks.
+
+## Saved History Filters, First-Page Thumbnails, and OCR Queue Controls
+
+Authenticated users can save a named **Verification History** filter preset containing their keyword search, date range, and sort preference. Presets are stored in the owner-scoped `saved_verification_history_filters` table, are unique by user and preset name, and can be applied or removed only through protected procedures. Applying a preset restores the history workspace; the PDF export remains intentionally scoped to the selected date range and sort rather than the transient keyword query.
+
+Hover/focus **Quick glance** now renders the first PDF page into a small, in-memory browser thumbnail using PDF.js. The thumbnail starts only after the existing owner-checked preview procedure returns a short-lived signed URL; the storage key and durable URL remain server-side. Image documents display their own signed preview, while PDF rendering failures return a compact unavailable-state fallback rather than blocking the history list.
+
+Batch OCR queue controls now allow the user to **stop queued items** while letting the active request finish safely. Remaining queued documents are labelled as cancelled and can be retried individually or in a selected batch; failed OCR documents also have targeted retry controls. The persisted OCR data model remains unchanged—queue cancellation is a dashboard control, not a claim that an already-started model request was interrupted. The saved-filter migration has been applied, desktop/mobile dashboard layouts were reviewed, and the full suite contains **40 tests** with TypeScript and production builds passing.
+
+## Default History View, Expanded Preview, and OCR Priority
+
+Each saved Verification History filter can now be marked as the owner’s **default view**. The protected default-setting procedure first confirms filter ownership, clears the user’s prior default, and applies the new selection; users may also clear it. On opening the dashboard, the client restores the single saved default once, without overwriting a user’s live edits. The `isDefault` field was added through a database migration and is returned with the typed saved-filter payload.
+
+The private Quick glance card now opens a click-to-expand modal with a larger first-page rendering and limited metadata: checklist name, filename, scheme, activity type/date, MIME type, and the existing activity note. It reuses the owner-checked signed preview request, stores no storage key or durable URL in the client, and retains the loading/unavailable fallback. Escape and backdrop-close behavior are included.
+
+Selected OCR documents can be reordered with native drag-and-drop before extraction begins; equivalent move-up/down controls keep the priority queue keyboard-accessible. The queue order is passed directly to sequential extraction, so priority affects the next batch only. Reordering is locked once processing starts, preserving unambiguous progress and cancellation behavior. Router tests cover owner-scoped set/clear default actions, while queue tests cover deterministic reordering. **42 tests**, TypeScript validation, production build, and desktop/mobile layout verification pass.
+
+## Full PDF Navigation, OCR ETA, and Family Filter Sharing
+
+The enlarged document glance now renders a signed PDF one page at a time and exposes bounded **Previous** and **Next** controls with the current page and total page count. Page rasterization stays browser-local and session-bound to the existing owner-checked preview URL; no storage key, durable link, or original document bytes are persisted by the client. Non-PDF images retain their signed preview behavior.
+
+During an OCR batch, the progress panel samples the durations of completed documents and updates an estimated remaining time every second. Before the first document completes, the interface explicitly says it is still estimating. This is a local, best-effort estimate for the current sequential batch only; it is not a service-level guarantee and intentionally excludes any unstarted retry batch.
+
+Saved-filter owners can share only the filter criteria with an already-signed-in family account identified by its email address. Recipients can apply shared criteria to their own History workspace but never see the owner’s history events, application records, documents, or default-filter controls. Owners can revoke access at any time. The schema migration for owner/recipient share records is applied. Automated coverage validates PDF bounds, ETA math, owner-scoped share/revoke actions, and recipient visibility; **45 tests** pass along with TypeScript, production-build, desktop, and mobile checks.
+
+## Invitation Approval, Preview Transform Controls, and Confidence Trends
+
+Family sharing now follows an explicit approval lifecycle. An owner sends a **pending invitation** to an already-signed-in family account, which can accept or decline it from a private inbox. Only accepted invitations appear as reusable filters for the recipient. Owners retain the ability to revoke either a pending invite or accepted access; the recipient never gains access to source documents, verification events, applications, default-view state, or the ability to edit the owner’s saved filter.
+
+The signed PDF preview modal now includes bounded page navigation, **zoom out/zoom in**, rotation in 90-degree steps, and reset. PDF.js re-renders the selected page at the active zoom scale before the browser applies the visible transform, preserving readability better than a fixed low-resolution thumbnail. The controls remain session-only and use the existing owner-checked signed preview URL; image previews preserve their standard signed behavior.
+
+Each successful OCR extraction writes an immutable confidence snapshot with its concern count. The document timeline turns the current snapshot sequence into an understandable baseline, improving, steady, or lower trend message. Re-uploading a document clears the prior file’s confidence snapshots before the new OCR lifecycle starts, preventing old-file confidence from appearing in a replacement document’s trend. The invitation-status and OCR-confidence migrations are applied. **49 tests** pass, with TypeScript, production build, desktop, and mobile reviews complete.
+
+## Invitation Alerts, Confidence Charting, and PDF Keyword Search
+
+Family filter invitations now create a recipient-scoped, email-style **in-app alert**. Each unread alert exposes accept, decline, and dismiss actions; accepting or declining also marks the related alert read. Reissuing an invitation reopens it as pending and resets the corresponding alert to unread. Notification access and read-state updates are protected by the intended recipient’s user ID.
+
+Documents with OCR confidence snapshots show a compact line chart in their activity timeline. The chart plots low, medium, and high confidence over successive extractions, draws the current medium threshold, and gives a distinct manual-review callout when server-derived `needsManualReview` is true. It is interpretive only: users must still compare OCR metadata with their original document, and re-upload starts a clean trend.
+
+The expanded signed PDF preview now supports keyword searching across the first **40 pages** in the browser. It returns match counts per page and lets users jump directly to a matched page. Text extraction occurs only while the signed preview is open; neither extracted text nor the storage key is persisted. The alert lifecycle, chart classification, and PDF match/bounds helpers are unit-tested, while desktop and mobile dashboard layouts have been reviewed.
+
+## PDF Match Highlights, Manual-Review Priority, and Reusable Workflow
+
+PDF keyword search now adds transparent saffron overlays directly over matching PDF text items on the rendered page. Search scans at most 40 pages in browser memory, stores only temporary match geometry in component state, and lets the user jump to a matched page. Highlight geometry is calculated from PDF.js text-item coordinates at the active page scale; it is not persisted or sent back to the server.
+
+The **Manual Review Queue** includes only documents already marked by the server as needing manual review. It ranks those entries by current confidence, model concern count, and a lower confidence trend, then explains the signals behind each position. The queue is a navigation aid—never an eligibility, identity, or approval decision—and its Review action scrolls to the matching document checklist entry.
+
+The reusable **secure-collaboration-review** skill packages the safe workflow: owner-scoped signed previews, bounded browser-local PDF search/highlighting, immutable OCR confidence snapshots, conservative manual-review ordering, and invitation-based filter sharing. It was validated with the skill validator. Highlight geometry, queue ranking, and all application behavior are covered by the expanded automated suite.
+
+## Backend and Frontend Integration Audit
+
+The user-facing application flows were audited against their typed tRPC procedures, database helpers, authentication boundary, and frontend mutation/query consumer. Public discovery and matching remain read-only; all profile, saved scheme, application, reminder, document, OCR, history, family-sharing, notification, and administrative actions use protected or administrator-only procedures as appropriate. Ownership checks are enforced at the database-helper layer for tracked applications, uploaded documents, OCR, reminders, history filters, invitation actions, and notification read-state updates.
+
+| Area | Backend contract | Frontend integration and safety behavior |
+|---|---|---|
+| Application Desk | Owner-scoped `applications.*` procedures and persistence helpers | Typed queries/mutations invalidate the application cache after status, tracking, and reminder changes. |
+| Document workflow | Validated upload, owner-checked preview/OCR/approval/removal procedures | Upload, preview, OCR, expiry, re-upload, and approval controls expose pending/error feedback. |
+| File access | Persisted storage key remains server-side; list and preview flows issue signed GET URLs | The upload mutation returns metadata only; the application list supplies short-lived signed download URLs and previews are separately owner-checked. |
+| History and collaboration | Owner-scoped filters, defaults, invitations, read-state alerts, and accepted shared criteria | History controls refresh typed caches after every mutation, and recipients can only apply shared criteria. |
+| Administration | Administrator-only scheme, automation, and OCR-policy procedures | Admin screen uses role-gated queries and mutation invalidation. |
+
+The audit added a regression contract asserting that raw persisted storage routes are omitted from the upload response. Dashboard mutations for reminder cancellation, document removal, expiry updates, and document notifications now provide safe error feedback while retaining typed cache invalidation. The authenticated dashboard was visually rechecked on desktop and mobile after the contract change; the responsive history and family-filter controls continue to render without runtime errors. The full suite has **54 tests** across 20 test files, TypeScript validation succeeds, and the production build succeeds. The build emits a standard chunk-size advisory for the rich PDF/document tooling, but it does not block the build or application behavior.
+
+## Document Quick Actions, CSV Export, and Preview Recovery
+
+Each uploaded document now has a compact **quick-action menu** in the Application Desk. The authenticated owner can mark a document as `reviewed`, flag it for `inspection`, or clear the state. The selected state is stored in the application-document record, reflected in the private document timeline, and updated through the owner-scoped `documents.setReviewState` procedure. It is an internal workflow marker only; it does not assert that a document is legally valid, authentic, complete, or accepted by a government office.
+
+The Verification History panel now provides **Export CSV** beside Export PDF. The CSV uses the exact active date range, chronological order, and debounced text query. It includes only owner-scoped activity metadata and the associated OCR status, confidence, document type, detected name, model concerns, and review state. It never includes document bytes, storage keys, signed URLs, raw prompt material, another user’s activity, or family members’ records. Values are RFC-style quoted and double-quote escaped; formula-leading cells are prefixed with an apostrophe to reduce spreadsheet formula interpretation. Export is bounded to the newest 1,000 matching events.
+
+The full dashboard preview modal now shows an animated content skeleton while the short-lived signed URL is requested. If that request fails or the URL expires, it displays a clear recovery panel that explains the private-preview issue, exposes a retry action, and confirms that no document content was shown. The secure server procedure continues to check document ownership before issuing a preview URL.
+
+Focused router coverage confirms that review-state and CSV calls are made with the signed-in owner ID and active filters. CSV regression coverage confirms commas, embedded quotes, and spreadsheet-formula prefixes are safely represented. Existing preview-feedback coverage verifies loading and unavailable guidance. The complete suite now has **56 tests** across 21 test files; `pnpm check` and the production build complete successfully. The project remains development-only: no publishing, live reminder job, or real end-user document action was performed for this update.
+
+## Family Invitation Badge, Reviewer Accountability, and Private PDF Notes
+
+The private dashboard sidebar now queries the recipient-scoped unread invitation endpoint and displays a numeric **Family invitations** badge when pending shared-filter invites exist. Selecting it returns the user to the Application Desk and scrolls to the existing accept/decline invitation panel. The count is derived only from unread notifications whose filter-share status is still pending; it does not expose the sender’s document, activity, applications, or history results.
+
+Document owners may now assign a reviewer by the reviewer’s email address after that account has signed in at least once. The owner can list or revoke their document’s assignments, while reviewers can see only their own active assignments, start a review, mark it complete, and open a signed preview for that assigned document. A revocation immediately removes reviewer preview and annotation access. Assignment, start, completion, revocation, and note create/update/delete actions write immutable review-audit entries that include actor, timestamp, action, and a concise non-sensitive description. The audit deliberately does not preserve PDF-note text.
+
+The review workspace adds a secure PDF preview with browser-local page navigation and a **Private notes** panel. Page notes are scoped to the signed-in author, document, and page number. They are not shared with the owner, reviewer, family filter recipients, or other users; the author may edit or delete their own notes. The existing protected preview procedure now permits an active assigned reviewer to receive a fresh signed URL for only that document, while all owner-only document modifications remain owner-scoped.
+
+Migration `0012_luxuriant_pride.sql` creates review assignments, review audit events, and PDF annotations with cascade and access-control foreign keys. The generated migration originally exceeded MySQL’s foreign-key name length on one constraint; it was repaired with short constraint names before applying the same non-destructive schema to the development database. Database verification confirmed 2 annotation foreign keys, 3 assignment foreign keys, and 3 audit foreign keys. Automated coverage now has **60 tests** across 23 files; TypeScript and production build validation pass. Desktop and mobile dashboard screens were reviewed with no publish or live reminder job created.
+
+## Reviewer Assignment Alerts and Audit Filters
+
+Assigning or reassigning a reviewer now creates or refreshes one recipient-scoped **in-app review alert**. The reviewer sees the unread alert in the Review Collaboration workspace and through a sidebar **Review alerts** badge. Opening the alert marks it read and opens only that reviewer’s secure assigned-document preview; dismissing it marks it read without opening the file. Alerts are filtered server-side to the signed-in recipient and omit revoked assignments. They include only the document name, file metadata, scheme name, assignment state, and owner display name—never document bytes, storage keys, signed URLs, OCR output, PDF-note text, or another reviewer’s data.
+
+The review audit trail now accepts optional inclusive date boundaries and one or more event-status filters: assigned, started, completed, revoked, note added, note edited, and note deleted. The workspace applies date boundaries as local-day start/end values, supports multi-select status chips, and provides an explicit clear-filters control. Authorization remains unchanged: document owners and currently active assigned reviewers may view an accessible document’s audit; revoked reviewers cannot access it. The filter applies to audit metadata only and never reveals the private content of PDF annotations.
+
+Migration `0013_medical_slyde.sql` adds the notification table, recipient/status index, and short MySQL-compatible foreign-key names. Focused router tests cover recipient-scoped notification list/read transitions and date/status forwarding; UI contract tests cover the alert tray, sidebar label, event-status chips, and clear control. The full suite now contains **61 tests** across 23 files, with TypeScript and production build validation passing. Mobile dashboard review was completed; no publishing, live reminder job, or real user notification was created.
+
+## Reviewer Alert Preferences and Review Due-Date Reminders
+
+Reviewers now have account-private **Reviewer Settings** in the collaboration workspace. They can independently enable or disable new-assignment alerts, choose whether automated review due-date alerts may appear, and set a default lead time from one hour to seven days. These settings are evaluated when an owner assigns the reviewer and again at reminder-delivery time, so turning off a preference prevents the related in-app alert without exposing the choice to the document owner or other reviewers.
+
+Owners can now select one active reviewer on an uploaded document, set a review due date, and optionally choose one reminder time before it. The owner can cancel a scheduled reminder or revoke the reviewer; either action clears the stored schedule reference and attempts to disable the corresponding one-time task. The protected due-date callback resolves the assignment only from its authenticated task UID, creates one recipient-scoped unread due-date alert if the reviewer permits it, records a non-sensitive `dueReminderSent` audit event, marks delivery, and disables its one-time job. Repeated callbacks are idempotent because only a `scheduled` reminder can deliver.
+
+Migration `0014_good_omega_flight.sql` adds reviewer preferences, due-date/reminder lifecycle fields, due-reminder notification kind, and the audit event enum value. It preserves the notification table’s foreign-key support while replacing the old one-alert-per-assignment unique key with a per-assignment-and-kind key. Development database verification confirmed the preference foreign key and all five assignment reminder columns. The complete suite now has **63 tests** across 23 files; TypeScript and the production build pass.
+
+The project remains development-only at the user’s request. Due-date dates and reminder intent can be saved locally in development, but a live Heartbeat task is intentionally **not** created until the project is published. After publication, saving the same reminder timing creates the one-time automated callback; no live reviewer reminder, scheduled job, or real user notification was created during this implementation.
+
+## Review Workload, Overdue Escalation, and Reminder Snooze
+
+The collaboration workspace now contains a recipient-scoped **My Review Workload** dashboard. It counts active, assigned, in-review, due-within-48-hours, overdue, and escalated assignments from the signed-in reviewer’s active assignment set. It also lists each active document with its local due date and escalation state. The workload API does not return another reviewer’s assignments or an owner’s unrelated reviews.
+
+Document owners receive an **Owner Escalations** panel for their own active overdue reviews. Escalation is rejected before the due time and for completed or revoked assignments. An owner may add a concise accountability note while escalating or resolving an escalation; the state and note are durable, while the immutable review audit receives only the action and safe description. Reviewers can see their escalated state in their workload and filter the corresponding audit events, but cannot create or resolve owner escalations.
+
+Unread due-date alerts now offer a reviewer-only **snooze** action. A snooze must be at least one minute in the future and before the assignment’s due date. It records the reviewer action, clears the former schedule reference, increments the snooze count, and refreshes the same recipient-only due-date alert when the subsequent one-time callback runs. Snooze respects the reviewer’s due-reminder preference. As with all reviewer timing automation, development saves intent but does not create a live scheduled task; live delivery remains deferred until publication.
+
+Migration `0015_plain_baron_zemo.sql` adds snooze and escalation lifecycle fields and explicitly expands the audit enum for snooze/escalation events. Development database verification confirmed all five assignment fields and all audit enum states. Focused router and UI contract coverage now has **64 tests** across 23 files; TypeScript and production builds pass. No live reminder, scheduled job, escalation, or user notification was created.
+
+## Reviewer Capacity Limits and Owner Escalation Templates
+
+The development server was restarted after it stopped responding, and the public landing route again rendered successfully. The reviewer preference panel now includes a **Maximum active reviews** limit from 1 through 50, with a default of 5. When an owner assigns or reactivates a reviewer, the server counts that reviewer’s active assigned and in-review documents. If the configured limit has already been reached, the protected assignment procedure rejects the request before creating an assignment or alert. Lowering a capacity below the user’s current workload is permitted but prevents additional active assignments until the count falls below the new limit.
+
+Owners can now maintain up to 20 **private escalation templates**, each with a short name and a 500-character follow-up message. Templates are scoped by owner user ID and are never returned to another user. In the overdue-review panel, an owner may apply a template to populate the accountability note before escalating or resolving an overdue review. The client safely substitutes only the visible review context tokens `{reviewer}`, `{document}`, and `{dueDate}`; the saved template itself does not gain access to document bytes, OCR data, annotation text, signed URLs, or anyone else’s information.
+
+Migration `0016_reflective_shocker.sql` adds the reviewer capacity column and the owner-private escalation-template table with a verified owner foreign key. The complete suite now contains **65 tests** across 23 files; TypeScript and production builds pass. The server is running again. No publish action, live reminder task, real review assignment, or real escalation was created during this update.
+
+## P0 Real AI Help Drawer
+
+The public **Need help?** drawer now uses a real server-side, streamed Claude response rather than the former keyword-matching reply. The drawer sends the current question, selected interface screen, session-only profile values, and selected scheme summary (when one is open) to `POST /api/help/stream`. The server builds a constrained prompt using `claude-haiku-4-5`, streams OpenAI-compatible SSE deltas back to the browser, and applies a per-IP limit of 12 help requests per ten minutes. The model key remains server-side; no key, saved conversation, profile record, document, storage key, or signed URL is sent to the browser.
+
+The prompt changes its quick questions on the home, profile, results, and details screens. It requests clear Hindi or English based on the active language, includes a visible typing state while chunks arrive, and gives safe recovery guidance if the service is unavailable. System instructions prohibit definite eligibility claims, invented official rules, and requests for Aadhaar, bank details, passwords, OTPs, or document uploads. It tells the user to verify requirements and deadlines on the official portal.
+
+`server/schemeHelp.test.ts` covers bounded bilingual request validation and selected-scheme context construction, while the UI contract test confirms streaming endpoint, dynamic prompts, and typing state presence. The real SSE endpoint was smoke-tested with a development-safe public query; it returned Claude output successfully. The full suite now contains **67 tests** across 24 files, and TypeScript, production build, and public landing-page rendering pass. The old static function remains inert; the live help trigger renders the new streamed drawer. No publishing or real personal user data was used.
+
+## P0/P1 Public Scheme Discovery Improvements
+
+The public results experience now explains matching transparently. Each score pill opens a bilingual **score explanation modal** containing every weighted rule used by the local matching model: age (15), income (15), category (18), work profile (22), state (12), gender (8), and status-specific rules (5 each). A matched rule displays its earned points and a clear reason; a non-matching rule displays zero with the reason. The score remains a discovery aid only and explicitly does not confirm final eligibility.
+
+On screens narrower than 640px, the public hero now stacks in the specified order: visual first, then headline and supporting copy, then full-width CTAs. The existing page retains its desktop editorial composition while the mobile arrangement eliminates excess hero height and gives action buttons a direct, thumb-friendly flow.
+
+Scheme details now include a bilingual **WhatsApp share** action. It opens WhatsApp with a concise prefilled message containing the scheme name, short benefit summary, available deadline state, and official portal URL; ordinary copy-link behavior remains available beside it. No recipient, personal profile, or document data is stored by the application as part of sharing.
+
+Deadline metadata now drives a visible urgency banner. A deadline within 30 days appears as closing soon with a date; a timestamp already in the past is correctly classified as closed even if it is less than one day old. Closed schemes disable the direct application button while retaining source-aware guidance to check the official portal.
+
+Users can select up to three result cards for comparison. The fixed comparison bar prevents the fourth selection, requires at least two choices to open, and launches an accessible full-screen comparison modal for benefit summary, match score, key eligibility, documents, steps, and official links. All selection state remains browser-local for the session.
+
+Focused public UX coverage verifies weighted score reasoning, deadline boundaries, WhatsApp URL construction, comparison cap wiring, and mobile hero order. The complete suite now has **70 tests** across 25 files; TypeScript, production build, fresh server restart, and desktop/mobile landing renders pass. No publishing or live user sharing action was performed.
+
+## Reusable Civic Discovery Workflow, Calendar, Exports, and Personal Notes
+
+The reusable **`scheme-sathi-civic-discovery`** skill now captures the delivery sequence used in this project. It covers Jan Seva Editorial presentation, English/Hindi parity, explainable matching, source-aware public scheme guidance, authenticated ownership patterns, document/OCR safety, reviewer collaboration, bounded AI SSE help, deadline calendar files, and comparison exports. Its validator passes, and the package contains only the concise `SKILL.md` needed to trigger the workflow.
+
+Deadline synchronization is implemented as a browser-local iCalendar download rather than an external calendar integration. When a scheme has an open deadline, its detail screen offers **Add deadline to calendar**. The exported `.ics` file contains a short event ending at the UTC deadline, official portal URL, source-aware reminder text, CRLF records, escaped text values, and a scheme-specific filename. Schemes with no deadline or a closed deadline do not offer the action. This adds an event to the user's own calendar after they open/import the downloaded file; no calendar credentials, account data, or scheduled job are sent to the server.
+
+Comparison now supports two user-initiated exports. **Export CSV** generates a local UTF-8 download with quoted cells, quote escaping, line-break normalization, and spreadsheet-formula protection. **Save as PDF** opens a print-ready landscape comparison report; the user selects their browser's *Save as PDF* destination. Both exports include score, benefits, eligibility, documents, application steps, official portal links, and an explicit note to verify current details on official sources. The comparison selection remains local to the current browser session and still caps at three schemes.
+
+Saved schemes now support one owner-private note per scheme. Migration `0017_equal_night_thrasher.sql` introduces `scheme_notes` with owner and catalog foreign keys, a `(userId, schemeId)` uniqueness guarantee, timestamps, and an owner-updated index. Protected `saved.getNote`, `saved.upsertNote`, and `saved.deleteNote` procedures call helpers that apply the authenticated user ID to every read and mutation. A note is only available after saving the scheme and is removed when the user unsaves it, preventing orphaned or cross-account notes. The detail page presents a private textarea only for authenticated saved schemes, with save/remove feedback; device-local saves show a sign-in explanation instead.
+
+New regression coverage validates owner-scoped note procedure calls and empty-note rejection; iCalendar headers, UTC timing, closing-state suppression, and escaping; CSV formula/quote safety; print-report content; and the public UI integration points. The full suite now has **74 tests** across 27 files. The skill validator, TypeScript check, production build, schema constraint inspection, clean development-server restart, and desktop/mobile landing render all pass. This remains development-only: no publishing, live calendar OAuth, or production reminder schedule was created.
+
+## Calendar Demo, Saved-Note Dashboard, and Selective Comparison Exports
+
+The public scheme-detail action card now includes a clearly labelled **Google Calendar demo**. For an open deadline, the control previews the exact direct-sync interaction and confirms the local demo state after a user click. It never calls Google, opens an OAuth window, creates an event, or accesses a Google account. A separate existing `.ics` download remains available for a usable, browser-local calendar import. This explicit demo boundary is intentional: a real Google Calendar OAuth flow requires user-provided Google Cloud client credentials, configured redirect URI, verified consent screen, and the minimal Calendar event scope. No placeholder credential, fake OAuth callback, token, or calendar event is stored.
+
+Authenticated users now have a **Saved Scheme Notes** panel in the Application Desk. It calls the protected `saved.notes` query, which joins only the signed-in user's note records to the scheme catalogue, orders by the latest update, and supports a bounded phrase query. The dashboard adds phrase and category filters while retaining private note text inside the user's authenticated session. It presents empty and loading states, note update dates, and a source-aware deadline cue without exposing notes to another user.
+
+The comparison dialog now lets the user choose which fields reach **CSV** and **Save as PDF** exports. Available fields are match score, benefits, key eligibility, documents, application steps, and official portal. At least one field remains selected, and the same selection drives both formula-safe CSV and print-ready PDF HTML output. The interactive comparison table itself remains comprehensive so the user can decide what to exclude from the exported artifact.
+
+New coverage verifies owner-bound saved-note listing, custom-field CSV/PDF omission behavior, and the visible calendar-demo/custom-export wiring. The full suite has **76 tests** across 27 files; TypeScript, production build, fresh development restart, and a mobile public render pass. The authenticated dashboard screenshot returned an empty shell in the unauthenticated preview context, so dashboard behavior is validated through its typed protected query contracts and source/component tests rather than invented user notes. No publishing or real Google interaction was performed.
+
+## Comparison Export Presets and Saved-Note Management
+
+Comparison field selections can now be saved as up to **12 owner-private named presets**. Migration `0018_easy_colleen_wing.sql` adds `comparison_export_presets`, storing the authenticated owner's ID, a unique per-owner name, a typed JSON field list, and timestamps. The protected `comparisonExports.listPresets`, `comparisonExports.savePreset`, and `comparisonExports.deletePreset` procedures validate fields against the six supported export rows, reject duplicates and empty selections, scope every operation to `ctx.user.id`, and never share presets between accounts. Saving a name that already belongs to the current user intentionally updates that preset's field selection.
+
+The comparison modal presents save, load, and remove controls directly under the export selector. Loading a preset replaces the active field selection used by both formula-safe CSV and print-ready PDF export; a user can still revise individual fields before exporting. Unauthenticated visitors retain local comparison selection but see a direct sign-in explanation instead of an accidental protected request.
+
+The Application Desk now treats every scheme note as a management item. Users can follow the scheme title to `/scheme/:schemeId`, edit a note inline with save/cancel controls, or remove it. These actions reuse the existing protected owner-scoped upsert/delete operations and invalidate only the private saved-notes query after completion. The new direct scheme detail page fetches the public catalogue record with `schemes.byId`, gives a responsive deadline/eligibility/documents/application summary, and retains an official-portal verification action. It is available to a saved-note deep link without fabricating a user profile or exposing note text in the URL.
+
+The applied preset schema was verified for non-null fields, user foreign key, and per-owner unique name constraint. The full suite now has **78 tests** across 27 files; TypeScript, production build, clean development restart, and desktop/mobile public direct-detail renders pass. No publishing, real user test note, or external-calendar operation was performed.
+
+## Mobile Need Help Drawer Overflow Fix
+
+The mobile **Need help** drawer now uses a viewport-safe flex column rather than a fixed conversation height inside a vertically overflowing side panel. The drawer is constrained to `100dvh` with `box-sizing: border-box`, a zero minimum flex height, and hidden outer overflow. Header, contextual prompts, question form, and safety disclaimer remain fixed flex children. The conversation becomes the single scrollable flex region, with a minimum usable reading area, `max-height: none`, and stable scrollbar gutter.
+
+On viewports below 640px, the drawer reduces non-essential vertical spacing, accounts for the device safe-area bottom inset, and keeps the form/disclaimer visible after long streamed replies. This resolves the prior state where a user could be trapped inside the message scroll area while the lower input or disclaimer sat out of view. Focused UI source regression coverage asserts the dynamic viewport, flexible conversation, unconstrained conversation max-height, and safe-area rules. The existing 78-test suite, TypeScript check, production build, restart, fresh runtime log check, and mobile landing baseline pass. No publishing was performed.
+
+## Scholarship Eligibility Checker and Pilot Feedback Landing
+
+The public `/scholarships` route is a focused **Scholarship Readiness Pilot** rather than a general scheme browser. It asks only six minimal matching fields—age, state/UT, annual household income, category, gender, and optional disability support—to construct a student-only profile. The protected server rule fixes occupation to `Student`, forces the student requirement, restricts the queried catalog to Education, and then uses the same deterministic hard-gate and explainable score logic used by the broader finder. Its result is explicitly a **potential match**, shows score factors and a concise document-first list, and sends the user to the official scholarship portal for final eligibility/deadline verification. It neither stores the transient checker profile nor asks for Aadhaar, bank details, marksheets, application numbers, or uploaded documents.
+
+The public `/pilot` route creates a structured initial-interview landing page. It includes a direct checker call-to-action plus a low-data feedback form that collects role, state, journey stage, two 500-character experience prompts, and—only after an explicit opt-in—one email address for follow-up. Its `pilot_feedback_submissions` table excludes user profile, document, and account relationships; state, journey stage, and created time have practical research indexes. The input requires contact consent before accepting an email, and the public endpoint allows no more than five submissions per IP in a ten-minute window. No feedback entry was seeded or fabricated in development.
+
+Migration `0019_regular_lilandra.sql` was generated, reviewed, applied, and queried to verify the table, enum constraints, and indexes. Focused tests verify student-only education matching, 5-per-10-minute rate boundaries, explicit contact opt-in, and UI endpoint wiring. The full suite now has **81 tests** across 28 files; TypeScript, production build, clean restart, development database checks, and desktop/mobile renders for both routes pass. No publishing, real interview response, or external user action was performed.
+
+## Verified Scholarship Discovery, Pilot Inbox, and Cohort Invites
+
+The scholarship discovery catalog now adds **31 official-directory-listed scholarship records** sourced from the Government of India’s National Scholarship Portal directory, in addition to the existing NSP entry. The new records cover AICTE, UGC, Ministry of Home Affairs, Ministry of Labour & Employment, Social Justice, disability, school education, higher education, tribal affairs, North Eastern Council, agriculture research, and Railways programme areas. Each new record uses the official directory URL as its source, carries `officialDirectory` verification status, and is marked as reviewed on 19 August 2026. This is deliberately a **source-verification tier**: the listing is from the official directory, while course, income, institution, and category hard gates remain subject to the current scheme specification and portal. The checker continues to label all results as potential matches and preserves the official portal as the final authority.[1]
+
+Migration `0020_lumpy_wiccan.sql` adds `sourceUrl` and `verificationStatus` to the catalog, a `pilot_cohort_invites` lifecycle table, and feedback workflow fields. The generated feedback foreign-key name exceeded the database identifier limit, so the reviewed migration uses the equivalent short constraint name `pilot_feedback_cohort_fk`. The applied schema was verified for both foreign keys, the per-code unique constraint, active invite/status indexes, and source metadata fields. A normal application catalog query seeded **32 Education records**, including **31 records with official NSP source URLs**, into the development database; no user feedback was seeded.
+
+The new administrator-only **Pilot inbox** route (`/admin/pilot`) is surfaced in the standard dashboard navigation. It offers all/new/reviewed/follow-up/archived counts, query and status filtering, detailed response review, private follow-up notes, and status updates. The page retains the pilot’s low-data boundary: it shows only submitted research fields and an optional consented contact address, never a profile, document, or application record. Its empty states intentionally remain empty until real pilot participants submit feedback.
+
+Administrators can create college or NGO cohort links with a custom label, use limit (1–500), optional expiry, copy action, and revocation. Links use a random short code and resolve to `/pilot?cohort=CODE`; the public landing checks the code and displays the cohort name only when active. A submission from an active link stores the cohort relation and increments its usage; revoked, expired, or exhausted links are rejected without exposing an internal invite record. Public pilot feedback still works without a cohort link. Focused test coverage verifies the official directory count/source boundary, admin-only feedback/invite routes, ownership propagation, status validation, and the new UI contracts. The full suite now has **85 tests** across 29 files; TypeScript, production build, applied schema inspection, a clean server restart, and desktop/mobile public rendering pass. No publishing, fabricated feedback, or live external cohort action was performed.
+
+## Cohort Conversion Funnel and Source-Aware Scholarship Navigation
+
+Migration `0021_odd_professor_monster.sql` adds two narrow analytics tables. `pilot_cohort_visits` records only a SHA-256 digest of a randomly generated browser token plus the cohort-link ID; it stores no raw token, IP address, device fingerprint, profile, document, email, or account reference. Its `(cohortInviteId, visitorHash)` unique key limits each browser token to one visit per cohort. `pilot_cohort_signups` stores one cohort-link ID and one authenticated user ID, with a global unique user key so an account cannot be counted more than once across cohorts. The administrator-facing endpoint returns **aggregate counts and rates only**, never visitor hashes or user identities. Development database inspection verified the visit deduplication key and both signup deduplication keys.
+
+| Funnel stage | Client action | Server boundary | Admin output |
+| --- | --- | --- | --- |
+| Link visit | A validated active `/pilot?cohort=CODE` link stores its code for the browser session and sends a random visitor token once. | The server hashes the token before persistence and rejects inactive links. | Unique link visits per cohort. |
+| Feedback | The public pilot form submits with the already validated code. | Existing active-link validation and use limit remain authoritative. | Feedback submissions and visit-to-feedback rate. |
+| Account attribution | After the existing OAuth flow succeeds, the app claims the session's active cohort code through a protected procedure. | First-touch attribution is limited by a unique account record; an expired/revoked code is not attributed. | Signed-up accounts and visit-to-signup rate. |
+
+`/admin/pilot` now includes a **Conversion Funnel** table alongside invite management. It presents cohort name/type, unique link visits, feedback count/rate, account-signup count/rate, and active/closed status. Cache invalidation refreshes the table when an administrator creates or revokes a cohort invite. The public sandbox browser correctly enforced the existing sign-in boundary for the admin route, so no real account login or cohort activity was generated during verification.
+
+Advanced Discovery now exposes **Scheme level**, **Provider area**, and **Source status** filters in addition to its existing state, category, deadline, and search controls. Provider values are derived from the seeded database catalog through `schemes.filterOptions`; the list query accepts `administeringBody` and `verificationStatus` parameters and supports a **Provider area** sorting mode. Cards show whether an item is official-directory-listed or eligibility-verified and retain a separate source-directory link where it differs from the application portal. The warm Discover render returned 42 records, populated provider choices, and displayed the new source labels. Focused query/router/UI tests, the full **88-test** suite across 30 files, TypeScript validation, and the production build passed. The project remains development-only: no publishing, live external cohort action, or personal pilot data was created.
+
+## Hindi Scholarship Navigation and Cohort Date-Range Reports
+
+Advanced Discovery is now **Hindi-first** with an on-page English toggle. The search, state, category, scheme-level, provider-area, source-status, deadline, and sorting controls use Hindi labels by default. Provider choices remain backed by the canonical English `administeringBody` values sent to the server, but display a maintained Hindi mapping for the full current scholarship-provider directory. Scholarship cards also use their shipped Hindi names, benefit summaries, categories, scheme levels, source labels, and official-action labels. A provider without a reviewed translation intentionally falls back to its official English name rather than showing an inaccurate translation.
+
+The administrator-only conversion funnel now accepts optional local-calendar **From** and **To** dates. The server applies those bounds independently to visit, feedback, and signup event creation timestamps, returning only per-cohort aggregate counts and corresponding rates for that range. This avoids the previous lifetime feedback counter being mixed into a period report. An inverted range is rejected before aggregation. The **All time** action removes both bounds.
+
+| Report field | Period rule | Privacy and export behavior |
+| --- | --- | --- |
+| Link visits | Anonymous visit markers created inside the chosen date range | Only aggregate count is returned; raw browser tokens and hashes stay private. |
+| Feedback submissions | Public pilot submissions created inside the chosen date range | The report does not include response text, contact email, or any individual submission. |
+| Account signups | First-touch cohort attribution records created inside the chosen date range | The report never includes account ID, name, email, or profile data. |
+| CSV export | Current aggregate table and current date bounds | Browser-local download with quoted cells and formula-leading values prefixed to reduce spreadsheet formula interpretation. |
+
+`/admin/pilot` exposes the range controls beside the conversion funnel and downloads a cohort-wise CSV including cohort name/type/status, visits, feedback, feedback rate, signups, and visit-to-signup rate. Focused coverage validates Hindi provider/filter terminology, provider fallback, report range forwarding and invalid-range rejection, and formula-safe CSV encoding. The full suite now contains **91 tests** across 31 files; TypeScript validation, production build, Hindi desktop/mobile discovery rendering, and runtime-log review passed. The admin visual capture remains behind the existing sign-in boundary, and no real administrator login, report download, cohort activity, or publishing was performed during development verification.
+
+## Hindi State Names, Monthly Conversion Trend, and CSV Totals
+
+The Hindi Discover state dropdown now translates every currently offered state value while continuing to submit the canonical English state identifier used by the catalog filter. The translation map covers Andhra Pradesh, Bihar, Delhi, Gujarat, Haryana, Jharkhand, Karnataka, Kerala, Madhya Pradesh, Maharashtra, Odisha, Punjab, Rajasthan, Tamil Nadu, Telangana, Uttar Pradesh, Uttarakhand, and West Bengal. An unmapped future state deliberately falls back to the official English value rather than silently changing its filter key.
+
+`/admin/pilot` now has a **Monthly trend** card that renders two all-cohort percentage lines for the same optional report date range: visit-to-feedback and visit-to-signup. The new protected `admin.pilot.cohorts.monthlyTrend` procedure aggregates only cohort-scoped events by their creation month. It explicitly excludes public pilot feedback with no cohort invite, so individual public-pilot responses cannot affect cohort conversion reporting. Empty, loading, and invalid-range states are handled in the dashboard; the report filter remains shared with the existing funnel table and CSV export.
+
+| Refinement | Calculation and scope | Privacy / safety boundary |
+| --- | --- | --- |
+| Monthly visit-to-feedback rate | Cohort-linked feedback events in a month ÷ anonymised cohort link visits in that month | No free-text feedback, contact fields, visitor hash, or individual identifiers are returned. |
+| Monthly visit-to-signup rate | First-touch cohort signup attributions in a month ÷ anonymised cohort link visits in that month | No account ID, name, email, or profile field appears in the API or chart. |
+| CSV totals row | Sum visits, feedback, and signups across the currently filtered cohorts; recompute both rates from those totals | The browser-local CSV remains quoted and formula-safe, and now ends with `Total (all cohorts)`. |
+
+Focused coverage now validates monthly aggregation/rate math, no-visit safety, protected trend routing and invalid-range rejection, Hindi state names, chart wiring, CSV formula safety, and the new total row. The full suite contains **94 tests** across 32 files; TypeScript validation, production build, and a Hindi Discover browser render passed. Admin chart data remains behind the existing administrator sign-in boundary, and no real admin login, report download, cohort event, or publishing occurred.
+
+## Cohort-Type Trend Filter and Monthly CSV Detail
+
+The monthly trend card now has a **Cohort segment** selector for all cohorts, college cohorts, or NGO cohorts. It changes only the aggregate trend query; the existing cohort funnel table remains an all-cohort operational overview. The protected trend helper joins each visit, cohort-linked feedback submission, and signup attribution to its cohort invite before grouping by month, then applies the selected type. This keeps public pilot feedback—where no invite exists—outside every cohort trend segment.
+
+All chart X-axis and tooltip month labels use the `hi-IN` locale. The visible month examples therefore follow Hindi formatting while the API keeps stable `YYYY-MM` values for sorting and export. The CSV report now incorporates the currently selected trend segment as a distinct **Monthly trend** section after the cohort summary and its `Total (all cohorts)` row. It lists month, visits, feedback submissions/rate, signups, and visit-to-signup rate. The existing formula-safe browser-local CSV escaping continues to protect all fields.
+
+| Selection | Monthly chart and CSV section scope | Aggregate-only boundary |
+| --- | --- | --- |
+| All cohorts | All invite-linked college and NGO events in the chosen dates | No visitor, account, contact, or feedback-content data. |
+| College cohorts | Only events joined to an invite of type `college` | No cohort-member identity or account data. |
+| NGO cohorts | Only events joined to an invite of type `ngo` | No cohort-member identity or account data. |
+
+The invite create/revoke flows invalidate the segment-aware trend cache. Focused tests validate the typed routing input, Hindi chart formatter and selector wiring, the monthly CSV section, formula escaping, and the preserved aggregate rate calculations. The full suite remains **94 tests** across 32 files; TypeScript, production build, and runtime log review passed. The administrator dashboard still requires an existing admin session for live visual inspection; no real login, download, cohort event, or publishing occurred.
+
+## Quarterly Trend View and Shared Funnel Segment Filter
+
+The conversion funnel table and visual trend chart now share the same **Cohort segment** filter and date range. Selecting **All cohorts**, **College cohorts**, or **NGO cohorts** applies the same canonical input to both protected queries, so the named cohorts, per-cohort counts, and trend calculations remain in one analytical context. The segment is also retained in the CSV export; its funnel rows match the selected segment and the trend section reflects the chosen view.
+
+The trend card has an accessible **Monthly / Quarterly** toggle. Quarterly data is calculated by first summing visits, cohort-linked feedback, and signup attributions across the three months of each calendar quarter, then recomputing rates from those quarter totals. It never averages monthly percentages. The returned period key is stable (`YYYY-Q1` through `YYYY-Q4`), while the chart displays a Hindi quarter label such as `तिमाही 1, 2026`. Monthly remains the default, keeping prior report behavior intact.
+
+| View | Aggregation rule | Chart / export behavior |
+| --- | --- | --- |
+| Monthly | Counts group by calendar month, then rates use that month's visits as the denominator. | Hindi month labels; CSV section title is **Monthly trend**. |
+| Quarterly | Counts from the three months in a calendar quarter are summed before rate calculation. | Hindi quarter labels; CSV section title changes to **Quarterly trend**. |
+| Cohort segment | Every event query joins to the associated invite and applies the selected invite type. | The funnel table, chart, and CSV share the same college/NGO/all selection. |
+
+Public pilot feedback without a cohort invite remains excluded from both views and all segment filters. Added pure quarterly-rollup coverage plus segment-aware router and UI contract assertions. The full suite now contains **95 tests** across 32 files; TypeScript, production build, and runtime logs passed with no current client error or failed request. No real admin login, report download, cohort action, personal data processing, publishing, or external action occurred.
+
+## QoQ Change Badges, Funnel Segment Totals, and Shareable Views
+
+When the dashboard is in **Quarterly** mode and at least two reported quarters exist, the trend card shows separate feedback and signup change badges. Each badge is a **percentage-point** difference between the most recent returned quarter and the prior reported quarter. A gain, decline, or unchanged result receives a distinct visual treatment. The calculation is based on rates already derived from aggregate quarterly counts; it does not imply a statistical forecast and does not expose individual cohort members.
+
+The conversion funnel table now ends with a **Segment total** row for the selected all/college/NGO cohort filter and date range. It sums visits, feedback submissions, and signup attributions across visible cohort rows, then recalculates feedback and signup rates using summed event counts. This avoids the common error of adding or averaging row-level rates.
+
+Selected date bounds, segment, and trend view now persist in a shareable `/admin/pilot` query string. Only four non-sensitive filter parameters are serialized: `from`, `to`, `segment`, and `view`. Invalid dates, inverted date ranges, unknown segments, and unsupported views safely fall back to default values. The **Share view** action copies the current URL; opening it restores the same scoped dashboard view, while administrator authorization remains required to see its data.
+
+| Enhancement | Calculation or URL scope | Privacy boundary |
+| --- | --- | --- |
+| QoQ badges | Latest quarterly rate minus prior reported quarterly rate, in percentage points | Aggregate rate only; no visitor, user, contact, or feedback content. |
+| Segment total | Sum counts across visible cohort rows, then recompute rates | Matches the selected date/segment scope and retains aggregate-only output. |
+| Shareable view | Optional `from`, `to`, `segment`, `view` query parameters | Shares filter choices only; the recipient still needs admin access. |
+
+Focused tests validate total-rate math, QoQ percentage-point changes, default/no-prior handling, shareable URL round trips, invalid URL normalization, and client wiring. The full suite now contains **98 tests** across 33 files; TypeScript, production build, and current runtime logs pass. No live user data, personal identifiers in the URL, admin action, report download, publishing, or external operation occurred.
+
+## QoQ Calculation Tooltips, Saved Views, and Read-Only Summaries
+
+The quarterly feedback and signup badges now expose an accessible hover/focus tooltip. It explains that each displayed value equals the current quarterly conversion rate minus the **prior reported quarter's** rate, measured in **percentage points**; it is not a percentage-growth figure. The tooltip appears only when the corresponding QoQ badges exist, preserving the chart's existing no-prior-data behavior.
+
+Migration `0022_young_blazing_skull.sql` adds `pilot_dashboard_views`. A view belongs to one administrator, stores a unique name and a JSON filter payload, cascades on user deletion, and has owner/update indexes. The admin-only `admin.pilot.views` API offers owner-scoped list, save-or-update-by-name, and delete operations. Saved filter payloads are strictly validated as empty/ISO date bounds, all/college/NGO segment, and monthly/quarterly view; inverted ranges are rejected. Each administrator can save up to **20** named views. Loading one updates the active date range, segment, chart period, and existing shareable URL state.
+
+The new **Export summary** action downloads a read-only plain-text snapshot of the current filter scope and aggregate funnel totals. It includes only date range, cohort segment, trend view, aggregate counts/rates, and (when present) the QoQ aggregate change. It deliberately excludes cohort names, invite codes, visitor hashes, account identifiers, contact details, response text, and document/profile data.
+
+| Capability | Scope / behavior | Privacy boundary |
+| --- | --- | --- |
+| QoQ tooltip | Hover or focus on either quarterly rate-change badge | Explains aggregate percentage-point math only. |
+| Saved dashboard view | Admin-owner-private named filters, max 20; same name updates | Stores filters only, never report results or individual data. |
+| Read-only summary export | Browser-local `.txt` file for current selected scope | Contains aggregate metrics only; no cohort names or personal information. |
+
+Applied and verified the new table's user foreign key, owner/name uniqueness, and owner/update index in the development database. Focused coverage validates saved-view ownership, route protection, URL filter validation, tooltip/UI wiring, summary content, and intentional absence of cohort identifiers. The full suite now contains **100 tests** across 33 files; TypeScript, production build, and runtime-log checks passed. No administrator login, saved view, real export, personal data, publishing, or external action occurred.
+
+## Pinned Saved Views, View Search, and Bilingual Summaries
+
+Migration `0023_bizarre_rogue.sql` adds a non-null `isPinned` flag (default `false`) and a `(userId, isPinned, updatedAt)` index to `pilot_dashboard_views`. The administrator-only `admin.pilot.views.setPinned` mutation remains owner-scoped, so one administrator cannot pin or unpin another administrator's view. Saved views now return pinned rows first and then most-recently updated rows. The existing 20-view per-administrator limit and name-upsert behavior remain unchanged.
+
+The Saved dashboard views control adds a private client-side search field that filters only the already owner-scoped names returned to the signed-in administrator. It does not issue a new network request, alter the shareable dashboard URL, or expose view names to non-administrators. The picker marks pinned rows with a text prefix and retains pin, save, load, and delete controls.
+
+The read-only summary export now has an explicit **English / हिन्दी** language selector. Hindi output localizes the heading, scope labels, funnel labels, quarter-change language, aggregate-only disclaimer, and filename suffix while retaining canonical dates and figures for clarity. Both variants remain browser-local plain-text downloads with no cohort names, invite codes, visitor hashes, account/contact identifiers, feedback text, documents, or profile data.
+
+| Capability | Behavior | Privacy boundary |
+| --- | --- | --- |
+| Pinned view | Owner-private flag with pinned-first ordering | Stores a boolean preference only; no analytics result is persisted. |
+| View search | Case-insensitive local filtering over administrator-owned view names | Search input and results never enter URLs or cross account boundaries. |
+| Summary language | English or Hindi aggregate text export | Localizes presentation only; underlying dates/counts remain aggregate-only. |
+
+The development database verified the `isPinned` default of `false` and all three pinned-order index columns. Focused coverage validates owner-scoped pin routing, pinned/search/language UI wiring, and both English/Hindi aggregate summary content. The full suite now contains **102 tests** across 33 files; TypeScript and production build passed. No administrator login, pin action, real export, personal data, publishing, or external action occurred.
+
+## Pinned View Ordering, Private Folders, and Hindi PDF Summaries
+
+Migration `0024_elite_the_call.sql` adds a nullable integer `pinnedRank` and a nullable 40-character `folder` label to each administrator-owned `pilot_dashboard_views` row. Views remain private to the owning administrator. When a view is pinned, the server assigns it the next rank; unpinning clears that rank. The protected `admin.pilot.views.reorderPinned` mutation accepts the complete current set of that administrator's pinned IDs exactly once and writes sequential ranks. This prevents an administrator from inserting another user's view, omitting a pinned view, or supplying duplicate IDs. List results are sorted by pinned state, saved order, then last update time.
+
+The dashboard now includes a native HTML drag-and-drop list for pinned views. The list is intentionally limited to pinned views, which avoids accidental reordering of the full saved-view archive. A drag handle gives the mouse affordance, while selecting the view name still loads its non-sensitive date, segment, and period filters. Saved views may carry one optional text folder such as `Quarterly reviews`; the folder is a simple owner-private label rather than a shared table. Administrators can filter locally by folder and name, and a same-name save updates the selected view's filters and folder.
+
+The **Hindi PDF** action builds a print-ready, browser-local Hindi document containing the same aggregate-only scope as the existing text summary. It opens the browser print dialog, where the administrator may choose **Save as PDF**. The output excludes cohort names, invite codes, browser hashes, user/account/contact identifiers, feedback text, documents, and profile data. It is not uploaded to the server and does not invoke an external PDF service.
+
+| Capability | Contract | Privacy and operational boundary |
+| --- | --- | --- |
+| Pinned drag order | Admin-only reorder mutation validates the complete private pinned ID set and persists sequential ranks. | Ranking is a preference only; no cohort metrics or other administrator's view data are stored. |
+| Folders | Optional 40-character label persisted per private saved view and filtered in the client. | Folder labels remain outside shareable URLs and are returned only through the owner-scoped view list. |
+| Hindi PDF summary | Print-window document uses the current aggregate filter scope, funnel totals, and optional QoQ changes. | Browser-local output only; it deliberately excludes names and every personal or event-level field. |
+
+Focused tests now cover protected reorder forwarding, invalid pinned-order errors, folder persistence in the save contract, Hindi HTML print content, and UI wiring for drag handlers, folders, and the PDF action. The full suite passes **105 tests** across **33 test files**, along with a clean TypeScript check and production build. Desktop and 375px mobile development renders show the controls without clipping; the empty development account had no saved views, so the drag list's interaction is additionally protected by the route and UI contract tests. No publishing, real saved view, export, cohort event, or personal data action was performed.
+
+## Saved-View Productivity Controls and Hindi Print Branding
+
+The saved-view workspace now supports quick, non-mouse navigation when focus is outside an editable field. **Alt + Down Arrow** loads the next visible saved view, **Alt + Up Arrow** loads the previous visible view, **Alt + Enter** loads the selected view (or the first visible view), and **Alt + S** saves the current named view. The controls intentionally ignore inputs, textareas, selects, buttons, and editable content, so normal typing and form interaction are not intercepted. The shortcut reference remains visible beside the saved-view heading and uses `aria-keyshortcuts` metadata for assistive technology.
+
+Private folder organisation now has two protected administrator-only routes. `admin.pilot.views.renameFolder` updates a non-empty source folder to a new non-empty 40-character label only within the current administrator's saved views. `admin.pilot.views.moveToFolder` validates a non-empty, distinct set of selected view IDs against the current administrator's rows before applying a destination folder; a blank destination clears the folder. Both controls operate over the existing owner-private saved-view list, remain outside shared URLs, and refresh the local cache once complete.
+
+The Hindi print-to-PDF flow now includes configurable header and footer text inputs. Default labels make the document's internal/reporting context clear, but an administrator may supply brief custom Hindi copy before opening the browser print dialog. The helper trims and HTML-escapes the strings before placing them in the print document. These labels do not alter the underlying aggregate-only data scope and do not add a server upload, PDF service, cohort name, account identifier, visitor hash, feedback text, document, or profile data.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Saved-view shortcuts | Alt-based next, previous, load, and save actions outside editable controls | Runs only in the current administrator's rendered private view list. |
+| Folder rename and bulk move | Rename the selected private folder or select visible views and move/clear their folder | Every mutation is administrator-only and rechecks row ownership server-side. |
+| Hindi print branding | Enter compact header/footer copy before pressing **Hindi PDF** | Copy is escaped and stays browser-local; the exported metrics remain aggregate-only. |
+
+Focused routing, PDF-output, and UI contract tests cover the owner-bound folder operations, shortcut wiring, custom print copy, and HTML escaping. The full suite now passes **106 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The test preview account had no saved view data, so the rename/bulk manager's populated state remains covered by typed route and UI-contract regression tests. No publishing, real folder mutation, real PDF save, cohort action, or personal data action was performed.
+
+## Folder Counts, Duplicate Views, and Hindi PDF Presentation Presets
+
+The saved-view workspace now derives a private per-folder count from the current administrator's owner-scoped list. The folder selector shows each label with its count, and a compact folder overview exposes the same named count badges as quick filters. These are client-side aggregates over already-authorized view rows; they do not create a new reporting endpoint, enter a shareable URL, or reveal another administrator's folder label or count.
+
+The protected `admin.pilot.views.duplicate` mutation duplicates the administrator's selected saved view while preserving its non-sensitive filter payload and optional folder. The server first verifies ownership, enforces the existing 20-view limit, assigns a unique generated copy name within the 60-character limit, and creates the copy unpinned with no pinned rank. The UI selects the duplicate after refresh. **Alt + D** triggers this same flow only when focus is outside editable controls, and a visible **Duplicate** button provides the mouse-accessible equivalent.
+
+Hindi PDF presentation now provides built-in Scheme Sathi, Jan Seva, and no-logo choices plus a custom browser-rendered HTTP(S) logo URL field. The helper rejects other URL schemes, HTML-escapes accepted URLs and text, and does not upload an image or persist logo data. Administrators may also choose a print-date preset: Hindi long date, numeric short date, or ISO date. The date is presentation metadata generated only in the print window; the PDF remains browser-local and aggregate-only.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Folder count badges | Folder picker and overview badges show the private number of saved views in each label. | Derived only from the authenticated administrator's already-loaded saved views. |
+| Duplicate selected view | **Duplicate** or **Alt + D** copies the selected view with a unique copy name. | Owner check, 20-view cap, unpinned default, and no cross-account source view access. |
+| Logo and date presets | Choose a built-in/no logo or a custom HTTP(S) logo URL, then choose long, short, or ISO date output. | Browser print only; URL protocol validation and HTML escaping prevent unsafe injected markup. |
+
+Focused tests now cover duplicate route ownership forwarding, custom HTTPS logo markup, ISO date rendering, folder-count/duplicate/presentation UI wiring, and the prior saved-view privacy contracts. The full suite passes **107 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The preview administrator account contains no saved views, so populated count badges remain covered by derived-state and UI-contract regression coverage. No publishing, real view duplication, real logo fetch, PDF save, cohort action, or personal data action was performed.
+
+## Saved-View Archive, Folder Colors, and Live Hindi PDF Preview
+
+Migration `0025_stiff_caretaker.sql` adds the `isArchived` boolean and optional `folderColor` label to `pilot_dashboard_views`, plus an owner/archive/pin lookup index. The development database migration was generated, reviewed, and applied. Archive and restore use the protected `admin.pilot.views.setArchived` mutation, which is owner-scoped by saved-view ID. Archiving also clears the pin and pinned rank, so an archived preference cannot remain in the active drag-order list; restoring returns the view unpinned. Permanent deletion remains a separate deliberate action.
+
+Folder colors are limited to the server-validated `saffron`, `marigold`, `teal`, `indigo`, `plum`, and `slate` palette. The color is stored beside each private saved view so moving, saving, duplicating, and listing views retain visual organisation. `admin.pilot.views.setFolderColor` updates only matching folder rows owned by the current administrator. Active saved views drive the main folder counts and overview badges; archived rows live in a separate local workspace and never leak into shareable URLs or another account's data.
+
+The Hindi PDF flow now builds the aggregate-only print HTML once through `createHindiPilotDashboardSummaryPrintHtml()`. The **Preview PDF** control opens an accessible modal containing a sandboxed `srcDoc` preview using the current header, footer, logo, custom HTTP(S) URL, date preset, filters, totals, and optional QoQ changes. The final print action consumes the same builder, avoiding preview-to-export layout drift. No document is uploaded or persisted; custom text and accepted logo URLs remain HTML-escaped, unsupported protocols are rejected, and the scope still excludes names, invite codes, account/contact identifiers, visitor hashes, feedback text, documents, and profile data.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Archive and restore | Switch between Active and Archived lists, then archive or restore the selected private view. | Mutation rechecks user ownership; archive clears pins and preserves a reversible, non-destructive state. |
+| Folder colors | Choose one of six palette colors for a current folder, new view, or bulk move. | Server accepts only the fixed color values and updates only the administrator's matching private rows. |
+| Live Hindi PDF preview | Open **Preview PDF**, review the rendered browser-local layout, then choose **Open print dialog**. | Sandboxed preview and final print share escaped aggregate-only HTML; no external PDF service or report upload occurs. |
+
+Focused route, print-builder, and UI-contract tests now cover archive/restore forwarding, owner-bound folder colors, preview markup, safe custom logo output, and active/archive controls. The full suite passes **109 tests** across **33 test files**, together with a clean TypeScript check, production build, runtime-log review, migration application, and desktop/375px development renders. The visual test account has no saved views, so populated archive/color states remain covered by protected-route and UI-contract regression tests. No publishing, real saved-view mutation, external logo fetch, PDF save, cohort action, or personal data action was performed.
+
+## Bulk Archived Restore, Folder Color Legend, and PDF Layout Controls
+
+The protected `admin.pilot.views.restoreArchived` mutation restores a distinct non-empty selection of up to 20 views only after verifying that every ID is an archived row owned by the current administrator. Restored rows are explicitly returned to the Active workspace unpinned with no pinned rank. The Archived workspace reuses the existing private multi-select controls and now exposes a clear **Restore selected** action, so recovery does not require repeated one-at-a-time operations.
+
+The saved-view workspace now includes a compact visual legend for the fixed folder palette: saffron, marigold, teal, indigo, plum, and slate. It is explanatory only; it does not create tags, metadata, query parameters, or any cross-account data surface. The legend corresponds directly to the server-validated labels stored with existing owner-private folders and badges.
+
+The live Hindi PDF modal now includes preview zoom values of 75%, 100%, 125%, and 150%, alongside Compact (12 mm), Standard (18 mm), and Spacious (24 mm) margin presets. Margin selection feeds the same safe HTML builder used by the preview and final browser print window, which produces `@page` CSS from the fixed preset map. Zoom affects only the in-modal rendering scale; it does not change printed report data or alter the final metrics scope.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Bulk archived restore | Select archived views and press **Restore selected**. | Server requires a distinct, owner-scoped archived set; restored rows remain unpinned. |
+| Folder color legend | Refer to the six labeled color dots below the folder filter. | Static explanation of the existing fixed palette; no new sharing or data exposure. |
+| Preview zoom and print margins | Adjust preview scale and choose Compact, Standard, or Spacious before final print. | Zoom is local UI state; margins are fixed safe values shared by the sandboxed preview and browser-local print document. |
+
+Focused tests now cover bulk restore routing and administrator-only access, compact margin HTML output, legend/restore/zoom/margin UI wiring, and the prior archive/preview safety contracts. The full suite passes **110 tests** across **33 test files**, with a clean TypeScript check, production build, runtime-log review, and desktop/375px development renders. The visual account remains intentionally empty, so populated archived selection and open preview controls are covered by protected route, helper, and UI-contract regression tests. No publishing, real restoration, external logo fetch, PDF save, cohort action, or personal data action was performed.
+
+## Archive Retention, Folder Quick Actions, and Preview Page-Break Guides
+
+Migration `0026_faulty_thunderbolts.sql` adds a nullable `archivedAt` timestamp to private `pilot_dashboard_views`, and the migration has been applied to the development database. A view receives the timestamp at archive time; restore clears it. The list helper performs an owner-scoped cleanup when it loads a list, permanently deleting only archived rows whose recorded timestamp is at least **30 days** old. The Archived workspace displays the current browser-calculated days remaining for timestamped rows. Legacy archived rows without an archive timestamp are intentionally not auto-purged; archiving them again begins the defined retention window.
+
+Folder management now includes a compact Actions menu for the selected private folder. It provides a rename focus shortcut, a six-color submenu, and **Delete folder label**. Deleting a folder label clears the matching private views' folder and color fields but preserves the saved views, their filters, and their archive/pin state. The protected `admin.pilot.views.deleteFolder` route rechecks the administrator identity, and the interface asks for browser confirmation before applying the non-destructive folder-label removal.
+
+The Hindi PDF modal now provides an optional **Show A4 page-break guides** switch. When on, it passes a screen-only guide flag into the preview HTML builder, adding a repeating 297 mm visual line for layout tuning. The generated style is contained inside `@media screen`, while the final print action continues to use the same builder without the guide flag. As a result, guides never alter the browser print/PDF document, aggregate metrics, header/footer, logo, date preset, or margin selection.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Archive retention | Read days remaining in Archived, restore before expiry if needed. | Cleanup is owner-scoped and occurs only for timestamped archived views after 30 days on list load. |
+| Folder quick actions | Open **Actions** for Rename, Color label, or Delete folder label. | Delete removes only the private organisational label, not saved views; server ownership is rechecked. |
+| Page-break guides | Turn on A4 guides in the preview modal while adjusting zoom and margins. | Guide CSS is screen-only and is deliberately excluded from the final browser print HTML. |
+
+Focused tests now cover administrator-only folder deletion, screen-only page-guide markup and final-print omission, retention/quick-action/page-guide UI wiring, and all preceding archive privacy contracts. The full suite passes **112 tests** across **33 test files**, with a clean TypeScript check, production build, migration application, runtime-log review, and desktop/375px development renders. The visual account remains intentionally empty, so populated folder/retention controls and the open preview modal remain covered by protected route, helper, and UI-contract regression tests. No publishing, real purge, real folder-label mutation, external logo fetch, PDF save, cohort action, or personal data action was performed.
+
+## Configurable Archive Retention, Archived Backup, and PDF Alignment Presets
+
+Migration `0027_pale_king_cobra.sql` creates the owner-private `pilot_dashboard_archive_settings` table with a unique user foreign key and a 30-day default. The administrator-only `archiveSettings` and `setArchiveSettings` routes accept only **15**, **30**, or **60** days. The saved-view list now reads that owner setting before applying its timestamped archive cleanup, and the Archived workspace recalculates its local countdown from the same returned preference. New accounts continue to default safely to 30 days until they choose otherwise.
+
+The Archived workspace now offers **Backup archived views**, a browser-local JSON download. Its pure builder includes only the current list’s archived view IDs, names, non-sensitive filters, private folder/color labels, and archive/update timestamps. It excludes account IDs, emails, visitor hashes, invite data, cohort names, feedback, documents, and active saved views. It does not upload a file, invoke third parties, or create a server-side copy; the administrator controls the downloaded local backup.
+
+The Hindi PDF customization panel now provides independent header and footer alignment presets: Left, Center, and Right. The values are constrained in client state and passed into the shared safe HTML builder used by both the live preview and final browser print. Header alignment is applied within the header copy column alongside the selected brand/logo; footer alignment applies to the custom footer content while the report date remains in its dedicated date column. Alignment changes only layout—never report scope or data.
+
+| Capability | User interaction | Safety boundary |
+| --- | --- | --- |
+| Archive retention setting | Choose 15, 30, or 60 days in **Archive retention**. | Stored per administrator; only timestamped archived views are eligible for cleanup during that owner’s list load. |
+| Archived backup | Use **Backup archived views** before expiry. | Browser-local JSON contains only archived private view configuration; no account, cohort, feedback, or document data. |
+| PDF alignment | Choose header and footer Left, Center, or Right before Preview PDF / Hindi PDF. | Fixed layout values are shared by preview and print; no aggregate metrics or personal data change. |
+
+Focused tests now cover administrator-only retention settings, allowed-value forwarding, archived backup privacy/content, header/footer alignment HTML, and UI wiring. The full suite passes **114 tests** across **34 test files**, together with a clean TypeScript check, production build, migration application, runtime-log review, and desktop/375px development renders. The empty visual account means applied retention changes, populated archive backup, and open preview-alignment behavior remain covered by protected route, helper, and UI-contract tests. No publishing, real setting mutation, real archive purge, backup download, PDF save, external logo fetch, cohort action, or personal data action was performed.
+
+## Archived Backup Import, PDF Font Sizes, and Archive Search
+
+The administrator can now choose **Import archive backup** and select a local Scheme Sathi archived-view JSON file. The browser reads no more than 512 KB, validates the fixed backup format locally, and sends only validated view configuration through the administrator-only `admin.pilot.views.importArchived` mutation. The router accepts between one and twenty views, and the database helper rechecks the current administrator’s ownership boundary by importing exclusively under that administrator’s user ID. No file is uploaded or retained by the server.
+
+Only a supported private folder color, optional 40-character folder label, 60-character view name, and non-sensitive date/segment/trend filter configuration can reach the import path. Imported records return as **Active**, unpinned views with no archived timestamp. The helper rejects a combined saved-view count above twenty and creates collision-safe names such as `Quarterly review (restored)` and `Quarterly review (restored 2)` where needed. The backup parser discards source IDs and timestamps as restoration inputs, avoiding cross-account linkage or archive-retention manipulation.
+
+Hindi PDF print branding now exposes independent **Header size** presets of 9 px, 11 px, and 13 px, and **Footer size** presets of 8 px, 10 px, and 12 px. These cosmetic values are passed into the same escaped aggregate-only HTML builder used by both the sandboxed preview and final browser print action. Header/footer size selection changes neither the data scope nor the metrics in the document.
+
+The Saved dashboard views filter now keeps a distinct `archivedViewSearch` value for the Archived workspace. Switching between Active and Archived views therefore preserves each workspace’s private search term; the visible list applies the correct term together with its folder filter. The search remains browser-local over the current administrator’s already owner-scoped view list.
+
+| Capability | User interaction | Safety and lifecycle behavior |
+| --- | --- | --- |
+| Archived backup import | Select **Import archive backup** and choose the downloaded JSON file. | Browser-local size/format validation; administrator-only import; no server-side file retention; imported views activate unpinned. |
+| Import name collisions | Restore a backup whose view names already exist. | Server creates unique restored names and rejects any operation that would exceed the owner’s 20-view limit. |
+| PDF type sizing | Set Header size and Footer size before Preview PDF or Hindi PDF. | Fixed safe presets feed preview and final print HTML only; aggregate report scope is unchanged. |
+| Archived-view search | Open Archived and use **Search archived views**. | Separate client state from Active search; filters only the private owner-scoped list already in memory. |
+
+Focused coverage validates malformed/oversized/unsupported local backup rejection, strict segment and folder-color parsing, admin-only import routing and owner ID forwarding, print HTML font-size markup, and import/search/font-size UI wiring. Desktop and 375 px development renders show the import/backup actions, separate PDF size controls, and archived workspace controls without horizontal clipping; the empty account correctly renders the no-matching-view state. The project remains development-only; no archive file upload, real restore mutation, PDF save, or publishing action was performed during verification.
+
+> Visual verification on the current empty administrator account confirms that the archive backup actions—including the visible `v1` export badge—remain compact on desktop and stack without clipping at 375 px. The restore modal and populated quick-filter chips are covered by the local helper and UI-contract suite because no real archived views or backup file were created for visual testing.
+
+## Restore Preview, Archive Integrity, and Archived Quick Filters
+
+The archived backup import flow now pauses at a mandatory **Restore archived backup** preview before the administrator-only restore mutation can run. The browser validates the selected file locally, constructs a collision-aware restore plan against the current owner-scoped view names, and displays the current count, post-restore count, remaining capacity, and any name adjustments. A conflict such as `College Q2` is shown with its exact expected restored name, for example `College Q2 (restored 2)`. Import confirmation stays disabled when the combined saved-view count would exceed the existing **20-view** cap.
+
+The restore planner and server use the same original-name-first behavior: a non-conflicting imported view keeps its name; only genuine collisions receive the ` (restored)` suffix series. Every confirmed backup import still creates **Active**, unpinned, owner-private views. The file remains browser-local throughout preview and confirmation; no JSON file, account identifier, cohort data, feedback data, or document data is uploaded or retained.
+
+Newly exported archive files retain the established `scheme-sathi-archived-dashboard-views-v1` format and now include a SHA-256 integrity record over the canonical non-sensitive archive payload. The preview displays a clear **Archive v1 · Integrity verified** badge when the digest matches. Existing v1 downloads without an integrity record remain importable as **Legacy file** after their format and fields pass validation, ensuring current administrators do not lose access to earlier browser-local backups. A modified integrity-protected payload is rejected before preview with a clear request to choose the original unmodified JSON file.
+
+Within the Archived workspace, the existing dedicated text search is complemented by browser-local **Folders** and **Colors** quick-filter chips. The folder chips show archive-only counts, while color chips appear only for colors present among that administrator’s archived views. Both filters combine with the archive search term without changing Active-view search, folder management, or server-side ownership rules.
+
+| Capability | User interaction | Safety behavior |
+| --- | --- | --- |
+| Restore preview | Choose **Import archive backup**, inspect counts, conflict rows, and restore names, then choose **Confirm restore**. | The mutation is not called until explicit confirmation; cap overages disable confirmation. |
+| Integrity and version | Export a backup or choose a modern backup file. | SHA-256 is verified locally; the v1 badge distinguishes verified and legacy backups; altered protected content is rejected. |
+| Legacy v1 support | Select an earlier v1 backup that lacks an integrity record. | Strict format and field validation still applies; the preview states that it is a legacy file. |
+| Folder/color archive filters | Switch to **Archived** and select quick-filter chips with optional search text. | Filters operate only on the already owner-scoped archive list in browser memory. |
+
+Focused regression coverage validates SHA-256 metadata, verified/legacy states, integrity rejection after payload tampering, restore name conflict planning, capacity blocking, and new modal/filter UI contracts. The full suite passes **119 tests** across **34 test files**, with a clean TypeScript check and production build. The production bundle continues to report the existing non-blocking chunk-size advisory. No publishing, real archive restore, file upload, external request, or personal-data action was performed.
+
+### Reference
+
+## Installable PWA and Offline App Shell
+
+Scheme Sathi now ships with a standards-compliant `manifest.webmanifest`, standalone display mode, site theme metadata, and a persistent Scheme Sathi home-screen icon. Public header actions include a right-side **Install app** button. On browsers that expose the install event, the action opens the browser’s native install prompt; the user’s choice is respected and shown through clear accepted or dismissed feedback. An already installed app shows a compact **Installed** status instead of re-offering installation.
+
+On iPhone and iPad, where browsers do not provide the same prompt, the control opens concise in-context Safari guidance: use **Share** then **Add to Home Screen**. This is a browser-installed PWA, not a downloadable native APK or IPA; installation therefore uses the device’s browser-managed application flow and does not require an app store account.
+
+The root service worker is registered after the page load. In production it caches the offline page, current same-origin navigations, and successfully fetched static scripts, styles, images, and fonts. It never intercepts `/api/` traffic, avoiding cache-based interference with authentication and fresh scheme data. A failed offline navigation falls back to the dedicated Scheme Sathi offline page. The development registration uses an explicit no-cache worker mode so ongoing local development does not receive stale shell responses.
+
+| Capability | User interaction | Behavior and boundary |
+| --- | --- | --- |
+| Desktop/Android installation | Choose **Install app** in the right side of the public header. | The browser’s native PWA prompt handles installation when the platform marks the app eligible. |
+| iPhone/iPad installation | Choose the same action in Safari. | Compact guidance explains **Share → Add to Home Screen**; no false native-download claim is made. |
+| Installed state | Reopen the installed web app. | The action becomes an accessible Installed state rather than duplicating an install request. |
+| Offline navigation | Open a cached app route without a connection. | The worker prefers a stored app shell and falls back to the offline notice if no route is cached. API calls remain network-only. |
+
+Verification covers PWA metadata, service-worker registration, root static endpoint responses, offline fallback wiring, install prompt/iOS/installed UI contracts, 1280 px and 375 px public-header renders, TypeScript, and the production build. The full suite passes **122 tests across 35 files**. The production build retains the existing non-blocking JavaScript chunk-size advisory. No publishing or browser installation was performed during development verification.
+
+## Offline Saved Schemes, Update Prompt, and Scheme Sharing
+
+The public header now includes a **Saved (n)** entry. Scheme Sathi keeps an offline-safe snapshot of only the public guidance for locally saved schemes: names, benefits, eligibility text, documents, steps, official portal URL, review label, category, artwork, and timing metadata. The snapshot deliberately excludes account IDs, session data, profiles, saved notes, feedback, uploaded documents, and any private administrator data. The new **Available offline** screen is reachable from the public navigation and opens saved scheme details, native share, and WhatsApp actions without requiring a live catalogue request.
+
+The service worker now uses a user-controlled update lifecycle. A new production worker fills its own `scheme-sathi-shell-v2` cache and waits rather than immediately replacing an active app shell. The global **Update available** prompt appears only after the browser identifies a waiting worker while an older controller is active. Choosing **Refresh** sends `SKIP_WAITING`, waits for the controller change, then reloads the page. Choosing **Later** dismisses the prompt and preserves the current session. API routes remain excluded from the worker cache.
+
+Scheme cards, the offline saved screen, the matched-detail screen, and direct `/scheme/:schemeId` pages now provide share actions. Where available, the browser’s native share sheet receives a compact bilingual Scheme Sathi detail URL and benefit summary. Browsers without native share fall back to copying the same payload when clipboard support exists. Every route also exposes a WhatsApp URL using encoded Scheme Sathi content, not an account-scoped link or private user data.
+
+| Capability | User interaction | Privacy and lifecycle boundary |
+| --- | --- | --- |
+| Offline saved schemes | Save a scheme while online, then use **Saved (n)** from public navigation. | Browser storage contains public scheme guidance only; no profile, account, or note data is copied into the snapshot. |
+| PWA update | Choose **Refresh** in the update prompt when a new shell is ready. | The app never forces an active session to refresh; update activation is explicit and API responses remain network-only. |
+| Native sharing | Choose the share icon on a card or **Share scheme** in a scheme view. | Shares a public Scheme Sathi deep link and compact public scheme copy only. |
+| WhatsApp sharing | Choose **WhatsApp** in a scheme view. | Opens a user-initiated encoded WhatsApp draft; no message is sent automatically. |
+
+Focused coverage validates offline snapshot privacy and malformed storage rejection, direct URL and bilingual WhatsApp payload creation, worker update signaling and `SKIP_WAITING` handling, direct-detail share wiring, and offline screen/header contracts. The full suite now passes **126 tests across 36 files**, with TypeScript and production build verification complete. The existing production bundle chunk-size advisory remains non-blocking. No publishing, live sharing action, worker refresh, or personal-data operation was performed during verification.
+
+## Offline Saved Discovery, Device-Only Reminders, and Bilingual Share Preview
+
+The offline Saved workspace now supports browser-local **text search**, **category**, and **Central/State level** filters. Matching runs only against the existing offline public-scheme snapshot; it does not fetch a catalogue, restore an account, or store any new private fields. The result count and clear-filter state are part of the same saved-screen experience, including the empty result state when no public saved scheme matches.
+
+The user selected **device-only** deadline reminders. The Saved screen offers a clear permission-gated **Enable** action for seven-day deadline notices. Once allowed, the browser checks current saved public scheme deadlines only while the Saved screen is visible and the app is active, then shows at most one notification per scheme deadline version. The local settings record contains only the enabled flag, fixed seven-day lead period, and deadline timestamps already notified. There is no server scheduler, web-push subscription, remote delivery, background guarantee, or publishing requirement. The notice explains this visible-app boundary and can be turned off locally at any time.
+
+Every card-level and detail-level share action now opens a **Preview before sharing** card instead of immediately launching a target. Users select **English** or **Hindi**, inspect the public scheme name, benefit summary, and Scheme Sathi link, then choose browser share options, WhatsApp, or copy. This preview is also used by the direct scheme route. Content remains limited to public scheme guidance and a public deep link; no account, profile, saved-note, or device reminder data enters a share payload.
+
+| Capability | User interaction | Boundary |
+| --- | --- | --- |
+| Offline saved filters | Use search, Category, and Level controls on **Saved (n)**. | Filters run entirely in browser memory over public offline snapshot data. |
+| Device-only reminder | Choose **Enable** and grant the browser permission. | Seven-day alert is checked only while the saved screen is visible and active; no exact background-time promise. |
+| Reminder disable | Choose **Turn off** in the active reminder card. | Local setting changes immediately; browser permission is not changed by the app. |
+| Share preview | Choose Share on a card or scheme page, select English/हिंदी, then choose target. | User must make the final browser/WhatsApp/copy action; public content only. |
+
+Focused coverage now validates seven-day candidate selection, expired/future exclusion, no-repeat deadline marking, invalid reminder-storage recovery, visible-app reminder gating, offline filter and preview wiring, and bilingual preview controls. The full suite passes **128 tests across 36 files**, TypeScript is clean, and the production build passes with the existing non-blocking chunk-size advisory. No notification permission, browser notification, live share, background reminder, publishing, or personal-data action was performed during verification.
+
+## Reminder Lead Time, Upcoming Deadline Sort, and Custom Share Note
+
+The device-only reminder preference is now a browser-local version 2 record. The Saved workspace lets users choose one of the validated lead-time presets: **1, 3, 7, 14, or 30 days** before a current deadline. Existing version 1 local settings migrate safely to the version 2 seven-day default. Changing the lead time does not clear the deadline-version notification ledger, so a saved scheme remains limited to one notification for the same deadline even if the user changes preferences later. The existing visible-and-active Saved-screen requirement remains unchanged; this is not an exact-time background reminder mechanism.
+
+The Saved discovery strip now includes **Upcoming deadline** sorting in addition to saved order. Upcoming dated schemes sort ascending by deadline, schemes with no announced deadline follow in their preserved saved order, and closed schemes appear last in their preserved order. Search, category, and Central/State filters apply first, then sorting is derived in browser memory from the same public offline snapshot.
+
+The bilingual share preview includes a bounded, optional **Personal note** field with a 240-character counter. The note is trimmed and used only in the immediate user-selected share payload; native share, WhatsApp, and copy use the same chosen English/Hindi scheme content plus the optional note. It is not written to the account, offline snapshot, reminder preference, database, analytics, or server logs.
+
+| Capability | User control | Data boundary |
+| --- | --- | --- |
+| Reminder timing | Select 1, 3, 7, 14, or 30 days in Saved reminders. | Browser-local setting; one notice per unchanged scheme deadline while Saved is visible and active. |
+| Deadline order | Select **Upcoming deadline** in Saved sort. | Derived entirely from public offline snapshot data; no fetch or account restore. |
+| Share note | Enter up to 240 characters in the bilingual preview before selecting a target. | Included only in the immediate public outbound payload; never persisted by Scheme Sathi. |
+
+Focused coverage validates legacy preference migration, exact selected lead-time candidates, stable upcoming/no-deadline/closed ordering, and bounded custom share-note construction. The suite passes **131 tests across 36 files**; TypeScript and the production build remain clean with the existing non-blocking chunk-size advisory. No notification permission, browser notification, live share, background reminder, personal-data operation, publishing, or deployment was performed during verification.
+
+## Saved Deadline Calendar, Multi-Schedule Reminders, and Audience Templates
+
+The offline Saved workspace now includes a **Monday-first month calendar** for future saved-scheme deadlines. Month controls are accessible, past deadlines are excluded, and each deadline item opens the existing in-memory offline scheme detail flow rather than requiring a new account or catalogue fetch. The calendar consumes only the current public offline snapshot; it does not persist calendar state, create calendar events, or expose private data.
+
+Device-only reminder preferences now use a browser-local version 3 record. A user can select any combination of **1, 3, 7, 14, and 30 days** for each saved scheme. Each `(scheme, deadline, lead-time)` schedule receives at most one notification, so multiple selected schedules can notify independently without duplicate delivery for the same schedule. Version 1 and 2 preferences migrate to a single selected lead time and retain their equivalent notification ledger. Checks still occur only while the Saved screen is visible and the app is active; there is no server scheduler, background-time guarantee, web push, remote delivery, or deployment requirement.
+
+The share preview now provides optional **Family**, **College**, and **NGO** note templates in English and Hindi. Selecting a template fills the existing 240-character personal-note field; users can then edit it before choosing native share, WhatsApp, or copy. Templates are public generic text and are included only in the selected outbound payload. They are never stored in accounts, the offline snapshot, reminder settings, analytics, or server logs.
+
+| Capability | User interaction | Privacy and delivery boundary |
+| --- | --- | --- |
+| Deadline calendar | Use month arrows; select a scheme deadline item to open its saved detail. | Current public offline snapshot only; no account or remote calendar required. |
+| Multi-schedule reminders | Toggle one or more 1/3/7/14/30-day chips. | One local notice per scheme/deadline/lead-time while Saved is open and active. |
+| Audience templates | Select Family, College, or NGO, then edit if needed. | Fills the local preview field only; outbound only after an explicit share action. |
+
+Focused coverage validates Monday-first six-week calendar grouping, future-only deadlines, per-lead schedule candidates, v1/v2-to-v3 preference migration, and bilingual audience template content. The suite passes **134 tests across 36 files**, with TypeScript and production build verification complete. The existing bundle-size advisory remains non-blocking. No notification permission, browser notification, live share, calendar event, background reminder, personal-data action, publishing, or deployment was performed during verification.
+
+## Deadline Legend, Scheme Reminder Master Switches, and Custom Templates
+
+The Saved deadline calendar now explains its time-to-deadline colors through an accessible legend: **within 7 days** uses the urgent treatment, **8–30 days** uses the upcoming treatment, and **after 30 days** uses the later treatment. The same deterministic deadline classifier is used on individual calendar deadline entries, so the legend remains aligned with what a user sees. It is display-only and does not modify the public offline snapshot, deadline data, or reminders.
+
+Browser-local reminder preferences now use version 4. Each future saved scheme exposes a switch that turns all of its configured lead-time schedules on or off together. Disabling a scheme appends only its public scheme ID to `disabledSchemeIds`; it leaves selected lead times and the existing per-schedule notification ledger intact. Re-enabling the scheme restores the prior schedules without creating a new account preference, background job, remote notification, or server-side state. Version 1–3 records migrate safely with all scheme switches initially enabled.
+
+The share preview includes a device-local **Your templates** manager. Users can save up to twelve templates, each with a name limited to 40 characters and an existing bounded 240-character note. A template can be selected, edited, updated, or deleted. Only a template selected by the user fills the preview note; the note is still included only in an explicit native share, WhatsApp, or copy action. Templates are not written to user accounts, the offline snapshot, reminder settings, analytics, or server logs.
+
+| Capability | User interaction | Privacy and delivery boundary |
+| --- | --- | --- |
+| Deadline legend | Refer to urgent, upcoming, and later dots above the calendar grid. | Pure visual interpretation of public deadline timestamps. |
+| Scheme master switch | Toggle a scheme in **Scheme reminders** to disable or restore all its lead-time schedules. | Device-local opt-out; global schedule preferences and prior notification ledger remain intact. |
+| Custom templates | Save, use, edit, or delete a named note from **Your templates**. | Up to 12 local templates; sent externally only through an explicit share target. |
+
+Focused coverage validates the three deadline-color thresholds, v3-to-v4 preference migration, candidate exclusion for disabled schemes, and valid bounded template storage/recovery. The suite passes **137 tests across 36 files**, TypeScript and production build checks pass, and the existing bundle-size advisory remains non-blocking. No notification permission, browser notification, live share, calendar event, background reminder, personal-data action, publishing, or deployment was performed during verification.
+
+## Per-Scheme Snooze, Calendar Category Filters, and Template Backups
+
+Browser-local reminder preferences now use version 5. A specific scheme can be snoozed for **one day** from its reminder row without changing the global enabled state, the scheme master switch, or selected 1/3/7/14/30-day schedules. While the local snooze timestamp is in the future, that scheme contributes no notification candidates. Choosing **Resume reminders** removes only the snooze timestamp and restores the prior schedules. Version 1–4 settings migrate with no active snoozes. Reminder checks remain limited to the visible active Saved workspace; no background or remote notification mechanism was added.
+
+The deadline calendar now derives a **Category filter** from public schemes already stored in the offline Saved snapshot. Selecting a category filters only the rendered deadline entries for the current calendar interaction. It neither changes saved schemes, modifies deadlines, writes a user profile preference, nor makes a network request.
+
+Custom share templates now support a browser-local JSON backup format. **Export backup** downloads a versioned file containing only template name and note values; IDs, accounts, saved schemes, profiles, reminder settings, and session data are excluded. **Import backup** accepts only the expected format/version, maximum 12 valid bounded templates, and a maximum 50 KB local file. Names that collide with current templates are restored as `Name (2)`, `Name (3)`, and so on. Imports are rejected when the local twelve-template capacity would be exceeded; no server upload occurs.
+
+| Capability | User interaction | Privacy and delivery boundary |
+| --- | --- | --- |
+| Snooze reminders | Select **Snooze 1 day** for a future saved scheme; choose **Resume reminders** to clear it early. | Device-local timestamp only; existing schedules and notification ledger stay intact. |
+| Calendar category | Select a current public scheme category above the month grid. | In-memory filter over offline public snapshot data only. |
+| Template backup | Export JSON or import a validated local JSON file from **Your templates**. | Template names/notes only; browser-local download/read, no server file transfer. |
+
+Focused coverage validates v4-to-v5 migration, snooze candidate suppression and resumption, strict backup parsing, collision-safe restore names, and calendar filter/UI contract wiring. The suite passes **139 tests across 36 files**, TypeScript and production build checks pass, and the existing bundle-size advisory remains non-blocking. No notification permission, browser notification, live share, calendar event, background reminder, template file import/export, personal-data action, publishing, or deployment was performed during verification.
+
+> PWA visual verification: the right-side **Install app** control is visible and aligned with the public header actions at 1280 px. At 375 px it deliberately condenses into a labelled-by-accessibility saffron download icon, preserving room for account, language, appearance, and menu controls without horizontal clipping.
+
+> Offline/update/share visual verification: the desktop header now shows the private-device **Saved (0)** access beside Install app without crowding navigation. At 375 px, the compact action rail retains available width and the Saved entry remains reachable in the mobile navigation drawer. Direct-detail capture reached its expected asynchronous loading state; native/WhatsApp share controls remain covered by route and UI contracts because no live scheme request or share target was invoked during verification.
+
+> Offline discovery/reminder/preview visual verification: the desktop Saved entry remains aligned with the public header action rail, and the 375 px header keeps the existing compact controls free of clipping. The populated offline filters, permission-gated reminder card, and open share-preview dialog are covered by pure helper plus UI-contract coverage because the inspected account had no saved schemes, no browser permission request, and no live sharing interaction was invoked.
+
+> Reminder timing/sort/note visual verification: the desktop Saved access continues to fit cleanly in the public action rail, while the 375 px compact header stays unclipped. Populated lead-time, upcoming-deadline sort, and custom-note controls are covered by pure-helper and UI-contract coverage because the visual session had no saved schemes and no notification permission or share target was invoked.
+
+> Calendar/multi-schedule/template visual verification: desktop Saved access remains aligned with the public action rail and the 375 px compact header remains unclipped. The populated month grid, multi-schedule chips, and quick-template controls are helper and UI-contract covered because the visual session had no saved schemes, no notification permission request, and no share target invocation.
+
+> Legend/master-switch/custom-template visual verification: the desktop Saved entry remains aligned in the public action rail and the 375 px header remains unclipped. Populated legend colors, per-scheme switches, and custom-template rows are covered by helper and UI-contract tests because the visual session had no saved schemes, notification permission request, or live share action.
+
+> Snooze/category-filter/template-backup visual verification: the desktop Saved entry remains aligned with the public action rail and the 375 px compact header remains unclipped. Populated snooze controls, calendar category selection, and template import/export controls are covered by helper and UI-contract tests because the visual session had no saved schemes, notification permission request, template file, or live share action.
+
+## Configurable Snooze, Calendar Print/PDF, and Import Review
+
+The device-local version 6 reminder settings let a person pick a snooze duration of **1 hour, 1 day, 3 days, or 1 week** before snoozing a single future saved scheme. The resulting per-scheme timestamp remains in `snoozedUntilBySchemeId`; it suppresses only that scheme’s candidate reminders until expiry or an explicit resume. Its selected lead-time schedules, master enabled state, and notification ledger are unchanged. Earlier version 1–5 reminder records still migrate safely with no active snoozes. Reminder evaluation remains limited to the open, visible Saved workspace and does not create background jobs, web push, or server-side reminder state.
+
+The current month calendar now offers **Print / PDF**. It opens a browser-local print document prepared from the displayed category-filtered public deadline set, uses an A4 layout with the selected month and category label, and leaves final printing or Save as PDF entirely to the browser’s print dialog. Scheme names, categories, labels, and dates are HTML-escaped before entering the print document. The output contains public saved-scheme deadline guidance only; it excludes accounts, profile attributes, reminder preferences, notes, template IDs, and any other private data.
+
+Local custom-template import is now staged. Selecting a valid backup parses and collision-plans the bounded template names in browser memory, then opens **Review before import** with each proposed name and note. Nothing is persisted until the person selects **Confirm import**; cancellation clears the pending proposal. The existing strict version, field-length, capacity, 50 KB file-size, and collision-safe restore checks are preserved, with no file upload or server call.
+
+| Capability | User interaction | Data and execution boundary |
+| --- | --- | --- |
+| Configurable snooze | Choose 1h, 1d, 3d, or 1w, then snooze a specific saved scheme. | Only a device-local per-scheme timestamp changes; schedules, master state, and prior notification ledger remain intact. |
+| Calendar print/PDF | Select **Print / PDF** after choosing a calendar category. | A category-scoped A4 HTML document is assembled locally; the browser controls printing and PDF saving. |
+| Import review | Select a backup, inspect the proposed template list, then confirm or cancel. | Parsed content stays staged in memory until explicit confirmation; no network transfer occurs. |
+
+Focused regression coverage validates a one-hour snooze candidate boundary, escaped category-scoped print output, no-deadline print messaging, and UI contracts for duration selection, print markup, review-before-import, and confirmation. The full suite passes **141 tests across 36 test files**; `pnpm check` is clean and the production build passes with the existing non-blocking chunk-size advisory. Desktop 1280 px and compact 375 px public-header screenshots remain aligned without clipping. No notification permission, browser notification, print/PDF save, template-file import/export, live sharing, publishing, deployment, or personal-data action was performed during verification.
+
+> Configurable snooze/print/import visual verification: desktop and 375 px public headers continue to preserve an unclipped Saved entry point and action rail. The populated duration selector, category-scoped print flow, and staged import modal are covered by pure helper and UI-contract tests because the visual session had no saved schemes or local backup file, and no browser print dialog or import confirmation was invoked.
+
+## Snooze History, Calendar CSV, and Duplicate Import Strategy
+
+The local reminder record now uses version 6 and retains a bounded **24-entry** per-scheme snooze activity log. Each entry contains only the public scheme ID, a local action (`snoozed` or `resumed`), a device timestamp, and—when applicable—the selected snooze end time. The Saved workspace translates those entries into a compact recent-activity list with scheme name, selected duration, and resume action. It does not create a remote audit trail, account record, server request, background process, or notification delivery guarantee. Version 5 records preserve their active snooze timestamps while starting with an empty history.
+
+The monthly deadline calendar now offers **Export CSV** beside Print / PDF. The file is built only from the displayed current-month, category-filtered public saved deadline set. It includes a localized scheme name, ISO deadline date, formatted deadline, category, level, and official portal link. Every field is RFC-style quoted, line breaks are normalized, and formula-leading values are apostrophe-prefixed before download to reduce spreadsheet formula interpretation. The browser handles the local download; no calendar data, profile data, reminders, or notes are uploaded.
+
+The staged template-import review now has an explicit duplicate strategy selector. **Rename duplicates** keeps all valid imported templates and plans collision-safe `Name (2)` style alternatives; **Skip duplicates** excludes imported names that already exist locally. The preview recalculates imported, renamed, and skipped counts before confirmation. Capacity remains checked against the post-strategy local list, and no template write occurs until **Confirm import** is selected.
+
+| Capability | User interaction | Data boundary |
+| --- | --- | --- |
+| Snooze history | Snooze or resume a future saved scheme, then review recent activity. | At most 24 device-local actions; no account, server, or remote log. |
+| Calendar CSV | Select a category and choose **Export CSV**. | Current month and current category public deadlines only; formula-safe local file download. |
+| Duplicate strategy | During import review, choose **Rename duplicates** or **Skip duplicates**. | Browser-local proposed list only; persistence still requires confirmation. |
+
+Focused coverage validates version 5-to-6 history migration, bounded local action records, category-scoped CSV output, formula escaping, public-field scope, collision-safe rename planning, and skip planning. The complete suite passes **143 tests across 36 files**; TypeScript is clean and the production build passes with the existing non-blocking chunk-size advisory. Desktop 1280 px and mobile 375 px public-shell checks remain unclipped. No snooze, reminder permission, browser notification, CSV download, template import, live share, publishing, deployment, or personal-data action was performed during verification.
+
+> Snooze-history/CSV/strategy visual verification: the desktop and 375 px public action rails remain stable. Populated saved-scheme interactions are covered through helper and UI-contract tests because the visual session had no local saved schemes or import backup file; no browser download or import confirmation occurred.
+
+[1] [National Scholarship Portal — Schemes on NSP](https://scholarships.gov.in/All-Scholarships)

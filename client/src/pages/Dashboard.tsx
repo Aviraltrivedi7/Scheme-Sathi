@@ -1,0 +1,1238 @@
+import DashboardLayout from "@/components/DashboardLayout";
+import { BatchOcrReview } from "@/components/BatchOcrReview";
+import { DocumentHistoryTools } from "@/components/DocumentHistoryTools";
+import { FamilyInvitationAlerts } from "@/components/FamilyInvitationAlerts";
+import { ManualReviewPriorityQueue } from "@/components/ManualReviewPriorityQueue";
+import { OcrConfidenceChart } from "@/components/OcrConfidenceChart";
+import { SavedSchemeNotesPanel } from "@/components/SavedSchemeNotesPanel";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getOcrBadge } from "@/lib/ocrStatus";
+import { trpc } from "@/lib/trpc";
+import {
+  applicationStatusCopy,
+  applicationStatuses,
+  type ApplicationStatus,
+} from "@shared/applicationTracker";
+import {
+  AlertTriangle,
+  BadgeCheck,
+  BellRing,
+  CalendarClock,
+  CheckCircle2,
+  ClipboardList,
+  Ellipsis,
+  ExternalLink,
+  Eye,
+  FileCheck2,
+  FileText,
+  FileWarning,
+  Flag,
+  FlagOff,
+  History,
+  Languages,
+  LayoutDashboard,
+  Loader2,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  ScanText,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
+import { type ChangeEvent, useMemo, useState } from "react";
+import { toast } from "sonner";
+import "./DocumentWorkflowEnhancements.css";
+
+type ChecklistLanguage = "en" | "hi";
+type DocumentReviewState = "unreviewed" | "reviewed" | "flagged";
+const dateFormat = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+const inputDateTime = (timestamp: number) =>
+  new Date(timestamp - new Date().getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+const inputDate = (timestamp: number | null | undefined) =>
+  timestamp
+    ? new Date(timestamp - new Date().getTimezoneOffset() * 60_000)
+        .toISOString()
+        .slice(0, 10)
+    : "";
+const copy = (language: ChecklistLanguage, english: string, hindi: string) =>
+  language === "hi" ? hindi : english;
+const asBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The file could not be read."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(file);
+  });
+
+function dueLabel(deadline: number | null) {
+  if (!deadline) return "No deadline announced";
+  const days = Math.ceil((deadline - Date.now()) / 86_400_000);
+  return days < 0
+    ? "Deadline passed"
+    : days === 0
+      ? "Due today"
+      : `${days} days left`;
+}
+function expiryText(
+  expiresAt: number | null,
+  state: "valid" | "expiringSoon" | "expired" | "unknown",
+  language: ChecklistLanguage
+) {
+  if (!expiresAt)
+    return copy(language, "Expiry not set", "समाप्ति तिथि नहीं दी गई");
+  if (state === "expired")
+    return copy(
+      language,
+      "Expired — re-upload needed",
+      "समाप्त — दोबारा अपलोड करें"
+    );
+  if (state === "expiringSoon")
+    return copy(
+      language,
+      `Expires ${dateFormat.format(new Date(expiresAt))}`,
+      `${dateFormat.format(new Date(expiresAt))} को समाप्त`
+    );
+  return copy(
+    language,
+    `Valid until ${dateFormat.format(new Date(expiresAt))}`,
+    `${dateFormat.format(new Date(expiresAt))} तक मान्य`
+  );
+}
+
+function OcrStatusBadge({
+  status,
+  extraction,
+  language,
+  minimumConfidence,
+}: {
+  status: "notRequested" | "processing" | "complete" | "failed";
+  extraction: {
+    confidence: "low" | "medium" | "high";
+    concerns: string[];
+  } | null;
+  language: ChecklistLanguage;
+  minimumConfidence: "low" | "medium" | "high";
+}) {
+  const badge = getOcrBadge(status, extraction, language, minimumConfidence);
+  const Icon =
+    badge.tone === "manual"
+      ? AlertTriangle
+      : badge.tone === "pending"
+        ? status === "processing"
+          ? Loader2
+          : ScanText
+        : CheckCircle2;
+  return (
+    <span
+      className={`ocr-status-badge ${badge.tone}`}
+      role="status"
+      title={badge.nextAction}
+    >
+      <Icon
+        className={status === "processing" ? "spin" : undefined}
+        size={12}
+      />
+      {badge.label}
+    </span>
+  );
+}
+
+function OcrReview({
+  extraction,
+}: {
+  extraction: {
+    documentType: string;
+    detectedName: string | null;
+    referenceNumbers: string[];
+    dates: string[];
+    keyDetails: string[];
+    concerns: string[];
+    confidence: "low" | "medium" | "high";
+  };
+}) {
+  return (
+    <div className={`ocr-review-card ${extraction.confidence}`}>
+      <div className="ocr-review-heading">
+        <span>
+          <ScanText size={15} /> AI extracted details
+        </span>
+        <b>{extraction.confidence} confidence</b>
+      </div>
+      <p>
+        <strong>{extraction.documentType}</strong>
+        {extraction.detectedName ? ` · ${extraction.detectedName}` : ""}
+      </p>
+      {extraction.keyDetails.length > 0 && (
+        <ul>
+          {extraction.keyDetails.map(item => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      )}
+      {extraction.referenceNumbers.length > 0 && (
+        <small>References: {extraction.referenceNumbers.join(" · ")}</small>
+      )}
+      {extraction.dates.length > 0 && (
+        <small>Dates: {extraction.dates.join(" · ")}</small>
+      )}
+      {extraction.concerns.length > 0 && (
+        <div className="ocr-concerns">
+          <AlertTriangle size={13} />
+          {extraction.concerns.join(" ")}
+        </div>
+      )}
+      <div className="ocr-manual-note">
+        <ShieldCheck size={13} />
+        Review the preview against these details before final submission. OCR is
+        advisory, not a validity or eligibility check.
+      </div>
+    </div>
+  );
+}
+
+function DocumentTimeline({
+  activity,
+}: {
+  activity: {
+    id: number;
+    kind: string;
+    detail: string | null;
+    createdAt: number;
+    confidenceHistory?: {
+      confidence: "low" | "medium" | "high";
+      concernCount: number;
+      createdAt: number;
+    }[];
+    needsManualReview?: boolean;
+  }[];
+}) {
+  const labels: Record<string, string> = {
+    uploaded: "Document uploaded",
+    reuploaded: "Fresh copy uploaded",
+    expiryUpdated: "Expiry date updated",
+    ocrStarted: "OCR started",
+    ocrCompleted: "OCR details extracted",
+    ocrFailed: "OCR needs attention",
+    userVerified: "You verified details",
+    reviewed: "Marked reviewed",
+    flagged: "Flagged for inspection",
+    ocrConfidenceTrend: "OCR confidence trend",
+  };
+  return (
+    <section className="document-timeline">
+      <div className="timeline-heading">
+        <History size={14} />
+        Activity timeline
+      </div>
+      {activity.length ? (
+        activity.map(event => (
+          <div className={`timeline-event ${event.kind}`} key={event.id}>
+            <span />
+            <div>
+              <strong>{labels[event.kind] ?? event.kind}</strong>
+              {event.detail && <small>{event.detail}</small>}
+              <time>{dateFormat.format(new Date(event.createdAt))}</time>
+              {event.confidenceHistory && (
+                <OcrConfidenceChart
+                  documentName="this document"
+                  history={event.confidenceHistory}
+                  needsManualReview={Boolean(event.needsManualReview)}
+                />
+              )}
+            </div>
+          </div>
+        ))
+      ) : (
+        <small className="timeline-empty">
+          Activity will appear after upload, OCR, expiry, or verification
+          updates.
+        </small>
+      )}
+    </section>
+  );
+}
+
+function DocumentQuickActions({
+  documentId,
+  reviewState,
+}: {
+  documentId: number;
+  reviewState: DocumentReviewState;
+}) {
+  const utils = trpc.useUtils();
+  const setReviewState = trpc.documents.setReviewState.useMutation({
+    onSuccess: async (_, variables) => {
+      await utils.applications.list.invalidate();
+      toast.success(
+        variables.reviewState === "reviewed"
+          ? "Document marked reviewed."
+          : variables.reviewState === "flagged"
+            ? "Document flagged for inspection."
+            : "Document returned to unreviewed."
+      );
+    },
+    onError: error =>
+      toast.error(error.message || "The document action could not be saved."),
+  });
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="document-menu-trigger"
+          type="button"
+          aria-label="Document quick actions"
+          disabled={setReviewState.isPending}
+        >
+          {setReviewState.isPending ? (
+            <Loader2 className="spin" size={15} />
+          ) : (
+            <Ellipsis size={16} />
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="document-quick-menu">
+        <DropdownMenuItem
+          disabled={reviewState === "reviewed"}
+          onSelect={() =>
+            setReviewState.mutate({ documentId, reviewState: "reviewed" })
+          }
+        >
+          <BadgeCheck size={14} />
+          Mark reviewed
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={reviewState === "flagged"}
+          onSelect={() =>
+            setReviewState.mutate({ documentId, reviewState: "flagged" })
+          }
+        >
+          <Flag size={14} />
+          Flag for inspection
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={reviewState === "unreviewed"}
+          onSelect={() =>
+            setReviewState.mutate({ documentId, reviewState: "unreviewed" })
+          }
+        >
+          <FlagOff size={14} />
+          Clear review state
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export default function Dashboard() {
+  const utils = trpc.useUtils();
+  const applicationsQuery = trpc.applications.list.useQuery();
+  const catalogQuery = trpc.schemes.list.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+  });
+  const notificationsQuery = trpc.documents.notifications.useQuery(undefined, {
+    retry: false,
+  });
+  const [schemeId, setSchemeId] = useState("");
+  const [filter, setFilter] = useState<"all" | ApplicationStatus>("all");
+  const [checklistLanguage, setChecklistLanguage] =
+    useState<ChecklistLanguage>("en");
+  const [documentExpiryDates, setDocumentExpiryDates] = useState<
+    Record<string, string>
+  >({});
+  const [reminderTimes, setReminderTimes] = useState<Record<number, string>>(
+    {}
+  );
+  const [savingApplicationId, setSavingApplicationId] = useState<number | null>(
+    null
+  );
+  const [uploadingItem, setUploadingItem] = useState<string | null>(null);
+  const [previewDocumentId, setPreviewDocumentId] = useState<number | null>(
+    null
+  );
+  const [extractingDocumentId, setExtractingDocumentId] = useState<
+    number | null
+  >(null);
+  const previewQuery = trpc.documents.preview.useQuery(
+    { documentId: previewDocumentId ?? 0 },
+    { enabled: previewDocumentId !== null, retry: false }
+  );
+  const track = trpc.applications.track.useMutation({
+    onSuccess: async () => {
+      setSchemeId("");
+      await utils.applications.list.invalidate();
+      toast.success("Added to your Application Desk.");
+    },
+    onError: () =>
+      toast.error("We could not track that scheme. Please try again."),
+  });
+  const update = trpc.applications.update.useMutation({
+    onMutate: ({ trackedApplicationId }) =>
+      setSavingApplicationId(trackedApplicationId),
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      toast.success("Application status saved.");
+    },
+    onError: () => toast.error("We could not save that update."),
+    onSettled: () => setSavingApplicationId(null),
+  });
+  const createReminder = trpc.reminders.create.useMutation({
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      toast.success("Reminder scheduled.");
+    },
+    onError: () =>
+      toast.error(
+        "Publish this project first to activate scheduled reminders."
+      ),
+  });
+  const cancelReminder = trpc.reminders.cancel.useMutation({
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      toast.message("Reminder cancelled.");
+    },
+    onError: error =>
+      toast.error(error.message || "The reminder could not be cancelled."),
+  });
+  const uploadDocument = trpc.documents.upload.useMutation({
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      await utils.documents.notifications.invalidate();
+      toast.success(
+        copy(
+          checklistLanguage,
+          "Document added to your checklist.",
+          "दस्तावेज़ चेकलिस्ट में जोड़ दिया गया है।"
+        )
+      );
+    },
+    onError: error =>
+      toast.error(error.message || "The document could not be uploaded."),
+    onSettled: () => setUploadingItem(null),
+  });
+  const removeDocument = trpc.documents.remove.useMutation({
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      toast.message("Document removed from this checklist.");
+    },
+    onError: error =>
+      toast.error(error.message || "The document could not be removed."),
+  });
+  const updateExpiry = trpc.documents.updateExpiry.useMutation({
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      toast.success(
+        copy(
+          checklistLanguage,
+          "Expiry date updated.",
+          "समाप्ति तिथि अपडेट हो गई।"
+        )
+      );
+    },
+    onError: error =>
+      toast.error(error.message || "The expiry date could not be updated."),
+  });
+  const extractDocument = trpc.documents.extract.useMutation({
+    onMutate: ({ documentId }) => setExtractingDocumentId(documentId),
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      toast.success("Details extracted. Review them against the preview.");
+    },
+    onError: error =>
+      toast.error(
+        error.message ||
+          "OCR could not be completed. Please retry or review manually."
+      ),
+    onSettled: () => setExtractingDocumentId(null),
+  });
+  const approveOcr = trpc.documents.approveOcr.useMutation({
+    onSuccess: async () => {
+      await utils.applications.list.invalidate();
+      toast.success("You approved the extracted details.");
+    },
+    onError: error =>
+      toast.error(error.message || "OCR details could not be approved."),
+  });
+  const markNotificationRead = trpc.documents.markNotificationRead.useMutation({
+    onSuccess: () => utils.documents.notifications.invalidate(),
+    onError: error =>
+      toast.error(error.message || "The notification could not be updated."),
+  });
+  const applications = applicationsQuery.data?.applications ?? [];
+  const notifications = notificationsQuery.data?.notifications ?? [];
+  const minimumConfidence =
+    applicationsQuery.data?.ocrPolicy.minimumConfidence ?? "medium";
+  const filtered = useMemo(
+    () =>
+      applications.filter(
+        application => filter === "all" || application.status === filter
+      ),
+    [applications, filter]
+  );
+  const counts = useMemo(
+    () => ({
+      active: applications.filter(application =>
+        ["considering", "preparing", "submitted"].includes(application.status)
+      ).length,
+      submitted: applications.filter(
+        application => application.status === "submitted"
+      ).length,
+      due: applications.filter(
+        application =>
+          application.applicationDeadline &&
+          application.applicationDeadline >= Date.now() &&
+          application.applicationDeadline <= Date.now() + 30 * 86_400_000
+      ).length,
+    }),
+    [applications]
+  );
+  const availableSchemes = (catalogQuery.data?.schemes ?? []).filter(
+    scheme =>
+      !applications.some(application => application.schemeId === scheme.id)
+  );
+  const handleUpload = async (
+    applicationId: number,
+    documentName: string,
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024)
+      return toast.error("Please choose a file smaller than 5 MB.");
+    const key = `${applicationId}:${documentName}`;
+    setUploadingItem(key);
+    try {
+      const base64Data = await asBase64(file);
+      const expiry = documentExpiryDates[key];
+      uploadDocument.mutate({
+        trackedApplicationId: applicationId,
+        documentName,
+        fileName: file.name,
+        mimeType: file.type,
+        base64Data,
+        expiresAt: expiry ? new Date(expiry).getTime() : null,
+      });
+    } catch {
+      setUploadingItem(null);
+      toast.error("The selected file could not be prepared.");
+    }
+  };
+  return (
+    <DashboardLayout>
+      <div className="application-desk">
+        <header className="desk-masthead">
+          <div>
+            <span className="desk-kicker">
+              <LayoutDashboard size={14} /> APPLICATION DESK
+            </span>
+            <h1>
+              Your applications, <em>made visible.</em>
+            </h1>
+            <p>
+              Keep each scheme, deadline and next step in one calm workspace.
+              Your application data is private to your account.
+            </p>
+          </div>
+          <button
+            className="desk-refresh"
+            onClick={() => applicationsQuery.refetch()}
+          >
+            <RefreshCw size={15} /> Refresh
+          </button>
+        </header>
+        {notifications.length > 0 && (
+          <section className="document-notice-tray">
+            <div>
+              <span className="desk-kicker">
+                <AlertTriangle size={14} /> DOCUMENT ACTIONS
+              </span>
+              <h2>
+                {copy(
+                  checklistLanguage,
+                  "Your files need attention",
+                  "आपके दस्तावेज़ों पर ध्यान चाहिए"
+                )}
+              </h2>
+            </div>
+            <div>
+              {notifications.map(notice => (
+                <button
+                  key={notice.id}
+                  onClick={() =>
+                    markNotificationRead.mutate({ notificationId: notice.id })
+                  }
+                >
+                  <AlertTriangle size={16} />
+                  <span>
+                    <strong>{notice.documentName}</strong>
+                    <small>
+                      {notice.kind === "expired"
+                        ? copy(
+                            checklistLanguage,
+                            "Expired — upload a fresh copy.",
+                            "समाप्त — नई कॉपी अपलोड करें।"
+                          )
+                        : copy(
+                            checklistLanguage,
+                            "Expiring soon — prepare a fresh copy.",
+                            "जल्द समाप्त — नई कॉपी तैयार रखें।"
+                          )}
+                    </small>
+                  </span>
+                  <X size={15} />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        <SavedSchemeNotesPanel />
+        <section className="desk-stats">
+          <article>
+            <span className="desk-stat-icon saffron">
+              <ClipboardList size={19} />
+            </span>
+            <div>
+              <strong>{counts.active}</strong>
+              <small>active applications</small>
+            </div>
+          </article>
+          <article>
+            <span className="desk-stat-icon indigo">
+              <CheckCircle2 size={19} />
+            </span>
+            <div>
+              <strong>{counts.submitted}</strong>
+              <small>waiting for an update</small>
+            </div>
+          </article>
+          <article>
+            <span className="desk-stat-icon coral">
+              <CalendarClock size={19} />
+            </span>
+            <div>
+              <strong>{counts.due}</strong>
+              <small>deadline within 30 days</small>
+            </div>
+          </article>
+        </section>
+        <section className="desk-add-card">
+          <div>
+            <span className="desk-kicker">START TRACKING</span>
+            <h2>Add a scheme to your desk</h2>
+            <p>
+              Track an application before or after you submit it. You can set
+              your own deadline and reference later.
+            </p>
+          </div>
+          <div className="desk-add-controls">
+            <select
+              value={schemeId}
+              onChange={event => setSchemeId(event.target.value)}
+            >
+              <option value="">Select a scheme</option>
+              {availableSchemes.map(scheme => (
+                <option value={scheme.id} key={scheme.id}>
+                  {scheme.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="desk-primary"
+              disabled={!schemeId || track.isPending}
+              onClick={() => track.mutate({ schemeId })}
+            >
+              <Plus size={16} />
+              {track.isPending ? "Adding…" : "Track scheme"}
+            </button>
+          </div>
+        </section>
+        <FamilyInvitationAlerts />
+        <DocumentHistoryTools />
+        <BatchOcrReview />
+        <ManualReviewPriorityQueue />
+        <section className="desk-board">
+          <div className="desk-board-heading">
+            <div>
+              <span className="desk-kicker">YOUR WORKSPACE</span>
+              <h2>What needs your attention?</h2>
+            </div>
+            <div className="desk-status-filter">
+              {(["all", ...applicationStatuses] as const).map(status => (
+                <button
+                  key={status}
+                  className={filter === status ? "active" : ""}
+                  onClick={() => setFilter(status)}
+                >
+                  {status === "all"
+                    ? "All"
+                    : applicationStatusCopy[status].label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {applicationsQuery.isLoading && (
+            <div className="desk-empty">
+              <RefreshCw className="spin" size={20} />
+              <p>Loading your application desk…</p>
+            </div>
+          )}
+          {applicationsQuery.isError && !applicationsQuery.isLoading && (
+            <div className="desk-empty" role="alert">
+              <Sparkles size={24} />
+              <h3>Your desk could not load.</h3>
+              <p>Check your connection and try again — your tracked schemes are safe.</p>
+              <button type="button" className="desk-secondary" onClick={() => applicationsQuery.refetch()}>Retry</button>
+            </div>
+          )}
+          {!applicationsQuery.isLoading && !applicationsQuery.isError && !filtered.length && (
+            <div className="desk-empty">
+              <Sparkles size={24} />
+              <h3>
+                {applications.length
+                  ? "No applications in this view."
+                  : "Your desk is ready when you are."}
+              </h3>
+              <p>
+                {applications.length
+                  ? "Choose another status to see more entries."
+                  : "Select a scheme above to track a deadline, application status and reminders."}
+              </p>
+            </div>
+          )}
+          <div className="desk-application-list">
+            {filtered.map(application => {
+              const status = applicationStatusCopy[application.status];
+              const documents = application.documents ?? [];
+              const reminderValue =
+                reminderTimes[application.id] ??
+                inputDateTime(Date.now() + 86_400_000);
+              const pendingReminder = application.reminders.find(
+                reminder => reminder.status === "scheduled"
+              );
+              return (
+                <article
+                  className={`desk-application-card ${savingApplicationId === application.id ? "is-saving" : ""}`}
+                  key={application.id}
+                >
+                  <div className="desk-card-main">
+                    <div
+                      className={`desk-scheme-mark ${application.scheme?.accent ?? "indigo"}`}
+                    >
+                      {application.scheme?.category?.slice(0, 1) ?? "S"}
+                    </div>
+                    <div>
+                      <div className="desk-card-meta">
+                        <span className={`status-chip ${status.tone}`}>
+                          {savingApplicationId === application.id ? (
+                            <>
+                              <Loader2 className="spin" size={12} />
+                              Saving
+                            </>
+                          ) : (
+                            status.label
+                          )}
+                        </span>
+                        {application.applicationDeadline && (
+                          <span className="deadline-chip">
+                            <CalendarClock size={13} />
+                            {dueLabel(application.applicationDeadline)}
+                          </span>
+                        )}
+                      </div>
+                      <h3>
+                        {application.scheme?.name ?? application.schemeId}
+                      </h3>
+                      <p>
+                        {application.deadlineLabel ??
+                          "Add your own deadline to keep this application on track."}
+                      </p>
+                      <div className="desk-card-details">
+                        <label>
+                          Status
+                          <select
+                            disabled={savingApplicationId === application.id}
+                            value={application.status}
+                            onChange={event =>
+                              update.mutate({
+                                trackedApplicationId: application.id,
+                                status: event.target.value as ApplicationStatus,
+                              })
+                            }
+                          >
+                            {applicationStatuses.map(value => (
+                              <option key={value} value={value}>
+                                {applicationStatusCopy[value].label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Reference
+                          <input
+                            value={application.applicationReference ?? ""}
+                            placeholder="Application reference"
+                            onBlur={event =>
+                              update.mutate({
+                                trackedApplicationId: application.id,
+                                applicationReference:
+                                  event.target.value || null,
+                              })
+                            }
+                          />
+                        </label>
+                      </div>
+                      {application.scheme && (
+                        <section className="desk-document-checklist">
+                          <div className="desk-document-title">
+                            <span>
+                              <FileCheck2 size={15} />
+                              {copy(
+                                checklistLanguage,
+                                "Document checklist",
+                                "दस्तावेज़ चेकलिस्ट"
+                              )}
+                            </span>
+                            <div>
+                              <small>
+                                {copy(
+                                  checklistLanguage,
+                                  `${documents.length}/${application.scheme.documents.length} uploaded`,
+                                  `${documents.length}/${application.scheme.documents.length} अपलोड हुआ`
+                                )}
+                              </small>
+                              <button
+                                onClick={() =>
+                                  setChecklistLanguage(language =>
+                                    language === "en" ? "hi" : "en"
+                                  )
+                                }
+                              >
+                                <Languages size={13} />
+                                {checklistLanguage === "en" ? "हिंदी" : "EN"}
+                              </button>
+                            </div>
+                          </div>
+                          {application.scheme.documents.map(
+                            (documentName, index) => {
+                              const uploaded = documents.find(
+                                document =>
+                                  document.documentName === documentName
+                              );
+                              const itemKey = `${application.id}:${documentName}`;
+                              const expiryValue =
+                                documentExpiryDates[itemKey] ??
+                                inputDate(uploaded?.expiresAt);
+                              const title =
+                                checklistLanguage === "hi"
+                                  ? (application.scheme!.documentsHindi[
+                                      index
+                                    ] ?? documentName)
+                                  : documentName;
+                              return (
+                                <div
+                                  className={`desk-document-item ${uploaded ? "complete" : ""} ${uploaded?.reviewState ?? ""}`}
+                                  key={documentName}
+                                >
+                                  <span>
+                                    {uploaded ? (
+                                      <CheckCircle2 size={15} />
+                                    ) : (
+                                      <span className="document-empty" />
+                                    )}
+                                  </span>
+                                  <div>
+                                    <strong>{title}</strong>
+                                    {uploaded ? (
+                                      <>
+                                        <a
+                                          href={uploaded.storageUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                        >
+                                          {uploaded.fileName}
+                                        </a>
+                                        <small
+                                          className={`expiry-${uploaded.expiryState}`}
+                                        >
+                                          {expiryText(
+                                            uploaded.expiresAt,
+                                            uploaded.expiryState,
+                                            checklistLanguage
+                                          )}
+                                        </small>
+                                        <OcrStatusBadge
+                                          status={uploaded.ocrStatus}
+                                          extraction={uploaded.ocrExtraction}
+                                          language={checklistLanguage}
+                                          minimumConfidence={minimumConfidence}
+                                        />
+                                        {uploaded.reviewState === "flagged" && (
+                                          <small className="document-review-flag">
+                                            <Flag size={12} />
+                                            Flagged for inspection
+                                          </small>
+                                        )}
+                                        {uploaded.reviewState ===
+                                          "reviewed" && (
+                                          <small className="document-review-ok">
+                                            <BadgeCheck size={12} />
+                                            Marked reviewed
+                                          </small>
+                                        )}
+                                        {uploaded.ocrStatus === "complete" &&
+                                          uploaded.ocrExtraction && (
+                                            <OcrReview
+                                              extraction={
+                                                uploaded.ocrExtraction
+                                              }
+                                            />
+                                          )}
+                                        {uploaded.ocrStatus === "complete" &&
+                                          !uploaded.userVerifiedAt && (
+                                            <button
+                                              className="ocr-approve-button"
+                                              disabled={approveOcr.isPending}
+                                              onClick={() =>
+                                                approveOcr.mutate({
+                                                  documentId: uploaded.id,
+                                                })
+                                              }
+                                            >
+                                              <BadgeCheck size={14} />I verified
+                                              these details
+                                            </button>
+                                          )}
+                                        {uploaded.userVerifiedAt && (
+                                          <div className="ocr-user-approved">
+                                            <BadgeCheck size={14} />
+                                            You verified details on{" "}
+                                            {dateFormat.format(
+                                              new Date(uploaded.userVerifiedAt)
+                                            )}
+                                          </div>
+                                        )}
+                                        {uploaded.ocrStatus === "failed" && (
+                                          <small className="ocr-error">
+                                            OCR could not complete. Retry or
+                                            review this document manually.
+                                          </small>
+                                        )}
+                                        <DocumentTimeline
+                                          activity={uploaded.activity ?? []}
+                                        />
+                                      </>
+                                    ) : (
+                                      <small>
+                                        {copy(
+                                          checklistLanguage,
+                                          "PDF, JPG or PNG · up to 5 MB",
+                                          "PDF, JPG या PNG · अधिकतम 5 MB"
+                                        )}
+                                      </small>
+                                    )}
+                                  </div>
+                                  <div className="document-actions">
+                                    <label className="expiry-input">
+                                      {copy(
+                                        checklistLanguage,
+                                        "Expiry",
+                                        "समाप्ति"
+                                      )}
+                                      <input
+                                        type="date"
+                                        value={expiryValue}
+                                        onChange={event => {
+                                          setDocumentExpiryDates(current => ({
+                                            ...current,
+                                            [itemKey]: event.target.value,
+                                          }));
+                                          if (uploaded)
+                                            updateExpiry.mutate({
+                                              documentId: uploaded.id,
+                                              expiresAt: event.target.value
+                                                ? new Date(
+                                                    event.target.value
+                                                  ).getTime()
+                                                : null,
+                                            });
+                                        }}
+                                      />
+                                    </label>
+                                    {uploaded ? (
+                                      <>
+                                        <button
+                                          className="preview-button"
+                                          title="Preview document"
+                                          onClick={() =>
+                                            setPreviewDocumentId(uploaded.id)
+                                          }
+                                        >
+                                          <Eye size={14} />
+                                        </button>
+                                        <button
+                                          className="ocr-button"
+                                          title="Extract document details with AI"
+                                          disabled={
+                                            extractingDocumentId === uploaded.id
+                                          }
+                                          onClick={() =>
+                                            extractDocument.mutate({
+                                              documentId: uploaded.id,
+                                            })
+                                          }
+                                        >
+                                          {extractingDocumentId ===
+                                            uploaded.id ||
+                                          uploaded.ocrStatus ===
+                                            "processing" ? (
+                                            <Loader2
+                                              className="spin"
+                                              size={14}
+                                            />
+                                          ) : (
+                                            <ScanText size={14} />
+                                          )}
+                                        </button>
+                                        <DocumentQuickActions
+                                          documentId={uploaded.id}
+                                          reviewState={uploaded.reviewState}
+                                        />
+                                        <button
+                                          className="reupload-button"
+                                          title="Re-upload fresh copy"
+                                          onClick={() =>
+                                            document
+                                              .getElementById(
+                                                `file-${application.id}-${index}`
+                                              )
+                                              ?.click()
+                                          }
+                                        >
+                                          <RotateCcw size={14} />
+                                        </button>
+                                        <button
+                                          aria-label={`Remove ${documentName}`}
+                                          onClick={() =>
+                                            removeDocument.mutate({
+                                              documentId: uploaded.id,
+                                            })
+                                          }
+                                        >
+                                          <X size={14} />
+                                        </button>
+                                        <input
+                                          id={`file-${application.id}-${index}`}
+                                          className="hidden-file-input"
+                                          type="file"
+                                          accept="application/pdf,image/jpeg,image/png"
+                                          onChange={event =>
+                                            handleUpload(
+                                              application.id,
+                                              documentName,
+                                              event
+                                            )
+                                          }
+                                        />
+                                      </>
+                                    ) : (
+                                      <label
+                                        className={
+                                          uploadingItem === itemKey
+                                            ? "uploading"
+                                            : ""
+                                        }
+                                      >
+                                        {uploadingItem === itemKey ? (
+                                          <Loader2 className="spin" size={14} />
+                                        ) : (
+                                          <Upload size={14} />
+                                        )}
+                                        <span>
+                                          {uploadingItem === itemKey
+                                            ? "Uploading"
+                                            : "Upload"}
+                                        </span>
+                                        <input
+                                          type="file"
+                                          accept="application/pdf,image/jpeg,image/png"
+                                          onChange={event =>
+                                            handleUpload(
+                                              application.id,
+                                              documentName,
+                                              event
+                                            )
+                                          }
+                                        />
+                                      </label>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
+                          )}
+                        </section>
+                      )}
+                    </div>
+                  </div>
+                  <aside className="desk-card-aside">
+                    {application.scheme && (
+                      <a
+                        href={application.scheme.portalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="desk-portal-link"
+                      >
+                        Official portal <ExternalLink size={14} />
+                      </a>
+                    )}
+                    {pendingReminder ? (
+                      <div className="desk-reminder-live">
+                        <BellRing size={16} />
+                        <span>
+                          Reminder set for{" "}
+                          {dateFormat.format(
+                            new Date(pendingReminder.remindAt)
+                          )}
+                        </span>
+                        <button
+                          onClick={() =>
+                            cancelReminder.mutate({
+                              reminderId: pendingReminder.id,
+                            })
+                          }
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="desk-reminder-form">
+                        <label>
+                          <BellRing size={15} />
+                          Set a reminder
+                          <input
+                            type="datetime-local"
+                            value={reminderValue}
+                            min={inputDateTime(Date.now() + 60_000)}
+                            onChange={event =>
+                              setReminderTimes(current => ({
+                                ...current,
+                                [application.id]: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <button
+                          className="desk-outline"
+                          disabled={createReminder.isPending}
+                          onClick={() =>
+                            createReminder.mutate({
+                              trackedApplicationId: application.id,
+                              remindAt: new Date(reminderValue).getTime(),
+                            })
+                          }
+                        >
+                          Schedule reminder
+                        </button>
+                      </div>
+                    )}
+                  </aside>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+      {previewDocumentId !== null && (
+        <div
+          className="document-preview-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Uploaded document preview"
+        >
+          <section className="document-preview-modal">
+            <header>
+              <div>
+                <span className="desk-kicker">
+                  <Eye size={14} /> PRIVATE DOCUMENT PREVIEW
+                </span>
+                <h2>
+                  {previewQuery.data?.preview.fileName ?? "Loading document…"}
+                </h2>
+              </div>
+              <button onClick={() => setPreviewDocumentId(null)}>
+                <X size={20} />
+              </button>
+            </header>
+            {previewQuery.isLoading && (
+              <div
+                className="preview-state preview-skeleton"
+                aria-live="polite"
+              >
+                <div className="preview-skeleton-icon">
+                  <FileText size={28} />
+                </div>
+                <div>
+                  <i />
+                  <i />
+                  <i />
+                </div>
+                <small>Creating your secure, account-only preview…</small>
+              </div>
+            )}
+            {previewQuery.isError && (
+              <div className="preview-state preview-error">
+                <FileWarning size={30} />
+                <h3>Secure preview could not load</h3>
+                <p>
+                  The link may have expired or the file is temporarily
+                  unavailable. No document content was exposed.
+                </p>
+                <button
+                  className="desk-outline"
+                  onClick={() => previewQuery.refetch()}
+                >
+                  <RefreshCw size={14} />
+                  Try again
+                </button>
+              </div>
+            )}
+            {previewQuery.data?.preview && (
+              <div className="preview-stage">
+                {previewQuery.data.preview.mimeType === "application/pdf" ? (
+                  <iframe
+                    title={previewQuery.data.preview.fileName}
+                    src={previewQuery.data.preview.url}
+                  />
+                ) : (
+                  <img
+                    src={previewQuery.data.preview.url}
+                    alt={`Preview of ${previewQuery.data.preview.fileName}`}
+                  />
+                )}
+              </div>
+            )}
+            <footer>
+              <FileText size={15} />
+              This signed preview is available only to your account. Check the
+              image or PDF before final submission.
+            </footer>
+          </section>
+        </div>
+      )}
+    </DashboardLayout>
+  );
+}

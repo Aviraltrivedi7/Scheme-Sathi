@@ -1,0 +1,2 @@
+ALTER TABLE `document_activity_events` MODIFY COLUMN `kind` enum('uploaded','reuploaded','expiryUpdated','ocrStarted','ocrCompleted','ocrFailed','userVerified','reviewed','flagged') NOT NULL;--> statement-breakpoint
+ALTER TABLE `application_documents` ADD `reviewState` enum('unreviewed','reviewed','flagged') DEFAULT 'unreviewed' NOT NULL;

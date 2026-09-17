@@ -1,0 +1,1 @@
+ALTER TABLE `scheme_sources` MODIFY COLUMN `kind` enum('manual','datagov','myscheme','rss','pib') NOT NULL;
