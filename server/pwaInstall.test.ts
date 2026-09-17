@@ -12,15 +12,20 @@ describe("installable Scheme Sathi PWA", () => {
       name: "Scheme Sathi — Government schemes, made clear.",
       short_name: "Scheme Sathi",
       start_url: "/",
+      id: "/",
       scope: "/",
       display: "standalone",
       theme_color: "#f7f3eb",
     }));
-    expect(manifest.icons).toEqual([expect.objectContaining({
-      src: "/images/scheme-sathi-pwa-icon.png",
-      type: "image/png",
-      purpose: "any maskable",
-    })]);
+    // Installability needs both 192px and 512px PNGs.
+    expect(manifest.icons).toEqual(expect.arrayContaining([
+      expect.objectContaining({ src: "/images/scheme-sathi-pwa-icon-192.png", sizes: "192x192", type: "image/png" }),
+      expect.objectContaining({ src: "/images/scheme-sathi-pwa-icon.png", sizes: "512x512", type: "image/png" }),
+    ]));
+    expect(manifest.icons.some((icon: { purpose?: string }) => (icon.purpose ?? "").includes("maskable"))).toBe(true);
+    for (const icon of manifest.icons) {
+      expect(fs.existsSync(path.join(root, "client/public", (icon as { src: string }).src))).toBe(true);
+    }
   });
 
   it("registers a safe shell worker with an offline navigation fallback", () => {
@@ -57,6 +62,10 @@ describe("installable Scheme Sathi PWA", () => {
     const installButton = read("client/src/components/PwaInstallButton.tsx");
     expect(html).toContain('rel="manifest" href="/manifest.webmanifest"');
     expect(html).toContain('apple-mobile-web-app-capable');
+    expect(html).toContain('rel="apple-touch-icon" href="/images/apple-touch-icon.png"');
+    expect(fs.existsSync(path.join(root, "client/public/images/apple-touch-icon.png"))).toBe(true);
+    // No unconfigured analytics placeholder may ship to browsers.
+    expect(html).not.toContain("%VITE_ANALYTICS_ENDPOINT%");
     expect(home).toContain('<PwaInstallButton language={language} />');
     expect(installButton).toContain('beforeinstallprompt');
     expect(installButton).toContain('deferredPrompt.prompt()');

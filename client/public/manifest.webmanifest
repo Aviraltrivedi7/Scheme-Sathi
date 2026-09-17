@@ -3,6 +3,7 @@
   "short_name": "Scheme Sathi",
   "description": "Find Indian government schemes with clear eligibility guidance.",
   "start_url": "/",
+  "id": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f7f3eb",
@@ -11,10 +12,22 @@
   "dir": "ltr",
   "icons": [
     {
+      "src": "/images/scheme-sathi-pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/images/scheme-sathi-pwa-icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/images/scheme-sathi-pwa-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

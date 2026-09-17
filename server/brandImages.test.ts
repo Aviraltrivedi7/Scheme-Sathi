@@ -111,7 +111,9 @@ describe("brand images ship with the app", () => {
     const manifest = JSON.parse(
       readFileSync(join(root, "client", "public", "manifest.webmanifest"), "utf8")
     );
-    expect(manifest.icons[0].src).toBe("/images/scheme-sathi-pwa-icon.png");
+    expect(manifest.icons.map((icon: { src: string }) => icon.src)).toContain(
+      "/images/scheme-sathi-pwa-icon.png"
+    );
 
     const indexHtml = readFileSync(join(root, "client", "index.html"), "utf8");
     expect(indexHtml).not.toContain("/manus-storage/scheme-sathi-");
