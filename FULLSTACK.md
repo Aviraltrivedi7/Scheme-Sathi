@@ -8,7 +8,7 @@ Scheme Sathi now runs as a **React + Express + tRPC + Drizzle** application. The
 | Matching | Deterministic, explainable eligibility ranking | `server/schemeMatching.ts` and `matching.run` tRPC mutation |
 | Profile | One private profile per signed-in user | `user_scheme_profiles` table and `profile.mine` / `profile.save` procedures |
 | Saved schemes | Saved scheme IDs per signed-in user | `saved_schemes` table and `saved.list` / `saved.toggle` procedures |
-| Authentication | OAuth session, current-user context and role support | Manus OAuth template with `protectedProcedure` |
+| Authentication | OAuth session, current-user context and role support | OAuth template with `protectedProcedure` |
 | Frontend | Loading, retry, anonymous fallback and account sync | `client/src/pages/Home.tsx` via typed `trpc.*` hooks |
 
 ## API Contract

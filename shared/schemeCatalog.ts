@@ -53,9 +53,9 @@ export type SchemeProfileInput = {
 };
 
 const artwork = {
-  farmer: "/manus-storage/scheme-sathi-farmer_fa6fb4ad.png",
-  education: "/manus-storage/scheme-sathi-education_87d604a6.png",
-  health: "/manus-storage/scheme-sathi-health_7a34a071.png",
+  farmer: "/images/scheme-sathi-hero.png",
+  education: "/images/scheme-sathi-hero.png",
+  health: "/images/scheme-sathi-hero.png",
 };
 
 const nspDirectoryUrl = "https://scholarships.gov.in/All-Scholarships";

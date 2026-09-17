@@ -28,7 +28,7 @@ export const users = mysqlTable("users", {
    * Use this for relations between tables.
    */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
+  /** OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -44,7 +44,7 @@ export type InsertUser = typeof users.$inferInsert;
 
 /**
  * Standalone-mode email+password credentials, 1:1 with users.
- * Only used when the Manus platform OAuth is not configured; scrypt hash +
+ * Only used when platform OAuth is not configured; scrypt hash +
  * salt, never a raw password. openId uniquely identifies the credential.
  */
 export const localCredentials = mysqlTable(

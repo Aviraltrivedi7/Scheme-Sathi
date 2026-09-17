@@ -21,7 +21,7 @@ import { appRouter } from "./routers";
 
 function authenticatedContext(userId = 42): TrpcContext {
   return {
-    user: { id: userId, openId: `scheme-note-user-${userId}`, email: null, name: "Test User", loginMethod: "manus", role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+    user: { id: userId, openId: `scheme-note-user-${userId}`, email: null, name: "Test User", loginMethod: "oauth", role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
     req: { headers: {}, protocol: "https" } as TrpcContext["req"],
     res: { clearCookie: vi.fn() } as TrpcContext["res"],
   };

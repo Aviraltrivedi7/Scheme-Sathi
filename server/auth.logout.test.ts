@@ -18,7 +18,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     openId: "sample-user",
     email: "sample@example.com",
     name: "Sample User",
-    loginMethod: "manus",
+    loginMethod: "oauth",
     role: "user",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -51,7 +51,7 @@ describe("auth.logout", () => {
     expect(result).toEqual({ success: true });
     expect(clearedCookies).toHaveLength(1);
     expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
-    // Tests run without Forge vars, i.e. in standalone mode: the session
+    // Tests run without platform vars, i.e. in standalone mode: the session
     // cookie uses the same-site-safe "lax" policy there (browsers reject
     // SameSite=None without Secure, which silently breaks HTTP logins), and
     // the Secure attribute follows the actual request protocol — this mock

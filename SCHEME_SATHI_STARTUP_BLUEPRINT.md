@@ -2,7 +2,7 @@
 
 **Prepared for:** Scheme Sathi
 
-**Author:** Manus AI
+**Author:** Scheme Sathi
 
 **Scope:** Product, market position, trust, revenue, and execution plan. This is strategic guidance, not legal, tax, or investment advice.
 

@@ -74,7 +74,7 @@ export function normaliseOcrExtraction(value: unknown): OcrExtraction {
 export async function extractDocumentDetails(input: { signedUrl: string; mimeType: string; checklistName: string; fileName: string }) {
   // Standalone deployment without any LLM endpoint: return an honest,
   // low-confidence extraction that routes the document to manual review
-  // instead of pretending an AI read it. (Platform mode always has Forge.)
+  // instead of pretending an AI read it. (Platform mode always has one.)
   if (STANDALONE_MODE && !hasStandaloneLLM()) {
     return normaliseOcrExtraction({
       documentType: input.checklistName,

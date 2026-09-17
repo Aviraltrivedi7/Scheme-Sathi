@@ -1,10 +1,10 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uploads via Forge Server presigned URL to S3 (PUT direct).
-// Downloads return /manus-storage/{key} paths served via 307 redirect.
+// Preconfigured storage helpers for self-hosted Scheme Sathi deployments.
+// Uploads via platform presigned URL to S3 (PUT direct).
+// Downloads return /app-storage/{key} paths served via 307 redirect.
 //
-// Standalone mode (no Forge config): files are stored on local disk under
+// Standalone mode (no platform config): files are stored on local disk under
 // LOCAL_STORAGE_DIR (default "local-storage") and served through the same
-// /manus-storage/{key} proxy path, so document flows work with only Node+MySQL.
+// /app-storage/{key} proxy path, so document flows work with only Node+MySQL.
 
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -13,17 +13,17 @@ import { ENV, STANDALONE_MODE } from "./_core/env";
 const LOCAL_STORAGE_DIR =
   process.env.LOCAL_STORAGE_DIR ?? "local-storage";
 
-function getForgeConfig() {
-  const forgeUrl = ENV.forgeApiUrl;
-  const forgeKey = ENV.forgeApiKey;
+function getPlatformConfig() {
+  const platformUrl = ENV.platformApiUrl;
+  const platformKey = ENV.platformApiKey;
 
-  if (!forgeUrl || !forgeKey) {
+  if (!platformUrl || !platformKey) {
     throw new Error(
-      "Storage config missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY"
+      "Storage config missing: set PLATFORM_API_URL and PLATFORM_API_KEY"
     );
   }
 
-  return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
+  return { platformUrl: platformUrl.replace(/\/+$/, ""), platformKey };
 }
 
 function normalizeKey(relKey: string): string {
@@ -58,17 +58,17 @@ export async function storagePut(
     const target = localKeyPath(key);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, data);
-    return { key, url: `/manus-storage/${key}` };
+    return { key, url: `/app-storage/${key}` };
   }
 
-  const { forgeUrl, forgeKey } = getForgeConfig();
+  const { platformUrl, platformKey } = getPlatformConfig();
 
-  // 1. Get presigned PUT URL from Forge
-  const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
+  // 1. Get presigned PUT URL from the platform
+  const presignUrl = new URL("v1/storage/presign/put", platformUrl + "/");
   presignUrl.searchParams.set("path", key);
 
   const presignResp = await fetch(presignUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
+    headers: { Authorization: `Bearer ${platformKey}` },
   });
 
   if (!presignResp.ok) {
@@ -77,7 +77,7 @@ export async function storagePut(
   }
 
   const { url: s3Url } = (await presignResp.json()) as { url: string };
-  if (!s3Url) throw new Error("Forge returned empty presign URL");
+  if (!s3Url) throw new Error("Platform returned empty presign URL");
 
   // 2. PUT file directly to S3
   const blob =
@@ -95,28 +95,28 @@ export async function storagePut(
     throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
   }
 
-  return { key, url: `/manus-storage/${key}` };
+  return { key, url: `/app-storage/${key}` };
 }
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
-  return { key, url: `/manus-storage/${key}` };
+  return { key, url: `/app-storage/${key}` };
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  // Standalone mode: the /manus-storage proxy streams from disk, so an
+  // Standalone mode: the /app-storage proxy streams from disk, so an
   // internal path is the "signed" URL. Ownership is enforced by the DB layer
   // before any key reaches this function.
-  if (STANDALONE_MODE) return `/manus-storage/${normalizeKey(relKey)}`;
+  if (STANDALONE_MODE) return `/app-storage/${normalizeKey(relKey)}`;
 
-  const { forgeUrl, forgeKey } = getForgeConfig();
+  const { platformUrl, platformKey } = getPlatformConfig();
   const key = normalizeKey(relKey);
 
-  const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
+  const getUrl = new URL("v1/storage/presign/get", platformUrl + "/");
   getUrl.searchParams.set("path", key);
 
   const resp = await fetch(getUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
+    headers: { Authorization: `Bearer ${platformKey}` },
   });
 
   if (!resp.ok) {

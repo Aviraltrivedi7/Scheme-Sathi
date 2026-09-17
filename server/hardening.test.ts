@@ -198,13 +198,13 @@ describe("hardening wiring", () => {
     expect(main).toContain("@fontsource/noto-sans-devanagari/700.css");
   });
 
-  it("keeps the 367KB Manus preview overlay out of production HTML", () => {
+  it("keeps third-party preview overlays out of production HTML", () => {
     const config = read("vite.config.ts");
-    // index.html is served no-cache, so the inline runtime re-downloaded on
-    // every visit. CLI builds must skip it; MANUS_PREVIEW=1 restores it for
-    // platform preview deployments.
-    expect(config).toContain('process.argv.slice(2).includes("build")');
-    expect(config).toContain('process.env.MANUS_PREVIEW !== "1"');
+    // index.html is served no-cache, so any inline runtime would re-download
+    // on every visit. The config must not pull a preview-runtime plugin, and
+    // the built HTML must stay lean and free of runtime markers.
+    expect(config).not.toContain("vite-plugin-manus-runtime");
+    expect(config).not.toContain("vitePluginManusRuntime");
     const html = read("dist/public/index.html");
     expect(html).not.toContain("manus-runtime");
     expect(html.length).toBeLessThan(10 * 1024);

@@ -18,8 +18,8 @@
 import { storagePut } from "server/storage";
 import { ENV } from "./env";
 
-// Default model for generated sites. "MODEL_GPT_IMAGE_2" is the forge images.v1
-// enum for GPT Image 2 (id: gpt-image-2). If omitted, forge falls back to Gemini 2.5 Flash.
+// Default model for generated sites. "MODEL_GPT_IMAGE_2" is the platform images.v1
+// enum for GPT Image 2 (id: gpt-image-2). If omitted, the platform falls back to Gemini 2.5 Flash.
 const DEFAULT_IMAGE_MODEL = "MODEL_GPT_IMAGE_2";
 const DEFAULT_IMAGE_QUALITY = "medium";
 
@@ -30,7 +30,7 @@ export type GenerateImageOptions = {
     b64Json?: string;
     mimeType?: string;
   }>;
-  /** Forge image model enum, e.g. "MODEL_GPT_IMAGE_2". Defaults to GPT Image 2. */
+  /** Platform image model enum, e.g. "MODEL_GPT_IMAGE_2". Defaults to GPT Image 2. */
   model?: string;
   /** Generation quality, e.g. "medium" | "high". Defaults to "medium" for GPT Image 2. */
   quality?: string;
@@ -43,17 +43,17 @@ export type GenerateImageResponse = {
 export async function generateImage(
   options: GenerateImageOptions
 ): Promise<GenerateImageResponse> {
-  if (!ENV.forgeApiUrl) {
-    throw new Error("BUILT_IN_FORGE_API_URL is not configured");
+  if (!ENV.platformApiUrl) {
+    throw new Error("PLATFORM_API_URL is not configured");
   }
-  if (!ENV.forgeApiKey) {
-    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
+  if (!ENV.platformApiKey) {
+    throw new Error("PLATFORM_API_KEY is not configured");
   }
 
   // Build the full URL by appending the service path to the base URL
-  const baseUrl = ENV.forgeApiUrl.endsWith("/")
-    ? ENV.forgeApiUrl
-    : `${ENV.forgeApiUrl}/`;
+  const baseUrl = ENV.platformApiUrl.endsWith("/")
+    ? ENV.platformApiUrl
+    : `${ENV.platformApiUrl}/`;
   const fullUrl = new URL(
     "images.v1.ImageService/GenerateImage",
     baseUrl
@@ -69,7 +69,7 @@ export async function generateImage(
       accept: "application/json",
       "content-type": "application/json",
       "connect-protocol-version": "1",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${ENV.platformApiKey}`,
     },
     body: JSON.stringify({
       prompt: options.prompt,
@@ -107,7 +107,7 @@ export async function generateImage(
 }
 
 export type ImageModelInfo = {
-  /** Forge model enum, e.g. "MODEL_GPT_IMAGE_2". Pass into generateImage({ model }). */
+  /** Platform model enum, e.g. "MODEL_GPT_IMAGE_2". Pass into generateImage({ model }). */
   model?: string;
   /** Stable model id, e.g. "gpt-image-2". */
   id?: string;
@@ -122,16 +122,16 @@ export type ListImageModelsResponse = {
  * Feed a returned `model` value into generateImage({ model }).
  */
 export async function listImageModels(): Promise<ListImageModelsResponse> {
-  if (!ENV.forgeApiUrl) {
-    throw new Error("BUILT_IN_FORGE_API_URL is not configured");
+  if (!ENV.platformApiUrl) {
+    throw new Error("PLATFORM_API_URL is not configured");
   }
-  if (!ENV.forgeApiKey) {
-    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
+  if (!ENV.platformApiKey) {
+    throw new Error("PLATFORM_API_KEY is not configured");
   }
 
-  const baseUrl = ENV.forgeApiUrl.endsWith("/")
-    ? ENV.forgeApiUrl
-    : `${ENV.forgeApiUrl}/`;
+  const baseUrl = ENV.platformApiUrl.endsWith("/")
+    ? ENV.platformApiUrl
+    : `${ENV.platformApiUrl}/`;
   const fullUrl = new URL(
     "images.v1.ImageService/ListModels",
     baseUrl
@@ -143,7 +143,7 @@ export async function listImageModels(): Promise<ListImageModelsResponse> {
       accept: "application/json",
       "content-type": "application/json",
       "connect-protocol-version": "1",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${ENV.platformApiKey}`,
     },
     body: "{}",
   });

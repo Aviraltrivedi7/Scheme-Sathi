@@ -5,16 +5,17 @@ export const ENV = {
   oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
-  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  platformApiUrl: process.env.PLATFORM_API_URL ?? "",
+  platformApiKey: process.env.PLATFORM_API_KEY ?? "",
 };
 
 /**
- * Standalone mode: run the full backend with only Node + MySQL, no Manus
- * platform (no Forge storage/heartbeat/LLM/OAuth). Enabled by omitting the
- * Forge variables; any present Forge config keeps platform mode intact.
+ * Standalone mode: run the full backend with only Node + MySQL, no
+ * platform services (no platform storage/heartbeat/LLM/OAuth). Enabled by
+ * omitting the platform variables; any present platform config keeps
+ * platform mode intact.
  */
-export const STANDALONE_MODE = !ENV.forgeApiUrl || !ENV.forgeApiKey;
+export const STANDALONE_MODE = !ENV.platformApiUrl || !ENV.platformApiKey;
 
 /**
  * Standalone-mode credential auth. Upgrading the first registered account to

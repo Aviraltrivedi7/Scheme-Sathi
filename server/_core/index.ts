@@ -196,7 +196,7 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
     if (STANDALONE_MODE) {
-      console.log("[Standalone] Platform OAuth/Forge disabled — using local credentials, disk storage, and in-process scheduler.");
+      console.log("[Standalone] Platform services disabled — using local credentials, disk storage, and in-process scheduler.");
       if (process.env.NODE_ENV === "production" && !ENV.cookieSecret) {
         console.warn(
           "[Standalone] WARNING: JWT_SECRET is not set — using the deterministic dev fallback. Set a long random JWT_SECRET before real production use."

@@ -49,24 +49,24 @@ export type HeartbeatJobInfo = {
 const SERVICE = "webdevtoken.v1.WebDevService";
 
 const buildEndpoint = (rpc: string): string => {
-  if (!ENV.forgeApiUrl) {
+  if (!ENV.platformApiUrl) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: "Heartbeat service URL is not configured (BUILT_IN_FORGE_API_URL).",
+      message: "Heartbeat service URL is not configured (PLATFORM_API_URL).",
     });
   }
-  if (!ENV.forgeApiKey) {
+  if (!ENV.platformApiKey) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: "Heartbeat service API key is not configured (BUILT_IN_FORGE_API_KEY).",
+      message: "Heartbeat service API key is not configured (PLATFORM_API_KEY).",
     });
   }
-  const baseUrl = ENV.forgeApiUrl;
+  const baseUrl = ENV.platformApiUrl;
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   return new URL(`${SERVICE}/${rpc}`, normalizedBase).toString();
 };
 
-const callForge = async <T>(
+const callPlatform = async <T>(
   rpc: string,
   body: Record<string, unknown>,
   userSession: string
@@ -74,14 +74,14 @@ const callForge = async <T>(
   const endpoint = buildEndpoint(rpc);
   const headers: Record<string, string> = {
     accept: "application/json",
-    authorization: `Bearer ${ENV.forgeApiKey}`,
+    authorization: `Bearer ${ENV.platformApiKey}`,
     "content-type": "application/json",
     "connect-protocol-version": "1",
   };
   // userSession is the decoded `app_session_id` cookie value (NOT the raw
   // Cookie header). Empty string falls back to the project owner identity.
   if (userSession) {
-    headers["x-manus-user-session"] = userSession;
+    headers["x-app-user-session"] = userSession;
   }
 
   let response: Response;
@@ -100,12 +100,12 @@ const callForge = async <T>(
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw mapForgeError(response, detail, rpc);
+    throw mapPlatformError(response, detail, rpc);
   }
   return (await response.json()) as T;
 };
 
-const mapForgeError = (
+const mapPlatformError = (
   response: Response,
   detail: string,
   rpc: string
@@ -155,7 +155,7 @@ export async function createHeartbeatJob(
       path: job.path,
     });
   }
-  return callForge<{ taskUid: string; nextExecutionAt?: string | null }>(
+  return callPlatform<{ taskUid: string; nextExecutionAt?: string | null }>(
     "CreateHeartbeatJob",
     {
       name: job.name,
@@ -191,7 +191,7 @@ export async function updateHeartbeatJob(
   }
   if (patch.description !== undefined) body.description = patch.description;
   if (patch.enable !== undefined) body.enable = patch.enable;
-  return callForge<{ nextExecutionAt?: string | null }>(
+  return callPlatform<{ nextExecutionAt?: string | null }>(
     "UpdateHeartbeatJob",
     body,
     userSession
@@ -207,7 +207,7 @@ export async function deleteHeartbeatJob(
     deleteLocalHeartbeatJob(taskUid);
     return;
   }
-  await callForge("DeleteHeartbeatJob", { taskUid }, userSession);
+  await callPlatform("DeleteHeartbeatJob", { taskUid }, userSession);
 }
 
 /**
@@ -216,7 +216,7 @@ export async function deleteHeartbeatJob(
  *
  * `actorUserId` in the response echoes whose cron list you got back. End-users
  * cannot list other users' crons via this SDK; cross-user inspection is
- * owner-only via the sandbox CLI (`manus-heartbeat list --user-id <uid>`).
+ * owner-only via the platform CLI (`platform-heartbeat list --user-id <uid>`).
  */
 export async function listHeartbeatJobs(
   userSession: string,
@@ -225,7 +225,7 @@ export async function listHeartbeatJobs(
   const body: Record<string, unknown> = {};
   if (pagination?.page !== undefined) body.page = pagination.page;
   if (pagination?.pageSize !== undefined) body.pageSize = pagination.pageSize;
-  return callForge<{
+  return callPlatform<{
     total: number;
     actorUserId: string;
     jobs: HeartbeatJobInfo[];

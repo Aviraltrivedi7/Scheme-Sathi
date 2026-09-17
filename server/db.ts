@@ -761,12 +761,7 @@ export async function listPendingSchemes(status: "pending" | "approved" | "rejec
   return rows;
 }
 
-const artworkForCategory = (category: string) => {
-  const lowered = category.toLowerCase();
-  if (lowered.includes("agri") || lowered.includes("farm")) return "/manus-storage/scheme-sathi-farmer_fa6fb4ad.png";
-  if (lowered.includes("health")) return "/manus-storage/scheme-sathi-health_7a34a071.png";
-  return "/manus-storage/scheme-sathi-education_87d604a6.png";
-};
+const artworkForCategory = (_category: string) => "/images/scheme-sathi-hero.png";
 
 const accentForCategory = (category: string): "saffron" | "emerald" | "coral" | "indigo" => {
   const lowered = category.toLowerCase();

@@ -221,12 +221,12 @@ const normalizeToolChoice = (
 const resolveApiUrl = () =>
   STANDALONE_MODE && LLM_BASE_URL
     ? `${LLM_BASE_URL}/v1/chat/completions`
-    : ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-      ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-      : "https://forge.manus.im/v1/chat/completions";
+    : ENV.platformApiUrl && ENV.platformApiUrl.trim().length > 0
+      ? `${ENV.platformApiUrl.replace(/\/$/, "")}/v1/chat/completions`
+      : "";
 
 const resolveApiKey = () =>
-  STANDALONE_MODE && LLM_BASE_URL ? LLM_API_KEY : ENV.forgeApiKey;
+  STANDALONE_MODE && LLM_BASE_URL ? LLM_API_KEY : ENV.platformApiKey;
 
 /** True when standalone mode has a usable OpenAI-compatible endpoint; false means platform or no LLM at all. */
 export const hasStandaloneLLM = () =>
@@ -469,12 +469,12 @@ export type ModelsResponse = {
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`
-    : "https://forge.manus.im/v1/models";
+  const url = ENV.platformApiUrl && ENV.platformApiUrl.trim().length > 0
+    ? `${ENV.platformApiUrl.replace(/\/$/, "")}/v1/models`
+    : "";
 
   const response = await fetchWithBackoff(url, {
-    headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
+    headers: { authorization: `Bearer ${ENV.platformApiKey}` },
   });
 
   if (!response.ok) {

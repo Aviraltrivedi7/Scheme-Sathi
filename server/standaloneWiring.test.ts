@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 /**
  * Source-contract guards for standalone mode: the whole backend must remain
  * functional with only Node + MySQL, while platform mode keeps working when
- * Forge variables are present. These assertions keep the two-mode wiring from
+ * platform variables are present. These assertions keep the two-mode wiring from
  * silently regressing.
  */
 describe("standalone backend wiring", () => {

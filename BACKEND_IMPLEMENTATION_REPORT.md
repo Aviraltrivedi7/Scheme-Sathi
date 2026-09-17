@@ -34,8 +34,8 @@ conversion analytics.
 | API framework | tRPC v11 (Express adapter) + superjson transformer |
 | ORM | Drizzle ORM (mysql-core), drizzle-kit for migrations |
 | Database | MySQL (29 tables, see §4) |
-| Auth | Manus OAuth (authorization-code) → signed JWT session cookie (jose, HS256) |
-| Storage | S3 via platform "Forge" presigned PUT/GET (server proxy at `/manus-storage/*`) |
+| Auth | Platform OAuth (authorization-code) → signed JWT session cookie (jose, HS256) |
+| Storage | S3 via platform presigned PUT/GET (server proxy at `/app-storage/*`) |
 | AI | Platform `invokeLLM` (vision-capable, JSON-schema responses) for OCR; `streamLLM` (SSE) for help chat |
 | Scheduling | Platform Heartbeat HTTP-cron service (6-field UTC cron, min interval 60s) |
 | Validation | Zod on every tRPC input; custom validators for uploads |
@@ -54,7 +54,7 @@ Browser (React SPA / PWA)
    │  /api/trpc/*          → tRPC appRouter (createContext: optional user)
    │  /api/oauth/callback  → OAuth code exchange → session cookie
    │  /api/help/stream     → SSE AI help chat (rate-limited)
-   │  /manus-storage/*     → 307 redirect to presigned S3 GET (private docs)
+   │  /app-storage/*     → 307 redirect to presigned S3 GET (private docs)
    └─ /api/scheduled/*     → cron callbacks (Heartbeat-auth only)
         ├─ application-reminder        one-time deadline reminder
         ├─ document-review-due-reminder reviewer due-date reminder
@@ -64,7 +64,7 @@ Server entry (server/_core/index.ts)
   express.json({limit:50mb}) → storageProxy → oauthRoutes → scheduled handlers
   → schemeHelpRoutes → tRPC middleware → (dev: Vite middleware | prod: static dist)
 
-Platform dependencies (Forge API, keyed by BUILT_IN_FORGE_API_KEY):
+Platform dependencies (platform API, keyed by PLATFORM_API_KEY):
   • OAuth:  webdev.v1.WebDevAuthPublicService (ExchangeToken/GetUserInfo)
   • Heartbeat: webdevtoken.v1.WebDevService (Create/Update/Delete/ListHeartbeatJob)
   • Storage: v1/storage/presign/put | v1/storage/presign/get
@@ -216,7 +216,7 @@ Auth levels: **[P]** public · **[U]** protected (session) · **[A]** admin-only
 | Method & Path | Auth | Purpose |
 |---|---|---|
 | GET `/api/oauth/callback` | public + state nonce | OAuth code→token→userInfo→upsert user→issue session JWT cookie. 403 on nonce mismatch. |
-| GET `/manus-storage/*` | public path, unguessable keys | 307 redirect to presigned S3 GET via Forge. `Cache-Control: no-store`. |
+| GET `/app-storage/*` | public path, unguessable keys | 307 redirect to presigned S3 GET via the platform. `Cache-Control: no-store`. |
 | POST `/api/scheduled/application-reminder` | Heartbeat cron only | Marks reminder delivered; disables its own cron (one-shot semantics on a cron service). |
 | POST `/api/scheduled/document-review-due-reminder` | Heartbeat cron only | Delivers reviewer due-date alert notification; disables cron. |
 | POST `/api/scheduled/document-expiry-reminders` | Heartbeat cron only | Daily scan: creates expiringSoon (≤30d) / expired notifications; records lastRunAt. |
@@ -249,7 +249,7 @@ for identifying what to deliver — the cron task UID is the only lookup key.
 4. **Roles:** `users.role` ∈ {user, admin}. `protectedProcedure` requires a user;
    `adminProcedure` requires `role==='admin'` (FORBIDDEN otherwise).
 5. **Heartbeat identity:** cron registration requires the *decoded session token*
-   (passed via `x-manus-user-session` header) so jobs are owned by the acting user;
+   (passed via `x-app-user-session` header) so jobs are owned by the acting user;
    empty string falls back to the project owner.
 
 ---
@@ -374,10 +374,10 @@ scholarships (Education/Central, `verificationStatus: officialDirectory`, generi
 | `DATABASE_URL` | MySQL connection | yes |
 | `JWT_SECRET` | session JWT signing | yes |
 | `VITE_APP_ID` / OAuth client id | OAuth + JWT `appId` claim | yes |
-| `OAUTH_SERVER_URL` | OAuth endpoints (default api.manus.im) | yes |
+| `OAUTH_SERVER_URL` | OAuth endpoints | yes |
 | `OWNER_OPEN_ID` | project-owner identity fallback | recommended |
-| `BUILT_IN_FORGE_API_URL` | storage/heartbeat/LLM/data API base | yes (platform) |
-| `BUILT_IN_FORGE_API_KEY` | platform bearer key | yes (platform) |
+| `PLATFORM_API_URL` | storage/heartbeat/LLM/data API base | yes (platform) |
+| `PLATFORM_API_KEY` | platform bearer key | yes (platform) |
 | `PORT` | HTTP port (default 3000) | no |
 | `NODE_ENV` | dev/prod branching (cron deferral, static serving) | no |
 
@@ -431,7 +431,7 @@ For a re-implementation, replicate these behaviours (they were live bugs here):
    the client mirror; add the parity test first.
 4. **API layer:** map each §5 procedure to your framework; keep Zod-equivalent
    refinements (start≤end, future+60s, reminder<due).
-5. **Auth:** replace Manus OAuth with your IdP but keep: nonce-bound state,
+5. **Auth:** replace platform OAuth with your IdP but keep: nonce-bound state,
    upsert-on-login, 1-year signed session cookie, user/admin roles, optional-auth
    context.
 6. **Storage:** any S3-compatible store; keep random-suffix keys + presigned
@@ -476,5 +476,5 @@ client/src/_core/hooks/useAuth.ts session/login client side
 
 *Report generated from a full source audit including typecheck (clean), test run
 (149/149 pass), and production build (success). All platform-dependent integrations
-(Forge storage/heartbeat/LLM/OAuth) are documented so they can be swapped for
+(platform storage/heartbeat/LLM/OAuth) are documented so they can be swapped for
 self-hosted equivalents without changing domain behaviour.*

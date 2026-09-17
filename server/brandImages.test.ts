@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Guards the three brand images the homepage, PWA manifest, and iOS home
- * screen rely on. They used to live at /manus-storage/* (platform storage)
+ * screen rely on. They used to live at platform storage URLs
  * and silently 404'd on every other deployment — now they are static client
  * assets, and this test fails the build if one goes missing again.
  */
@@ -102,9 +102,9 @@ describe("brand images ship with the app", () => {
     expect([...header]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   });
 
-  it("no HTML reference points back at the old /manus-storage/ asset URLs", () => {
+  it("no HTML reference points back at the old platform storage asset URLs", () => {
     const home = readFileSync(join(root, "client", "src", "pages", "Home.tsx"), "utf8");
-    expect(home).not.toContain("/manus-storage/scheme-sathi-");
+    expect(home).not.toContain("/app-storage/scheme-sathi-");
     expect(home).toContain("/images/scheme-sathi-mark.png");
     expect(home).toContain("/images/scheme-sathi-hero.png");
 

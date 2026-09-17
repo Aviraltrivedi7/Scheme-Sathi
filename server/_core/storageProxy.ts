@@ -23,7 +23,7 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 };
 
 export function registerStorageProxy(app: Express) {
-  app.get("/manus-storage/*", async (req, res) => {
+  app.get("/app-storage/*", async (req, res) => {
     const key = (req.params as Record<string, string>)[0];
     if (!key) {
       res.status(400).send("Missing storage key");
@@ -49,30 +49,30 @@ export function registerStorageProxy(app: Express) {
       return;
     }
 
-    if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
+    if (!ENV.platformApiUrl || !ENV.platformApiKey) {
       res.status(500).send("Storage proxy not configured");
       return;
     }
 
     try {
-      const forgeUrl = new URL(
+      const platformUrl = new URL(
         "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/",
+        ENV.platformApiUrl.replace(/\/+$/, "") + "/",
       );
-      forgeUrl.searchParams.set("path", key);
+      platformUrl.searchParams.set("path", key);
 
-      const forgeResp = await fetch(forgeUrl, {
-        headers: { Authorization: `Bearer ${ENV.forgeApiKey}` },
+      const platformResp = await fetch(platformUrl, {
+        headers: { Authorization: `Bearer ${ENV.platformApiKey}` },
       });
 
-      if (!forgeResp.ok) {
-        const body = await forgeResp.text().catch(() => "");
-        console.error(`[StorageProxy] forge error: ${forgeResp.status} ${body}`);
+      if (!platformResp.ok) {
+        const body = await platformResp.text().catch(() => "");
+        console.error(`[StorageProxy] platform error: ${platformResp.status} ${body}`);
         res.status(502).send("Storage backend error");
         return;
       }
 
-      const { url } = (await forgeResp.json()) as { url: string };
+      const { url } = (await platformResp.json()) as { url: string };
       if (!url) {
         res.status(502).send("Empty signed URL from backend");
         return;

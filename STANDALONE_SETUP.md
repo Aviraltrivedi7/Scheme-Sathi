@@ -1,16 +1,16 @@
 # Scheme Sathi — Standalone Backend Setup
 
-The backend now runs **fully self-hosted** with only Node.js + MySQL — no Manus
+The backend now runs **fully self-hosted** with only Node.js + MySQL — no
 platform required. Everything documented in `BACKEND_IMPLEMENTATION_REPORT.md`
 (tRPC API, 29-table schema, OCR pipeline, reviewer workflow, reminders,
 pilot analytics) works identically; the platform integrations are replaced:
 
 | Platform service | Standalone replacement |
 |---|---|
-| Manus OAuth login | Email + password accounts (`/api/auth/register`, `/api/auth/login`) with scrypt hashes + the same HS256 session cookie |
-| Forge S3 storage | Local disk under `LOCAL_STORAGE_DIR` (default `./local-storage`), served through the same `/manus-storage/*` proxy |
+| Platform OAuth login | Email + password accounts (`/api/auth/register`, `/api/auth/login`) with scrypt hashes + the same HS256 session cookie |
+| Platform S3 storage | Local disk under `LOCAL_STORAGE_DIR` (default `./local-storage`), served through the same `/app-storage/*` proxy |
 | Heartbeat HTTP-cron | In-process scheduler: one-shot timers + a 60s DB reconciliation scan that survives restarts |
-| Forge LLM (OCR/chat) | Any OpenAI-compatible endpoint (`LLM_BASE_URL`), or honest offline fallbacks |
+| Platform LLM (OCR/chat) | Any OpenAI-compatible endpoint (`LLM_BASE_URL`), or honest offline fallbacks |
 
 ## Quick start (dev)
 
@@ -84,7 +84,7 @@ deployment modes.
 ### Storage
 - Uploads land in `LOCAL_STORAGE_DIR` (gitignored) with the same
   unguessable random-suffix keys and the same ownership checks; previews
-  stream through `/manus-storage/<key>` with `Cache-Control: no-store`.
+  stream through `/app-storage/<key>` with `Cache-Control: no-store`.
 - Path traversal is rejected (`localKeyPath` resolves + contains-checks).
 
 ### Scheduling
@@ -202,9 +202,8 @@ No reverse proxy required — the app already ships fast on plain Node:
   Sans, Noto Sans Devanagari) ship as local woff2 from `/assets/` —
   CSP-clean (no third-party style origins), offline-capable through the
   service worker, and no render-blocking Google Fonts round-trip.
-- **Lean HTML shell.** `index.html` is ~1KB (616B compressed). The 367KB
-  Manus preview overlay is excluded from CLI builds — set `MANUS_PREVIEW=1`
-  before `vite build` only for platform preview deployments.
+- **Lean HTML shell.** `index.html` is ~1KB (616B compressed). No third-party
+  preview overlay ships in CLI builds.
 - **Structured API errors.** Unknown `/api/*` routes return a JSON 404
   (never the SPA shell with a 200), and thrown errors return a clean 500 —
   JSON for API clients, a plain HTML page for humans — instead of Express's

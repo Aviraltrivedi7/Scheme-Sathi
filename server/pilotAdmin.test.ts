@@ -43,7 +43,7 @@ function context(role: "user" | "admin"): TrpcContext {
       openId: `pilot-${role}`,
       email: null,
       name: "Pilot Tester",
-      loginMethod: "manus",
+      loginMethod: "oauth",
       role,
       createdAt: new Date(),
       updatedAt: new Date(),

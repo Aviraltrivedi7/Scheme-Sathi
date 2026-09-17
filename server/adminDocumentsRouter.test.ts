@@ -17,12 +17,12 @@ vi.mock("./_core/heartbeat", () => ({
 import { appRouter } from "./routers";
 
 function context(role: "user" | "admin"): TrpcContext {
-  return { user: { id: 5, openId: `${role}-open-id`, email: null, name: role, loginMethod: "manus", role, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: { headers: {}, protocol: "https" } as TrpcContext["req"], res: { clearCookie: vi.fn() } as TrpcContext["res"] };
+  return { user: { id: 5, openId: `${role}-open-id`, email: null, name: role, loginMethod: "oauth", role, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: { headers: {}, protocol: "https" } as TrpcContext["req"], res: { clearCookie: vi.fn() } as TrpcContext["res"] };
 }
 
 describe("document and admin routers", () => {
   it("passes document uploads through the authenticated application owner", async () => {
-    mocks.uploadApplicationDocument.mockResolvedValue({ id: 3, documentName: "Income certificate", fileName: "income.pdf", mimeType: "application/pdf", expiresAt: new Date(1790000000000), storageUrl: "/manus-storage/private-key" });
+    mocks.uploadApplicationDocument.mockResolvedValue({ id: 3, documentName: "Income certificate", fileName: "income.pdf", mimeType: "application/pdf", expiresAt: new Date(1790000000000), storageUrl: "/app-storage/private-key" });
     const result = await appRouter.createCaller(context("user")).documents.upload({ trackedApplicationId: 12, documentName: "Income certificate", fileName: "income.pdf", mimeType: "application/pdf", base64Data: "cGRm", expiresAt: 1790000000000 });
     expect(mocks.uploadApplicationDocument).toHaveBeenCalledWith(5, 12, "Income certificate", "income.pdf", "application/pdf", "cGRm", 1790000000000);
     expect(result.document).toMatchObject({ id: 3, fileName: "income.pdf", mimeType: "application/pdf", expiresAt: 1790000000000 });
@@ -122,7 +122,7 @@ describe("document and admin routers", () => {
     mocks.getDocumentReviewerAlertPreferences.mockResolvedValue(preferences); mocks.saveDocumentReviewerAlertPreferences.mockResolvedValue(preferences); mocks.setDocumentReviewAssignmentDueDate.mockResolvedValue({ assignmentId: 14, previousTaskUid: null });
     const caller = appRouter.createCaller(context("user"));
     const got = await caller.documents.reviewers.preferences.get(); const saved = await caller.documents.reviewers.preferences.save(preferences); const due = await caller.documents.reviewers.dueDates.set({ assignmentId: 14, dueAt: Date.now() + 172_800_000, reminderAt: Date.now() + 86_400_000 });
-    expect(mocks.getDocumentReviewerAlertPreferences).toHaveBeenCalledWith(5); expect(mocks.saveDocumentReviewerAlertPreferences).toHaveBeenCalledWith(5, preferences); expect(mocks.setDocumentReviewAssignmentDueDate).toHaveBeenCalledWith(5, 14, expect.any(Number), expect.any(Number)); expect(got.preferences).toEqual(preferences); expect(saved.preferences).toEqual(preferences); // Dev deferral applies only on the platform; standalone test env (no Forge
+    expect(mocks.getDocumentReviewerAlertPreferences).toHaveBeenCalledWith(5); expect(mocks.saveDocumentReviewerAlertPreferences).toHaveBeenCalledWith(5, preferences); expect(mocks.setDocumentReviewAssignmentDueDate).toHaveBeenCalledWith(5, 14, expect.any(Number), expect.any(Number)); expect(got.preferences).toEqual(preferences); expect(saved.preferences).toEqual(preferences); // Dev deferral applies only on the platform; standalone test env (no platform
     // vars) registers the job through the mocked heartbeat instead.
     expect(due).toEqual(
       expect.objectContaining({ deferred: expect.any(Boolean) })

@@ -26,7 +26,7 @@ const scheme: Scheme = {
   portalUrl: "https://example.gov.in",
   reviewed: "Reviewed",
   accent: "saffron",
-  artwork: "/manus-storage/example.png",
+  artwork: "/app-storage/example.png",
 };
 
 describe("offline saved schemes and sharing", () => {

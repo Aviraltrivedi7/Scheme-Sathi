@@ -61,8 +61,8 @@ type MatchedScheme = Scheme & { score: number; factors: string[] };
 const text = <T,>(language: Language, english: T, hindi: T) =>
   language === "hi" ? hindi : english;
 // Static assets shipped with the client build — served from the same origin
-// on every deployment (the old /manus-storage/ URLs pointed at files that
-// only existed on the original platform storage and 404'd elsewhere).
+// on every deployment (artwork used to live at platform storage URLs that
+// 404'd on self-hosted deployments).
 const mark = "/images/scheme-sathi-mark.png";
 const hero = "/images/scheme-sathi-hero.png";
 const dateFormat = new Intl.DateTimeFormat("en-IN", {

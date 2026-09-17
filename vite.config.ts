@@ -4,19 +4,15 @@ import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
-import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 // =============================================================================
-// Manus Debug Collector - Vite Plugin
+// App Debug Collector - Vite Plugin (dev only)
 // Writes browser logs directly to files, trimmed when exceeding size limit
 // =============================================================================
 
 const PROJECT_ROOT = import.meta.dirname;
 
-// Detect a plain `vite build` CLI invocation (argv contains "build"). The
-// Manus host tooling and the dev server never pass that literal argument.
-const isCliBuild = process.argv.slice(2).includes("build");
-const LOG_DIR = path.join(PROJECT_ROOT, ".manus-logs");
+const LOG_DIR = path.join(PROJECT_ROOT, ".dev-logs");
 const MAX_LOG_SIZE_BYTES = 1 * 1024 * 1024; // 1MB per log file
 const TRIM_TARGET_BYTES = Math.floor(MAX_LOG_SIZE_BYTES * 0.6); // Trim to 60% to avoid constant re-trimming
 
@@ -73,14 +69,14 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
 }
 
 /**
- * Vite plugin to collect browser debug logs
- * - POST /__manus__/logs: Browser sends logs, written directly to files
+ * Vite plugin to collect browser debug logs (development only)
+ * - POST /__app__/logs: Browser sends logs, written directly to files
  * - Files: browserConsole.log, networkRequests.log, sessionReplay.log
  * - Auto-trimmed when exceeding 1MB (keeps newest entries)
  */
-function vitePluginManusDebugCollector(): Plugin {
+function vitePluginAppDebugCollector(): Plugin {
   return {
-    name: "manus-debug-collector",
+    name: "app-debug-collector",
 
     transformIndexHtml(html) {
       if (process.env.NODE_ENV === "production") {
@@ -92,7 +88,7 @@ function vitePluginManusDebugCollector(): Plugin {
           {
             tag: "script",
             attrs: {
-              src: "/__manus__/debug-collector.js",
+              src: "/__app__/debug-collector.js",
               defer: true,
             },
             injectTo: "head",
@@ -102,8 +98,8 @@ function vitePluginManusDebugCollector(): Plugin {
     },
 
     configureServer(server: ViteDevServer) {
-      // POST /__manus__/logs: Browser sends logs (written directly to files)
-      server.middlewares.use("/__manus__/logs", (req, res, next) => {
+      // POST /__app__/logs: Browser sends logs (written directly to files)
+      server.middlewares.use("/__app__/logs", (req, res, next) => {
         if (req.method !== "POST") {
           return next();
         }
@@ -158,15 +154,7 @@ const plugins = [
   react(),
   tailwindcss(),
   jsxLocPlugin(),
-  // The Manus preview overlay is platform tooling: ~367KB of inline JS that
-  // rides inside index.html — which the server marks no-cache, so it
-  // re-downloads on every visit and does nothing outside the Manus host.
-  // Skip it for CLI builds (vite build); `MANUS_PREVIEW=1` restores it for
-  // deploys that need the platform preview. Dev keeps it.
-  ...(isCliBuild && process.env.MANUS_PREVIEW !== "1"
-    ? []
-    : [vitePluginManusRuntime()]),
-  vitePluginManusDebugCollector(),
+  vitePluginAppDebugCollector(),
 ];
 
 export default defineConfig({
@@ -194,11 +182,6 @@ export default defineConfig({
   server: {
     host: true,
     allowedHosts: [
-      ".manuspre.computer",
-      ".manus.computer",
-      ".manus-asia.computer",
-      ".manuscomputer.ai",
-      ".manusvm.computer",
       "localhost",
       "127.0.0.1",
     ],

@@ -294,7 +294,7 @@ try {
     `${woffCount} local woff2 refs, googleapis=${mainCss.includes("fonts.googleapis.com")}`
   );
 
-  // 20. The Manus preview overlay stays out of production HTML: index.html
+  // 20. No third-party preview overlay in production HTML: index.html
   // is no-cache, so its 367KB inline script used to re-download every visit.
   const builtHtml = readFileSync("dist/public/index.html", "utf8");
   step(
